@@ -3655,9 +3655,9 @@ function pgFriendlySmartCountError(data,status){
   if(status===413)return "Photo is still too large. Try a lower-resolution photo.";
   return (data&&data.userMessage)||"PourGrid could not analyze this photo.";
 }
-async function pgAnalyzeOnePhoto(image,productName,pack,index,total,candidateSet){
+async function pgAnalyzeOnePhoto(image,productId,pack,index,total,candidateSet){
   var payload=PourGridIntelligence.request(image,image.id||("photo-"+index),candidateSet);
-  payload.productId=productName;payload.unitsPerCase=pack;payload.photoIndex=index;payload.totalPhotos=total;payload.clientVersion="rc1.6-staging";
+  payload.productId=productId;payload.unitsPerCase=pack;payload.photoIndex=index;payload.totalPhotos=total;payload.clientVersion="rc1.6-staging";
   var started=performance.now(),resp=await fetch(SB_URL+"/functions/v1/count-bottles",{method:"POST",headers:{"Content-Type":"application/json","apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY},body:JSON.stringify(payload)});
   var data=await resp.json().catch(function(){return {};});if(!resp.ok)throw new Error(pgFriendlySmartCountError(data,resp.status));
   data._uploadAndAiMs=Math.round(performance.now()-started);return data;
@@ -3665,15 +3665,15 @@ async function pgAnalyzeOnePhoto(image,productName,pack,index,total,candidateSet
 function pgSaveScanDiagnostics(record){var h=lsGet("pourgrid-scan-history")||[];h.unshift(record);lsSet("pourgrid-scan-history",h.slice(0,40));}
 async function countBottlesViaAI(images,productName,pack,onProgress){
   if(!images||!images.length)throw new Error("No photos to analyze");
-  var product=PRODUCTS.find(function(x){return x.name===productName;})||{},cfg=pgPackaging(productName),unitsPerCase=Number(cfg.unitsPerCase||pack)||1;
+  var product=PRODUCTS.find(function(x){return x.name===productName;})||{},stableProductId=String(product.id||product.productId||product.catalogId||product.sku||productName),cfg=pgPackaging(productName),unitsPerCase=Number(cfg.unitsPerCase||pack)||1;
   var candidateSet=PourGridIntelligence.candidates(PRODUCTS,{vendor:product.dist,category:product.cat});
   images.forEach(function(x,i){x.id=x.id||("photo-"+(i+1));});
   var compression=images.map(function(x){return {photoId:x.id,compressionMs:x.compressionMs,originalDimensions:[x.originalWidth,x.originalHeight],compressedDimensions:[x.width,x.height],originalBytes:x.originalBytes,compressedBytes:x.compressedBytes};});
-  var res=await PourGridIntelligence.run({photos:images,concurrency:3,perPhotoTimeoutMs:25000,batchTimeoutMs:60000,onProgress:onProgress,analyze:function(photo,id,index){return pgAnalyzeOnePhoto(photo,productName,unitsPerCase,index+1,images.length,candidateSet);}});
-  var matching=res.results.filter(function(x){return x.productId===productName||x.productId==="Unknown";});
+  var res=await PourGridIntelligence.run({photos:images,unitsPerCase:unitsPerCase,concurrency:3,perPhotoTimeoutMs:25000,batchTimeoutMs:60000,onProgress:onProgress,analyze:function(photo,id,index){return pgAnalyzeOnePhoto(photo,stableProductId,unitsPerCase,index+1,images.length,candidateSet);}});
+  var matching=res.results.filter(function(x){return x.productId===stableProductId||x.productId===productName||x.productId==="Unknown";});
   var cases=matching.reduce(function(n,x){return n+x.detectedCases;},0),loose=matching.reduce(function(n,x){return n+x.detectedLooseUnits;},0);
   var confidence=matching.some(function(x){return x.confidence==="low";})?"low":matching.some(function(x){return x.confidence==="medium";})?"medium":"high";
-  var diagnostic={id:"scan-"+Date.now(),createdAt:new Date().toISOString(),productId:productName,compression:compression,uploadTimeMs:res.diagnostics.aiByPhoto.map(function(x){return {photoId:x.photoId,uploadAndAiMs:x.aiMs};}),aiTimePerPhoto:res.diagnostics.aiByPhoto,mergeTimeMs:res.diagnostics.mergeMs,totalSessionTimeMs:res.diagnostics.totalSessionMs,status:res.diagnostics.status,unfinishedPhotos:res.unfinishedPhotos,rawCompactResponses:res.diagnostics.aiByPhoto.map(function(x){return x.rawCompactResponse;}).filter(Boolean),deduplicationDecisions:res.deduplicationDecisions};
+  var diagnostic={id:"scan-"+Date.now(),createdAt:new Date().toISOString(),productId:stableProductId,productName:productName,compression:compression,uploadTimeMs:res.diagnostics.aiByPhoto.map(function(x){return {photoId:x.photoId,uploadAndAiMs:x.aiMs};}),aiTimePerPhoto:res.diagnostics.aiByPhoto,mergeTimeMs:res.diagnostics.mergeMs,totalSessionTimeMs:res.diagnostics.totalSessionMs,status:res.diagnostics.status,unfinishedPhotos:res.unfinishedPhotos,rawCompactResponses:res.diagnostics.aiByPhoto.map(function(x){return x.rawCompactResponse;}).filter(Boolean),deduplicationDecisions:res.deduplicationDecisions};
   pgSaveScanDiagnostics(diagnostic);
   return {cases:cases,loose:loose,confidence:confidence,photoResults:matching,partial:res.partial,unfinishedPhotos:res.unfinishedPhotos,deduplicationDecisions:res.deduplicationDecisions,diagnostics:diagnostic};
 }

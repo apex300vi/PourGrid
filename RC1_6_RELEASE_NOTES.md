@@ -13,10 +13,21 @@ RC1.6 redesigns Bottle Intelligence around predictable, partial, fast results. I
 
 ## Merge and review
 
-- Matching visible-packaging evidence codes identify suspected overlap.
+- Stable catalog IDs are sent and returned when available, while legacy name-only catalog entries remain supported.
+- Results are grouped by stable product identity and packaging variant, so cases, loose bottles, cartons, cans, and alternate sizes remain distinct.
+- All reliable visible-packaging evidence codes are retained per group; weak values such as `UNKNOWN`, `UNSPECIFIED`, blank, or unreadable never prove overlap.
+- Matching reliable evidence codes deduplicate only within overlapping photo groups. Explicitly different shelf/location IDs remain additive.
 - Suspected duplicate views retain the clearest/highest visible count instead of being summed.
+- Every deduplication decision preserves its evidence signature, packaging type, and source-photo references.
 - The review UI labels merged versus deduplicated totals and identifies source photos.
 - Technical diagnostics are collapsed by default.
+
+## Timing correctness hardening
+
+- The 60-second batch ceiling finalizes the run atomically and marks every pending or active photo as timed out exactly once.
+- Late AI responses cannot mutate results, diagnostics, or progress after finalization.
+- Progress callbacks are fenced after finalization, including when all photos were active and none completed before the ceiling.
+- Completed partial results remain stable and reviewable while unfinished-photo status is derived from one terminal record per photo.
 
 ## Diagnostics
 
