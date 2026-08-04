@@ -36,6 +36,28 @@ test('category screen retains manual controls without per-product photo buttons'
   assert.match(section,/PourGrid Vision/);assert.match(section,/Manual Count/);assert.doesNotMatch(section,/photobtn-sm/);assert.match(section,/className|pg-pack-field|cinput/);
 });
 
+test('no user-facing legacy count name remains and one category action is rendered',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const visible=html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,' ').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,' ').replace(/<!--([\s\S]*?)-->/g,' ').replace(/<[^>]+>/g,' ');
+  assert.doesNotMatch(visible,/Smart Count|AI Count|Bottle Intelligence scan/i);
+  const section=html.slice(html.indexOf('function rCatCount'),html.indexOf('function pgPlural'));
+  assert.equal((section.match(/rPhotoBtn\(items/g)||[]).length,1);
+});
+
+test('capture UI supports camera, library, removal, explicit processing, and review stages',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),section=html.slice(html.indexOf('function showPhotoCountModal'),html.indexOf('// Calls the Supabase Edge Function'));
+  ['Take Photo','Add from Library','Remove photo','Process Photos','Preparing photos','Analyzing photo','Combining results','Preparing review','PourGrid Vision Complete'].forEach(text=>assert.match(section,new RegExp(text)));
+  assert.match(section,/process\.onclick=async function/);
+  assert.doesNotMatch(section,/onchange[\s\S]{0,250}countCategoryViaAI/);
+});
+
+test('single-product recount remains available only inside Bottle Intelligence',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  assert.match(html,/pgVisionRecountButton">PourGrid Vision recount/);
+  const section=html.slice(html.indexOf('function rCatCount'),html.indexOf('function pgPlural'));
+  assert.doesNotMatch(section,/pgOpenProductVision/);
+});
+
 test('Bottle Intelligence remains wired for both Bar and Merchants product cards',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),section=html.slice(html.indexOf('function rCatCount'),html.indexOf('function pgPlural'));
   assert.match(section,/var top=d\("itop"\);top\.onclick=/);assert.doesNotMatch(section,/if\(!isG\).*top\.onclick/);assert.match(section,/Bottle Intelligence/);
