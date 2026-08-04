@@ -679,7 +679,7 @@ body:not(.pg-booting) > *{visibility:visible}
 .pg-cycle-action .primary.done{background:rgba(104,221,187,.10);color:#6EDABA}
 .pg-cycle-action .hint{font-size:9px;color:#5E7785}
 
-/* PourGrid V10 Smart Count foundation */
+/* PourGrid photo-counting foundation */
 .pg-smart-note{margin:0 16px 10px;padding:12px 13px;border-radius:16px;background:linear-gradient(145deg,rgba(98,217,242,.065),rgba(104,221,187,.035));border:1px solid rgba(98,217,242,.13);font-size:10.5px;color:#83A0AD;line-height:1.45}
 .pg-smart-note strong{color:#D9F4F7}
 .pg-photo-result{margin-top:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.06);font-size:10px;color:#829BA8}
@@ -754,10 +754,11 @@ body:not(.pg-booting) > *{visibility:visible}
 .pg-recipe-close{position:absolute;right:18px;top:18px;width:38px;height:38px;border:0;border-radius:50%;background:rgba(255,255,255,.09);color:#fff;font-size:22px}
 </style>
 </head>
-<body class="pg-booting"><div class="pg-rc-marker">V1 RC1.6 STAGING</div><div id="pgSplash" class="pg-splash"><div class="pg-splash-inner"><div class="pg-splash-icon pg-inline-mark" aria-label="PourGrid"><span></span><span></span><span></span><span></span></div><div class="pg-splash-word"><span>POUR</span><span>GRID</span></div><div class="pg-splash-tag">Count what you see. Order what you need.</div></div></div>
+<body class="pg-booting"><div class="pg-rc-marker">V1 RC1.7 STAGING</div><div id="pgSplash" class="pg-splash"><div class="pg-splash-inner"><div class="pg-splash-icon pg-inline-mark" aria-label="PourGrid"><span></span><span></span><span></span><span></span></div><div class="pg-splash-word"><span>POUR</span><span>GRID</span></div><div class="pg-splash-tag">Count what you see. Order what you need.</div></div></div>
 <div class="app" id="app"></div>
 <script src="bottle-intelligence.js"></script>
 <script src="smart-count-launcher.js"></script>
+<script src="pourgrid-vision.js"></script>
 <script>
 
 
@@ -940,17 +941,7 @@ function pgSetAlt(name,size,val){
 function cq(p,oh){
   if(oh===""||oh===null||oh===undefined)return null;
   var onHand=Number(oh),cfg=pgPack(p);
-  if(cfg&&cfg.buildToBasis==="units"){
-    var unitsPerCase=cfg.mode==="nestedCase"
-      ?cfg.innerPacksPerCase*cfg.unitsPerInner
-      :cfg.unitsPerCase;
-    onHand=onHand*unitsPerCase;
-  }
-  var n=Math.max(p.buildTo-onHand,0);
-  if(n===0)return 0;
-  if(p.unit==="Case"&&p.pack>1)return Math.ceil(n/p.pack);
-  if(p.unit==="Case")return Math.ceil(n);
-  return n;
+  var vp=pgVisionProducts([p])[0];return PourGridVision.orderQuantity(vp,onHand,cfg||{});
 }
 
 // Computes the FINAL order quantity (base + manual adjustment) for a single
@@ -1238,7 +1229,7 @@ function pgCloseCocktailRecipe(){var s=document.getElementById("pgRecipeSheet");
 function s71Open(name){
  var m=s71Metrics(name);if(!m)return;var p=m.p,stats=s71Stats(name),cock=s71Cocktails(name),eff=pgEffectiveCount(p),on=eff!==undefined&&eff!==""?Number(eff):null,need=cq(p,eff||""),inv=(on!=null&&m.bc!=null)?on*m.bc:null;
  var body=document.getElementById("s71Body"),overlay=document.getElementById("s71Overlay");if(!body||!overlay)return;
- function money(v){return v==null||isNaN(v)?"—":"$"+Number(v).toFixed(2);}function val(v,d){return v==null||isNaN(v)?"—":Number(v).toFixed(d==null?0:d);}
+ function money(v){return v==null||isNaN(v)?"Not entered":"$"+Number(v).toFixed(2);}function val(v,d){return v==null||isNaN(v)?"—":Number(v).toFixed(d==null?0:d);}
  var bars=stats.hits.slice(0,10).reverse(),max=Math.max.apply(null,bars.map(function(h){return h.bottles;}).concat([1]));
  body.innerHTML=
  '<div class="s71-top"><div class="s71-cat">'+p.cat+' · '+p.dist+'</div><button class="s71-close" onclick="s71Close()">×</button></div>'+
@@ -1252,7 +1243,7 @@ function s71Open(name){
  '<div class="s71-section">Inventory</div><div class="s71-card"><div class="s71-row"><span>Current on hand</span><strong>'+(on==null?"Not counted":on+" bottles")+'</strong></div><div class="s71-row"><span>Suggested order</span><strong>'+(need==null?"Count first":need+" "+p.unit+(need===1?"":"s"))+'</strong></div><div class="s71-row"><span>Inventory value</span><strong>'+money(inv)+'</strong></div><div class="s71-row"><span>Distributor</span><strong>'+(p.supplier||p.dist)+'</strong></div></div>'+
  '<div class="s71-section">Ordering behavior</div><div class="s71-card"><div class="s71-row"><span>Orders in saved history</span><strong>'+stats.count+'</strong></div><div class="s71-row"><span>Total bottles ordered</span><strong>'+val(stats.total,0)+'</strong></div><div class="s71-row"><span>Average per order</span><strong>'+(stats.count?val(stats.avg,1)+" bottles":"—")+'</strong></div><div class="s71-row"><span>Typical reorder interval</span><strong>'+(stats.avgDays!=null?val(stats.avgDays,0)+" days":"Not enough history")+'</strong></div>'+(bars.length?'<div class="s71-bars">'+bars.map(function(h){return '<div class="s71-bar" style="height:'+Math.max(8,Math.round(h.bottles/max*54))+'px"></div>';}).join("")+'</div>':'')+'</div>'+
  '<div class="s71-section">Specialty cocktails</div>'+(cock.length?'<div class="s71-chips">'+cock.map(function(r){var cp=COCKTAIL_PRICES[r.name],safeName=String(r.name).replace(/\\/g,"\\\\").replace(/'/g,"\\'");return '<button class="s71-cocktail-btn" onclick="pgOpenCocktailRecipe(\''+safeName+'\')">'+pgEsc(r.name)+(cp!=null?' · $'+cp:'')+'</button>';}).join("")+'</div>':'<div class="s71-card"><div class="s71-sub">No specialty cocktail in v12 uses this product.</div></div>')+
- '<button class="pg-edit-product-btn" id="pgEditProductButton">Edit product & packaging</button><div class="s71-note">Cost % uses the venue pour setting shown above. Most liquor defaults to 1 L; Cruzan defaults to 750 mL. Cocktail recipe portions may differ. Catalog, costs and cocktail mappings refreshed from v12.</div>';
+ '<button class="pg-edit-product-btn" id="pgVisionRecountButton">PourGrid Vision recount</button><button class="pg-edit-product-btn" id="pgEditProductButton">Edit product & packaging</button><div class="s71-note">Bottle Intelligence is this product profile. PourGrid Vision handles photo counting. Missing prices remain safely editable later.</div>';
  overlay.classList.add("open");document.body.style.overflow="hidden";
  var pourSel=document.getElementById("pgPourSizeSelect");
  if(pourSel)pourSel.onchange=function(){
@@ -1260,8 +1251,10 @@ function s71Open(name){
    else pgSetPourOz(this.value);
    s71Open(name);
  };
- var editBtn=document.getElementById("pgEditProductButton");
- if(editBtn)editBtn.onclick=function(){pgOpenProductEditor(name);};
+  var editBtn=document.getElementById("pgEditProductButton");
+  if(editBtn)editBtn.onclick=function(){pgOpenProductEditor(name);};
+  var recountBtn=document.getElementById("pgVisionRecountButton");
+  if(recountBtn)recountBtn.onclick=function(){s71Close();pgOpenProductVision(name);};
 }
 
 function pgEsc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
@@ -1623,13 +1616,14 @@ function rCatCount(cat,prods,isG){
   ap(trow,d("ctitle",(CI[cat]||"")+" "+cat),sp("cof",done+"/"+items.length));
   pad.appendChild(trow);
   wrap.appendChild(pad);
-  // Photo count button
+  // Category-level PourGrid Vision entry; manual controls remain below.
   var pb=rPhotoBtn(items,isG?"#00B893":"#4FA8FF",isG);
   wrap.appendChild(pb);
-  wrap.appendChild(d("pg-smart-note","Smart Count analyzes one selected product across multiple compressed photos. Review every suggested count before applying it."));
+  wrap.appendChild(d("pg-smart-note","PourGrid Vision counts this entire category from one multi-photo session. Manual Count remains available below."));
   if(isG&&cat==="Mixer")wrap.appendChild(d("pg-category-note","Smart packaging · Island Oasis uses cases + loose cartons; grapefruit uses cases + loose cans. PourGrid converts each product using its real case size."));
   if(isG&&cat==="Fruit")wrap.appendChild(d("pg-category-note","Fruit inventory · Count full cases and half cases. Orders remain whole cases."));
   if(!isG&&cat==="Non-Alc")wrap.appendChild(d("pg-category-note","Bubly packaging · Count full 24-can bundles, 8-can inner packs, and loose cans. Orders remain whole 24-can bundles."));
+  wrap.appendChild(d("pg-edit-section","Manual Count"));
   var list=d("ilist");
   items.forEach(function(p){
     var getName=function(){return p.name;};
@@ -1640,9 +1634,9 @@ function rCatCount(cat,prods,isG){
     var col=DC[p.dist];
     var card=d("icard");
     if(has)card.style.border="1.5px solid "+(qty===0?"#3DDC84":accent);
-    var top=d("itop");if(!isG){top.onclick=function(pn){return function(e){if(e&&e.target&&e.target.tagName==="INPUT")return;s71Open(pn);};}(p.name);}
+    var top=d("itop");top.onclick=function(pn){return function(e){if(e&&e.target&&e.target.tagName==="INPUT")return;s71Open(pn);};}(p.name);
     var info=mk("div","");info.style.cssText="flex:1;padding-right:8px;";
-    info.appendChild(d("inm",p.name));if(!isG)info.appendChild(d("s71-intel-link","Bottle intelligence  ›"));
+    info.appendChild(d("inm",p.name));info.appendChild(d("s71-intel-link","Bottle Intelligence  ›"));
     var tags=d("itags");
     var dt=mk("span","tag");dt.style.background=col.bg;dt.style.color=col.text;dt.style.fontWeight="600";dt.textContent=p.supplier||p.dist;
     tags.appendChild(dt);
@@ -1858,12 +1852,13 @@ function rOrderList(prods,dists){
       var nm2=d("onm",p.name);
       var metaDiv=mk("div","ometa");
       metaDiv.textContent="On hand: "+p.onHand+" · Build to: "+p.buildTo;
+      var explanation=mk("div","pg-smart-note");explanation.style.marginTop="6px";explanation.textContent=PourGridVision.orderExplanation(pgVisionProducts([p])[0],Number(p.onHand)||0,(pgPack(p)||{}),p.adj).text;
       if(isAdj){
         var adjTag=mk("span","");adjTag.style.cssText="font-size:10px;background:#F59E0B;color:#fff;border-radius:4px;padding:1px 5px;margin-left:6px;font-weight:700;";
         adjTag.textContent=(p.adj>0?"+":"")+p.adj;
         metaDiv.appendChild(adjTag);
       }
-      ap(info,nm2,metaDiv);
+      ap(info,nm2,metaDiv,explanation);
       var qtyWrap=mk("div","");qtyWrap.style.cssText="display:flex;align-items:center;gap:5px;flex-shrink:0;";
       var qm=mk("button","");qm.style.cssText="width:26px;height:26px;border-radius:7px;border:1.5px solid "+col.dot+";background:#fff;font-size:15px;color:"+col.dot+";cursor:pointer;font-weight:700;display:flex;align-items:center;justify-content:center;";
       qm.textContent="-";
@@ -2448,12 +2443,13 @@ function rOrderTab(prods,dists,dk,isG){
       var nm2=d("onm",p.name);
       var metaDiv=mk("div","ometa");
       metaDiv.textContent="On hand: "+p.onHand+" \u00b7 Build to: "+p.buildTo;
+      var explanation=mk("div","pg-smart-note");explanation.style.marginTop="6px";explanation.textContent=PourGridVision.orderExplanation(pgVisionProducts([p])[0],Number(p.onHand)||0,(pgPack(p)||{}),p.adj).text;
       if(isAdj){
         var adjTag=mk("span","");adjTag.style.cssText="font-size:10px;background:#E8A93C;color:#0E0E10;border-radius:4px;padding:1px 5px;margin-left:6px;font-weight:800;";
         adjTag.textContent=(p.adj>0?"+":"")+p.adj;
         metaDiv.appendChild(adjTag);
       }
-      ap(info,nm2,metaDiv);
+      ap(info,nm2,metaDiv,explanation);
       var qtyWrap=mk("div","");qtyWrap.style.cssText="display:flex;align-items:center;gap:5px;flex-shrink:0;";
       var qm=mk("button","");qm.style.cssText="width:26px;height:26px;border-radius:7px;border:1.5px solid "+col.dot+";background:linear-gradient(155deg,var(--panel2),var(--panel-lo));font-size:15px;color:"+col.dot+";cursor:pointer;font-weight:700;display:flex;align-items:center;justify-content:center;";
       qm.textContent="-";
@@ -3434,7 +3430,7 @@ function getStoliFreeBottleSuggestion(counts, stolicasesOrdered){
 //  4. Saves the reference photos with the count session so you can look
 //     back at what the room looked like when you counted
 
-function showPhotoCountModal(items, isG, onDone){
+function showLegacyPhotoCountModal(items, isG, onDone){
   if(document.querySelector("[data-pg-smart-count-modal]"))return;
   var accentSolid=isG?"#00B893":"#E10A17";
   var accentDim=isG?"#03684F":"#8C0912";
@@ -3446,7 +3442,7 @@ function showPhotoCountModal(items, isG, onDone){
   var modal=mk("div","");
   modal.style.cssText="background:linear-gradient(180deg,#17191D,#0E1013);border-radius:16px 16px 0 0;width:100%;max-width:430px;max-height:90vh;overflow-y:auto;padding:22px 16px 32px;border-top:1px solid rgba(255,255,255,0.14);box-shadow:0 -10px 40px rgba(0,0,0,0.6);";
 
-  var title=mk("div","");title.style.cssText="font-size:19px;font-weight:900;color:#F3F4F6;letter-spacing:-0.3px;font-family:var(--mono);";title.textContent="✦ Smart Count";
+  var title=mk("div","");title.style.cssText="font-size:19px;font-weight:900;color:#F3F4F6;letter-spacing:-0.3px;font-family:var(--mono);";title.textContent="✦ PourGrid Vision";
   var sub=mk("div","");sub.style.cssText="font-size:12.5px;color:#8D939B;margin-top:6px;margin-bottom:18px;line-height:1.55;font-weight:500;";
   sub.textContent="Choose a product, then take as many photos as needed from different storage locations. PourGrid analyzes each photo separately and lets you review the combined count before applying it.";
   modal.appendChild(title);modal.appendChild(sub);
@@ -3500,7 +3496,7 @@ function showPhotoCountModal(items, isG, onDone){
   modal.appendChild(photoSection);
 
   var itemsLabel=mk("div","");itemsLabel.style.cssText="font-size:10.5px;font-weight:800;color:#8D939B;text-transform:uppercase;letter-spacing:1.6px;margin-bottom:10px;";
-  itemsLabel.textContent="Choose a product to Smart Count";
+  itemsLabel.textContent="Choose a product for PourGrid Vision";
   modal.appendChild(itemsLabel);
 
   var itemsList=mk("div","");itemsList.style.cssText="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;";
@@ -3518,7 +3514,7 @@ function showPhotoCountModal(items, isG, onDone){
     nmWrap.appendChild(nm);nmWrap.appendChild(meta);
 
     var takePhotoBtn=mk("button","photobtn-sm");
-    takePhotoBtn.textContent="✦ Smart Count";
+    takePhotoBtn.textContent="✦ PourGrid Vision";
 
     var itemFileInput=document.createElement("input");
     itemFileInput.type="file";itemFileInput.accept="image/*";itemFileInput.capture="environment";itemFileInput.multiple=true;
@@ -3536,7 +3532,7 @@ function showPhotoCountModal(items, isG, onDone){
       itemFileInput.value="";
       if(files.length===0)return;
       takePhotoBtn.disabled=true;takePhotoBtn.textContent="Preparing…";
-      statusRow.style.display="block";statusRow.innerHTML="Optimizing "+files.length+" photo"+(files.length>1?"s":"")+" for Smart Count…<div class=\"pg-smart-progress\"><span></span></div>";
+      statusRow.style.display="block";statusRow.innerHTML="Optimizing "+files.length+" photo"+(files.length>1?"s":"")+" for PourGrid Vision…<div class=\"pg-smart-progress\"><span></span></div>";
       try{
         var newPhotos=[];
         for(var fi=0;fi<files.length;fi++){
@@ -3637,6 +3633,35 @@ function showPhotoCountModal(items, isG, onDone){
   document.body.appendChild(overlay);
 }
 
+function showPhotoCountModal(items,isG,onDone){
+  if(document.querySelector("[data-pg-smart-count-modal]"))return;
+  var category=(items[0]&&items[0].cat)||"Category",photos=[],reviewed=[],processing=false,accent=isG?"#4AD3B0":"#59C7EA";
+  var overlay=mk("div","");overlay.setAttribute("data-pg-smart-count-modal","true");overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:700;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(8px)";
+  var modal=mk("div","");modal.style.cssText="width:100%;max-width:460px;max-height:94vh;overflow:auto;background:linear-gradient(180deg,#102838,#071722);border-radius:24px 24px 0 0;padding:20px 16px calc(24px + env(safe-area-inset-bottom));color:#F4F8FA;border:1px solid rgba(130,207,232,.2)";
+  var head=mk("div","");head.innerHTML='<div style="font-size:22px;font-weight:850">PourGrid Vision</div><div style="font-size:13px;color:#9CB4C1;line-height:1.5;margin-top:7px">Photograph the '+pgEsc(category)+' inventory.<br>Take enough photos to show every case and loose item.<br>Avoid photographing the same product from multiple overlapping angles when possible.</div>';
+  var status=mk("div","");status.style.cssText="display:none;margin:14px 0;padding:12px;border-radius:14px;background:rgba(89,199,234,.09);color:#A8DDEE;font-size:12px;line-height:1.45";
+  var fileInput=document.createElement("input");fileInput.type="file";fileInput.accept="image/*";fileInput.capture="environment";fileInput.multiple=true;fileInput.style.display="none";
+  var capture=mk("div","");var count=mk("div","");count.style.cssText="font-size:12px;color:#91A8B5;margin:14px 0 8px";
+  var strip=mk("div","");strip.style.cssText="display:flex;gap:8px;overflow:auto;min-height:72px";
+  var add=mk("button","photobtn");add.type="button";add.textContent="Add Photos";add.onclick=function(){fileInput.click();};
+  var process=mk("button","photobtn");process.type="button";process.textContent="Process Photos";process.disabled=true;
+  var actions=mk("div","");actions.style.cssText="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px";
+  var cancel=mk("button","s6-quiet");cancel.type="button";cancel.textContent="Cancel";
+  function cleanup(){if(overlay.parentNode)overlay.parentNode.removeChild(overlay);if(fileInput.parentNode)fileInput.parentNode.removeChild(fileInput);}
+  cancel.onclick=function(){if(processing)return;cleanup();onDone(null);};
+  function renderPhotos(){strip.innerHTML="";photos.forEach(function(photo,index){var w=mk("div","");w.style.cssText="position:relative;flex:0 0 70px";var img=document.createElement("img");img.src=photo.dataUrl;img.style.cssText="width:70px;height:70px;object-fit:cover;border-radius:12px";var remove=mk("button","");remove.type="button";remove.textContent="×";remove.setAttribute("aria-label","Remove photo "+(index+1));remove.style.cssText="position:absolute;right:-4px;top:-4px;width:24px;height:24px;border:0;border-radius:50%;background:#E65B61;color:#fff";remove.onclick=function(){photos.splice(index,1);renderPhotos();};w.appendChild(img);w.appendChild(remove);strip.appendChild(w);});count.textContent=photos.length+" photo"+(photos.length===1?"":"s")+" added";process.disabled=!photos.length||processing;}
+  fileInput.onchange=async function(e){var files=Array.prototype.slice.call(e.target.files||[]);fileInput.value="";if(!files.length)return;status.style.display="block";for(var i=0;i<files.length;i++){status.textContent="Preparing photos · "+(i+1)+" of "+files.length;try{photos.push(await pgCompressPhoto(files[i]));}catch(error){status.textContent="One photo could not be prepared. You can continue with the others.";}}renderPhotos();status.style.display="none";};
+  function renderReview(result){
+    capture.style.display="none";reviewed=PourGridVision.reviewRows(result.results,items);var review=mk("div","");review.setAttribute("data-pg-vision-review","true");review.appendChild(d("pg-edit-section","Review results"));
+    if(result.partial)review.appendChild(d("pg-category-note","Partial results · unfinished photos: "+result.unfinishedPhotos.map(function(x){return x.photoId;}).join(", ")));
+    if(!reviewed.length)review.appendChild(d("pg-category-note","No category products were recognized. Cancel without changes or add clearer photos."));
+    function draw(){var old=review.querySelector("[data-vision-rows]");if(old)old.remove();var rows=mk("div","");rows.setAttribute("data-vision-rows","true");reviewed.forEach(function(row,index){if(row.removed)return;var rawProduct=items.find(function(p){return PourGridVision.idOf(p)===row.productId||p.name===row.productId;}),product=rawProduct?pgVisionProducts([rawProduct])[0]:null,info=PourGridVision.unitInfo(product||{}),card=mk("div","pg-pack-card");card.style.marginTop="10px";var total=row.detectedCases*info.unitsPerCase+row.detectedLooseUnits;card.appendChild(d("pg-pack-title",row.unknown?"Unknown product":row.productName));var meta=d("pg-smart-note","Total physical units: "+total+" · "+row.confidence+" confidence · Sources: "+row.sourcePhotoIds.join(", "));card.appendChild(meta);var grid=d("pg-pack-grid");function field(label,key){var f=d("pg-pack-field"),lab=mk("label","");lab.textContent=label;var input=mk("input","",{type:"number",inputMode:"numeric",min:"0",value:row[key],oninput:function(e){row[key]=Math.max(0,Number(e.target.value)||0);meta.textContent="Total physical units: "+(row.detectedCases*info.unitsPerCase+row.detectedLooseUnits)+" · "+row.confidence+" confidence · Sources: "+row.sourcePhotoIds.join(", ");}});ap(f,lab,input);return f;}grid.appendChild(field("Cases","detectedCases"));grid.appendChild(field("Loose "+info.unitLabel,"detectedLooseUnits"));card.appendChild(grid);var edit=mk("button","s6-quiet");edit.type="button";edit.textContent="Edit";edit.onclick=function(){var input=card.querySelector("input");if(input)input.focus();};var remove=mk("button","s6-quiet");remove.type="button";remove.textContent="Remove";remove.onclick=function(){row.removed=true;draw();};var rowActions=mk("div","");rowActions.style.cssText="display:flex;gap:8px";ap(rowActions,edit,remove);card.appendChild(rowActions);rows.appendChild(card);});review.insertBefore(rows,review.lastChild);}
+    var reviewActions=mk("div","");reviewActions.style.cssText="display:grid;grid-template-columns:1fr 1.4fr;gap:9px;margin-top:16px";var cancelReview=mk("button","s6-quiet");cancelReview.type="button";cancelReview.textContent="Cancel without changes";cancelReview.onclick=function(){cleanup();onDone(null);};var confirm=mk("button","photobtn");confirm.type="button";confirm.textContent="Confirm Count";confirm.onclick=function(){cleanup();onDone({reviewedResults:reviewed,photos:photos.map(function(p){return p.dataUrl;})});};ap(reviewActions,cancelReview,confirm);review.appendChild(reviewActions);modal.appendChild(review);draw();
+  }
+  process.onclick=async function(){if(processing||!photos.length)return;processing=true;add.disabled=true;process.disabled=true;cancel.disabled=true;status.style.display="block";var slow=false,slowTimer=setTimeout(function(){slow=true;status.textContent+=" · Processing is slower than expected; completed photos will remain available.";},30000);try{var result=await countCategoryViaAI(photos,items,function(progress){var text=progress.stage==="upload"?"Preparing photos":progress.stage==="merging"?"Combining results":"Analyzing "+(progress.photoId||"")+" · "+progress.completed+" of "+progress.total;status.textContent=text+(slow?" · Processing is slower than expected; completed photos will remain available.":"");});clearTimeout(slowTimer);renderReview(result);}catch(error){clearTimeout(slowTimer);status.textContent=(error&&error.message)||"PourGrid Vision could not process these photos. Manual Count remains available.";processing=false;add.disabled=false;process.disabled=false;cancel.disabled=false;}};
+  ap(actions,add,process);capture.appendChild(count);capture.appendChild(strip);capture.appendChild(actions);capture.appendChild(cancel);ap(modal,head,status,capture);overlay.appendChild(modal);document.body.appendChild(overlay);document.body.appendChild(fileInput);renderPhotos();
+}
+
 // Calls the Supabase Edge Function that securely proxies to Claude's vision
 // API. The API key lives server-side as a Supabase secret - it is never
 // present in this app's source, so it can't be viewed or stolen from the
@@ -3682,13 +3707,29 @@ async function countBottlesViaAI(images,productName,pack,onProgress){
   return {cases:cases,loose:loose,confidence:confidence,photoResults:matching,partial:res.partial,unfinishedPhotos:res.unfinishedPhotos,deduplicationDecisions:res.deduplicationDecisions,diagnostics:diagnostic};
 }
 
+function pgVisionProducts(products){return products.map(function(product){var copy=Object.assign({},product),cfg=pgPack(product)||{};copy.unitsPerCase=Number(cfg.unitsPerCase||(cfg.innerPacksPerCase&&cfg.unitsPerInner?cfg.innerPacksPerCase*cfg.unitsPerInner:product.pack))||1;copy.visionPackaging=Object.assign({},cfg,{unitsPerCase:copy.unitsPerCase});return copy;});}
+async function pgAnalyzeCategoryPhoto(image,products,index,total,candidateSet){
+  var ctx=PourGridVision.context(products),payload=PourGridIntelligence.request(image,image.id||("photo-"+index),candidateSet);payload.category=ctx.category;payload.vendor=ctx.vendor;payload.candidateProductIds=candidateSet.map(function(x){return x.productId;});payload.photoIndex=index;payload.totalPhotos=total;payload.clientVersion="rc1.7-staging";
+  var started=performance.now(),resp=await fetch(SB_URL+"/functions/v1/count-bottles",{method:"POST",headers:{"Content-Type":"application/json","apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY},body:JSON.stringify(payload)});var data=await resp.json().catch(function(){return {};});if(!resp.ok)throw new Error(pgFriendlySmartCountError(data,resp.status));data._uploadAndAiMs=Math.round(performance.now()-started);return data;
+}
+async function countCategoryViaAI(images,products,onProgress){
+  if(!images||!images.length)throw new Error("Add at least one photo before processing.");var visionProducts=pgVisionProducts(products),ctx=PourGridVision.context(visionProducts),candidateSet=PourGridIntelligence.candidates(visionProducts,ctx),units={};candidateSet.forEach(function(c){units[c.productId]=c.unitsPerCase;});images.forEach(function(x,i){x.id=x.id||("photo-"+(i+1));});
+  var compression=images.map(function(x){return {photoId:x.id,compressionMs:x.compressionMs,originalDimensions:[x.originalWidth,x.originalHeight],compressedDimensions:[x.width,x.height],originalBytes:x.originalBytes,compressedBytes:x.compressedBytes};});
+  var res=await PourGridIntelligence.run({photos:images,unitsPerCaseByProduct:units,concurrency:3,perPhotoTimeoutMs:25000,batchTimeoutMs:60000,onProgress:onProgress,analyze:function(photo,id,index){return pgAnalyzeCategoryPhoto(photo,visionProducts,index+1,images.length,candidateSet);}});
+  var diagnostic={id:"vision-"+Date.now(),createdAt:new Date().toISOString(),category:ctx.category,vendor:ctx.vendor,candidateProductIds:candidateSet.map(function(x){return x.productId;}),compression:compression,aiTimePerPhoto:res.diagnostics.aiByPhoto,mergeTimeMs:res.diagnostics.mergeMs,totalSessionTimeMs:res.diagnostics.totalSessionMs,status:res.diagnostics.status,unfinishedPhotos:res.unfinishedPhotos,rawCompactResponses:res.diagnostics.aiByPhoto.map(function(x){return x.rawCompactResponse;}).filter(Boolean),deduplicationDecisions:res.deduplicationDecisions};pgSaveScanDiagnostics(diagnostic);res.diagnostics=diagnostic;return res;
+}
+function pgCommitVisionReviewed(products,result,isG){
+  if(!result)return;var prepared=pgVisionProducts(products),applied=PourGridVision.applyReviewedCounts(S.counts,result.reviewedResults,prepared);if(!applied.updatedNames.length){toast("No reviewed catalog products were changed");return;}applied.updatedNames.forEach(function(name){pgTouch(isG?"merchants":"bar",name);});lsSet("sbb-counts",applied.counts);schedulePush(applied.counts);ss({counts:applied.counts});toast(applied.updatedNames.length+" reviewed product"+(applied.updatedNames.length===1?"":"s")+" updated");
+}
+function pgOpenProductVision(name){var product=PRODUCTS.find(function(x){return x.name===name;});if(!product)return;var isG=product.dist==="Merchants",args={products:[product],isG:isG,onDone:function(result){pgCommitVisionReviewed([product],result,isG);}};if(pgSmartCountLauncher)pgSmartCountLauncher.open(args);else pgShowSmartCountError("PourGrid Vision could not initialize. Continue with Manual Count and refresh the staging app.");}
+
 function pgShowSmartCountError(message,error){
-  console.error("[PourGrid] Smart Count initialization failed",error||message);
+  console.error("[PourGrid] PourGrid Vision initialization failed",error||message);
   if(typeof toast==="function")toast(message);
   else window.alert(message);
 }
 var pgSmartCountLauncher=window.PourGridSmartCountLauncher&&window.PourGridSmartCountLauncher.create({
-  isReady:function(){return !!(window.PourGridIntelligence&&typeof window.PourGridIntelligence.run==="function"&&typeof window.PourGridIntelligence.request==="function");},
+  isReady:function(){return !!(window.PourGridIntelligence&&typeof window.PourGridIntelligence.run==="function"&&typeof window.PourGridIntelligence.request==="function"&&window.PourGridVision&&typeof window.PourGridVision.applyReviewedCounts==="function");},
   findModal:function(){return document.querySelector("[data-pg-smart-count-modal]");},
   openModal:showPhotoCountModal,
   showError:pgShowSmartCountError
@@ -3696,25 +3737,12 @@ var pgSmartCountLauncher=window.PourGridSmartCountLauncher&&window.PourGridSmart
 function rPhotoBtn(products,accent,isG){
   var wrap=mk("div","");wrap.style.cssText="display:flex;justify-content:flex-end;padding:0 16px 4px;";
   var pbtn=mk("button","photobtn");
-  pbtn.innerHTML="✦ Smart Count";
+  pbtn.innerHTML="✦ PourGrid Vision";
   function args(){return {products:products,isG:isG,onDone:function(result){
-      if(result){
-        var nc=Object.assign({},S.counts);
-        Object.keys(result.counts).forEach(function(k){nc[k]=String(result.counts[k]);});
-        lsSet("sbb-counts",nc);
-        schedulePush(nc);
-        if(result.photos&&result.photos.length){
-          var existingPhotos=lsGet("sbb-count-photos")||[];
-          var merged=existingPhotos.concat(result.photos).slice(-20);
-          lsSet("sbb-count-photos",merged);
-        }
-        ss({counts:nc});
-        var n=Object.keys(result.counts).length;
-        toast(n>0?(n+" item"+(n===1?"":"s")+" updated ✓"):"No counts applied");
-      }
+      if(result){pgCommitVisionReviewed(products,result,isG);if(result.photos&&result.photos.length){var existingPhotos=lsGet("sbb-count-photos")||[];lsSet("sbb-count-photos",existingPhotos.concat(result.photos).slice(-20));}}
     }};}
   if(pgSmartCountLauncher)pgSmartCountLauncher.bind(pbtn,args);
-  else pbtn.onclick=function(){pgShowSmartCountError("Smart Count could not initialize. Continue with manual counting and refresh the staging app.");};
+  else pbtn.onclick=function(){pgShowSmartCountError("PourGrid Vision could not initialize. Continue with Manual Count and refresh the staging app.");};
   wrap.appendChild(pbtn);
   return wrap;
 }

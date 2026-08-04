@@ -72,3 +72,8 @@ test('known eight-unit case remains one case, not eight loose bottles',()=>{
 test('compact request permits only required fields and requests no prose',()=>{
   const req=BI.request({base64:'x',mediaType:'image/jpeg'},'a',[]);assert.deepEqual(req.responseFormat.fields,BI.RESPONSE_FIELDS);assert.equal(JSON.stringify(req).includes('explanation'),false);assert.equal(JSON.stringify(req).includes('paragraph'),false);
 });
+
+test('one category photo can return multiple compact product detections',async()=>{
+  const out=await BI.run({photos:[{id:'category-a'}],unitsPerCaseByProduct:{pine:8,orange:8},analyze:()=>({results:[result('category-a',1,2,'PINE',{productId:'pine'}),result('category-a',2,0,'ORANGE',{productId:'orange'})]})});
+  assert.equal(out.completedPhotoCount,1);assert.equal(out.results.length,2);assert.deepEqual(out.results.map(x=>x.productId).sort(),['orange','pine']);
+});
