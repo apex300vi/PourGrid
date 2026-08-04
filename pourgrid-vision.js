@@ -22,6 +22,19 @@
       if(result.confidence==="low"||row.confidence==="low")row.confidence="low";else if(result.confidence==="medium")row.confidence="medium";
     });return Object.keys(rows).map(function(k){return rows[k];});
   }
+  function reviewSummary(rows,photoCount,unfinishedCount){
+    var active=(rows||[]).filter(function(row){return !row.removed;}),known=active.filter(function(row){return !row.unknown&&row.productId!=="Unknown";});
+    return {productsDetected:known.length,highConfidence:known.filter(function(row){return row.confidence==="high";}).length,needsReview:known.filter(function(row){return row.confidence!=="high";}).length,unknownProducts:active.filter(function(row){return row.unknown||row.productId==="Unknown";}).length,photosProcessed:Math.max(0,Number(photoCount)||0)-Math.max(0,Number(unfinishedCount)||0),photosUnfinished:Math.max(0,Number(unfinishedCount)||0)};
+  }
+  function resultStatus(row){return row.unknown||row.productId==="Unknown"?"Unknown":row.confidence==="high"?"Counted":"Needs Review";}
+  function inventoryLines(row,product){
+    var info=unitInfo(product||{}),cases=Math.max(0,Number(row&&row.detectedCases)||0),loose=Math.max(0,Number(row&&row.detectedLooseUnits)||0),label=words(product||{},info),total=cases*info.unitsPerCase+loose;
+    return {cases:cases+" "+plural(cases,"case","cases"),loose:loose+" "+label,total:total+" total "+label};
+  }
+  function createPhotoSession(){
+    var photos=[],started=false;
+    return {add:function(photo){if(!started&&photo)photos.push(photo);return photos.slice();},remove:function(index){if(!started&&index>=0&&index<photos.length)photos.splice(index,1);return photos.slice();},process:function(){if(!photos.length||started)return false;started=true;return true;},photos:function(){return photos.slice();},isProcessing:function(){return started;}};
+  }
   function applyReviewedCounts(existing,reviewed,products){
     var counts=Object.assign({},existing||{}),updated=[];
     (reviewed||[]).forEach(function(row){
@@ -54,11 +67,11 @@
   function orderExplanation(product,onHand,config,adjustment){
     var info=effectiveInfo(product,config),counted=Number(onHand)||0,target=Number(product.buildTo)||0,unitBasis=info.buildToBasis==="units",countedForTarget=unitBasis&&info.countBasis==="cases"?counted*info.unitsPerCase:counted;
     var shortage=Math.max(target-countedForTarget,0),orderedByCase=product.unit==="Case",divisor=unitBasis&&orderedByCase?info.unitsPerCase:1,base=orderQuantity(product,onHand,info),manualAdjustment=Number(adjustment)||0,suggested=Math.max(0,base+manualAdjustment),itemWords=words(product,info);
-    var text="You have "+countedForTarget+" "+itemWords+". Your target is "+target+". You are short "+shortage+" "+itemWords+". ";
-    if(orderedByCase&&divisor>1){text+=(shortage&&shortage%divisor!==0?"This product is ordered by full case, so PourGrid rounds the base recommendation up to ":"At "+divisor+" "+itemWords+" per case, the base recommendation is ")+base+" "+plural(base,"case","cases")+".";}
-    else text+=(orderedByCase?"This item is ordered by the case. ":"")+"The base recommendation is "+base+" "+plural(base,String(product.unit||"unit").toLowerCase(),String(product.unit||"unit").toLowerCase()+"s")+".";
+    var text="You currently have "+countedForTarget+" "+itemWords+". Your target is "+target+" "+itemWords+". You are short "+shortage+" "+itemWords+". ";
+    if(orderedByCase&&divisor>1){text+="At "+divisor+" "+itemWords+" per case, order "+base+" "+plural(base,"case","cases")+"."+(shortage&&shortage%divisor!==0?" Full-case ordering rounds the shortage up.":"");}
+    else text+=(orderedByCase?"This item is ordered by the case. ":"")+"Order "+base+" "+plural(base,String(product.unit||"unit").toLowerCase(),String(product.unit||"unit").toLowerCase()+"s")+".";
     if(manualAdjustment){text+=" Manual adjustment: "+(manualAdjustment>0?"+":"")+manualAdjustment+" "+plural(Math.abs(manualAdjustment),"case","cases")+". Final suggested order: "+suggested+" "+plural(suggested,"case","cases")+".";}
     return {target:target,counted:countedForTarget,shortage:shortage,unitsPerCase:divisor,baseSuggestedOrder:base,manualAdjustment:manualAdjustment,suggestedOrder:suggested,text:text};
   }
-  return {idOf:idOf,context:context,unitInfo:unitInfo,reviewRows:reviewRows,applyReviewedCounts:applyReviewedCounts,orderQuantity:orderQuantity,orderExplanation:orderExplanation};
+  return {idOf:idOf,context:context,unitInfo:unitInfo,reviewRows:reviewRows,reviewSummary:reviewSummary,resultStatus:resultStatus,inventoryLines:inventoryLines,createPhotoSession:createPhotoSession,applyReviewedCounts:applyReviewedCounts,orderQuantity:orderQuantity,orderExplanation:orderExplanation};
 });
