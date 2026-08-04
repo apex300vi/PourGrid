@@ -757,6 +757,7 @@ body:not(.pg-booting) > *{visibility:visible}
 <body class="pg-booting"><div class="pg-rc-marker">V1 RC1.6 STAGING</div><div id="pgSplash" class="pg-splash"><div class="pg-splash-inner"><div class="pg-splash-icon pg-inline-mark" aria-label="PourGrid"><span></span><span></span><span></span><span></span></div><div class="pg-splash-word"><span>POUR</span><span>GRID</span></div><div class="pg-splash-tag">Count what you see. Order what you need.</div></div></div>
 <div class="app" id="app"></div>
 <script src="bottle-intelligence.js"></script>
+<script src="smart-count-launcher.js"></script>
 <script>
 
 
@@ -3434,11 +3435,13 @@ function getStoliFreeBottleSuggestion(counts, stolicasesOrdered){
 //     back at what the room looked like when you counted
 
 function showPhotoCountModal(items, isG, onDone){
+  if(document.querySelector("[data-pg-smart-count-modal]"))return;
   var accentSolid=isG?"#00B893":"#E10A17";
   var accentDim=isG?"#03684F":"#8C0912";
   var attachedPhotos=[];
 
   var overlay=mk("div","");
+  overlay.setAttribute("data-pg-smart-count-modal","true");
   overlay.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.72);z-index:600;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px);";
   var modal=mk("div","");
   modal.style.cssText="background:linear-gradient(180deg,#17191D,#0E1013);border-radius:16px 16px 0 0;width:100%;max-width:430px;max-height:90vh;overflow-y:auto;padding:22px 16px 32px;border-top:1px solid rgba(255,255,255,0.14);box-shadow:0 -10px 40px rgba(0,0,0,0.6);";
@@ -3504,7 +3507,8 @@ function showPhotoCountModal(items, isG, onDone){
   var resultCounts={}; // productName -> final applied count (from AI or manual)
 
   items.forEach(function(p){
-    var intelligencePack=Number(pgPackaging(p.name).unitsPerCase||p.pack)||1;
+    var productPackaging=pgPack(p)||{};
+    var intelligencePack=Number(productPackaging.unitsPerCase||p.pack)||1;
     var row=mk("div","photo-item-row");
     var topRow=mk("div","");topRow.style.cssText="display:flex;justify-content:space-between;align-items:center;gap:10px;";
     var nmWrap=mk("div","");nmWrap.style.cssText="flex:1;min-width:0;";
@@ -3616,8 +3620,8 @@ function showPhotoCountModal(items, isG, onDone){
   var applyBtn=mk("button","");applyBtn.style.cssText="flex:2;padding:15px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:linear-gradient(155deg,"+accentSolid+","+accentDim+");color:#fff;font-size:14.5px;font-weight:800;box-shadow:0 8px 22px "+accentSolid+"44,inset 0 1px 0 rgba(255,255,255,0.18);text-transform:uppercase;letter-spacing:0.3px;";applyBtn.textContent="Apply All Counts";
 
   function cleanup(){
-    document.body.removeChild(overlay);
-    document.body.removeChild(refFileInput);
+    if(overlay.parentNode)overlay.parentNode.removeChild(overlay);
+    if(refFileInput.parentNode)refFileInput.parentNode.removeChild(refFileInput);
   }
 
   cancelBtn.onclick=function(){cleanup();onDone(null);};
@@ -3665,7 +3669,7 @@ async function pgAnalyzeOnePhoto(image,productId,pack,index,total,candidateSet){
 function pgSaveScanDiagnostics(record){var h=lsGet("pourgrid-scan-history")||[];h.unshift(record);lsSet("pourgrid-scan-history",h.slice(0,40));}
 async function countBottlesViaAI(images,productName,pack,onProgress){
   if(!images||!images.length)throw new Error("No photos to analyze");
-  var product=PRODUCTS.find(function(x){return x.name===productName;})||{},stableProductId=String(product.id||product.productId||product.catalogId||product.sku||productName),cfg=pgPackaging(productName),unitsPerCase=Number(cfg.unitsPerCase||pack)||1;
+  var product=PRODUCTS.find(function(x){return x.name===productName;})||{},stableProductId=String(product.id||product.productId||product.catalogId||product.sku||productName),cfg=pgPack(product)||{},unitsPerCase=Number(cfg.unitsPerCase||pack)||1;
   var candidateSet=PourGridIntelligence.candidates(PRODUCTS,{vendor:product.dist,category:product.cat});
   images.forEach(function(x,i){x.id=x.id||("photo-"+(i+1));});
   var compression=images.map(function(x){return {photoId:x.id,compressionMs:x.compressionMs,originalDimensions:[x.originalWidth,x.originalHeight],compressedDimensions:[x.width,x.height],originalBytes:x.originalBytes,compressedBytes:x.compressedBytes};});
@@ -3678,12 +3682,22 @@ async function countBottlesViaAI(images,productName,pack,onProgress){
   return {cases:cases,loose:loose,confidence:confidence,photoResults:matching,partial:res.partial,unfinishedPhotos:res.unfinishedPhotos,deduplicationDecisions:res.deduplicationDecisions,diagnostics:diagnostic};
 }
 
+function pgShowSmartCountError(message,error){
+  console.error("[PourGrid] Smart Count initialization failed",error||message);
+  if(typeof toast==="function")toast(message);
+  else window.alert(message);
+}
+var pgSmartCountLauncher=window.PourGridSmartCountLauncher&&window.PourGridSmartCountLauncher.create({
+  isReady:function(){return !!(window.PourGridIntelligence&&typeof window.PourGridIntelligence.run==="function"&&typeof window.PourGridIntelligence.request==="function");},
+  findModal:function(){return document.querySelector("[data-pg-smart-count-modal]");},
+  openModal:showPhotoCountModal,
+  showError:pgShowSmartCountError
+});
 function rPhotoBtn(products,accent,isG){
   var wrap=mk("div","");wrap.style.cssText="display:flex;justify-content:flex-end;padding:0 16px 4px;";
   var pbtn=mk("button","photobtn");
   pbtn.innerHTML="✦ Smart Count";
-  pbtn.onclick=function(){
-    showPhotoCountModal(products,isG,function(result){
+  function args(){return {products:products,isG:isG,onDone:function(result){
       if(result){
         var nc=Object.assign({},S.counts);
         Object.keys(result.counts).forEach(function(k){nc[k]=String(result.counts[k]);});
@@ -3698,8 +3712,9 @@ function rPhotoBtn(products,accent,isG){
         var n=Object.keys(result.counts).length;
         toast(n>0?(n+" item"+(n===1?"":"s")+" updated ✓"):"No counts applied");
       }
-    });
-  };
+    }};}
+  if(pgSmartCountLauncher)pgSmartCountLauncher.bind(pbtn,args);
+  else pbtn.onclick=function(){pgShowSmartCountError("Smart Count could not initialize. Continue with manual counting and refresh the staging app.");};
   wrap.appendChild(pbtn);
   return wrap;
 }

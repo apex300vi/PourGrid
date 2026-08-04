@@ -32,3 +32,10 @@ RC1.6 redesigns Bottle Intelligence around predictable, partial, fast results. I
 ## Diagnostics
 
 Scan history in local storage records compression dimensions/timing, per-photo AI timing and status, merge and total session timing, raw compact responses, unfinished photos, and deduplication decisions.
+
+## Smart Count staging hotfix
+
+- Fixed the primary Smart Count button failing before modal creation because RC1.6 referenced the removed `pgPackaging(name)` helper instead of `pgPack(product)`.
+- Added a guarded, singleton Smart Count launcher that survives navigation re-renders and prevents repeated click/touch activation from creating duplicate modals.
+- Added explicit mobile touch activation and retained the existing click path and `touch-action: manipulation` behavior.
+- Missing recognition-module or modal-initialization failures now show a visible, safe message and leave manual counting available.
