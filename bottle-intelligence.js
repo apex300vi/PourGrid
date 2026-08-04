@@ -20,8 +20,8 @@
   }
   function request(image,photoId,candidateSet){
     return {image:{base64:image.base64,mediaType:image.mediaType},photoId:photoId,candidates:candidateSet,
-      responseFormat:{type:"json",additionalProperties:false,fields:RESPONSE_FIELDS},
-      rules:["Return JSON only","Use Unknown when no candidate matches","Return the candidate productId exactly","Count a sealed known pack as one case","Count loose units separately","Do not infer hidden units","Use shortEvidenceCode for visible packaging signatures"]};
+      responseFormat:{type:"json",multipleResults:true,additionalProperties:false,fields:RESPONSE_FIELDS},
+      rules:["Return JSON only","Return one compact result for every recognized candidate product","Use Unknown when no candidate matches","Return the candidate productId exactly","Count a sealed known pack as one case","Count loose units separately","Do not infer hidden units","Use shortEvidenceCode for visible packaging signatures"]};
   }
   function timeout(promise,ms,label){
     var timer;return Promise.race([promise,new Promise(function(_,reject){timer=setTimeout(function(){var e=new Error(label+" timed out");e.code="PHOTO_TIMEOUT";reject(e);},ms);})]).finally(function(){clearTimeout(timer);});
@@ -34,6 +34,7 @@
     out.sourcePhotoIds=Array.isArray(out.sourcePhotoIds)&&out.sourcePhotoIds.length?out.sourcePhotoIds:[photoId];out.shortEvidenceCode=String(out.shortEvidenceCode||"UNSPECIFIED").trim().slice(0,80);
     return out;
   }
+  function responseItems(raw){return Array.isArray(raw)?raw:(raw&&Array.isArray(raw.results)?raw.results:[raw]);}
   function normalized(value){return String(value||"").trim().toLowerCase().replace(/\s+/g,"-");}
   function reliableEvidence(value){var v=String(value||"").trim();return v&&!WEAK_EVIDENCE.test(v)?v:"";}
   function variantKey(r){return normalized(r.packagingVariant||r.packagingType||"unknown");}
@@ -70,15 +71,16 @@
   async function run(options){
     options=options||{};var started=now(),photos=options.photos||[],limit=Math.max(1,Math.min(4,options.concurrency||3)),perPhoto=options.perPhotoTimeoutMs||25000,ceiling=options.batchTimeoutMs||60000;
     var completed=[],timings=[],cursor=0,active=0,finalized=false,settled=false,states=photos.map(function(photo,index){return {photoId:photo.id||"photo-"+(index+1),status:"pending",photo:photo,index:index};});
-    function emit(stage,id,status){if(!finalized&&options.onProgress)options.onProgress({stage:stage,photoId:id,status:status,completed:completed.length,total:photos.length,elapsedMs:Math.round(now()-started)});}
+    function completedPhotoCount(){return states.filter(function(s){return s.status==="complete";}).length;}
+    function emit(stage,id,status){if(!finalized&&options.onProgress)options.onProgress({stage:stage,photoId:id,status:status,completed:completedPhotoCount(),total:photos.length,elapsedMs:Math.round(now()-started)});}
     function finishState(state,status,message,raw,t){if(finalized||state.status==="complete"||state.status==="failed"||state.status==="timeout")return false;state.status=status;state.message=message;timings.push({photoId:state.photoId,aiMs:Math.round(now()-t),status:status,rawCompactResponse:raw});return true;}
     emit("upload",null,"started");
     async function one(state){
       var t=now();state.status="active";emit("analyzing",state.photoId,"started");
       try{
         var raw=await timeout(Promise.resolve().then(function(){return options.analyze(state.photo,state.photoId,state.index);}),Math.min(perPhoto,Math.max(1,ceiling-(now()-started))),state.photoId);
-        if(finalized)return;var value=validate(raw,state.photoId);value._unitsPerCase=Number(options.unitsPerCase)||1;value._photoContext={photoId:state.photoId,locationId:state.photo.locationId||"",overlapGroup:state.photo.overlapGroup||(!state.photo.locationId?"batch":""),overlapWith:state.photo.overlapWith||[]};
-        if(finishState(state,"complete",null,raw,t)){completed.push(value);emit("analyzing",state.photoId,"complete");}
+        if(finalized)return;var values=responseItems(raw).filter(Boolean).map(function(item){var value=validate(item,state.photoId),map=options.unitsPerCaseByProduct||{};value._unitsPerCase=Number(map[value.productId]||options.unitsPerCase)||1;value._photoContext={photoId:state.photoId,locationId:state.photo.locationId||"",overlapGroup:state.photo.overlapGroup||(!state.photo.locationId?"batch":""),overlapWith:state.photo.overlapWith||[]};return value;});
+        if(finishState(state,"complete",null,raw,t)){Array.prototype.push.apply(completed,values);emit("analyzing",state.photoId,"complete");}
       }catch(e){if(finalized)return;var status=e&&e.code==="PHOTO_TIMEOUT"?"timeout":"failed";if(finishState(state,status,e&&e.message||String(e),null,t))emit("analyzing",state.photoId,status);}
     }
     await new Promise(function(resolve){
@@ -93,7 +95,7 @@
     var ceilingReached=finalized;if(!ceilingReached)emit("merging",null,"started");
     var mt=now(),merged=merge(completed),mergeMs=Math.round(now()-mt);if(!ceilingReached)emit("merging",null,"complete");finalized=true;
     var unfinished=states.filter(function(s){return s.status!=="complete";}).map(function(s){return {photoId:s.photoId,status:s.status,message:s.message};});
-    return {results:merged.results,completedPhotoCount:completed.length,unfinishedPhotos:unfinished,partial:unfinished.length>0,deduplicationDecisions:merged.deduplicationDecisions,diagnostics:{aiByPhoto:timings,mergeMs:mergeMs,totalSessionMs:Math.round(now()-started),status:unfinished.length?"partial":"complete"}};
+    return {results:merged.results,completedPhotoCount:completedPhotoCount(),unfinishedPhotos:unfinished,partial:unfinished.length>0,deduplicationDecisions:merged.deduplicationDecisions,diagnostics:{aiByPhoto:timings,mergeMs:mergeMs,totalSessionMs:Math.round(now()-started),status:unfinished.length?"partial":"complete"}};
   }
-  return {RESPONSE_FIELDS:RESPONSE_FIELDS,candidates:candidates,request:request,validate:validate,merge:merge,run:run,reliableEvidence:reliableEvidence};
+  return {RESPONSE_FIELDS:RESPONSE_FIELDS,candidates:candidates,request:request,validate:validate,responseItems:responseItems,merge:merge,run:run,reliableEvidence:reliableEvidence};
 });

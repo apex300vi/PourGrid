@@ -12,13 +12,13 @@
     }
     function open(args){
       if(opening||(options.findModal&&options.findModal()))return false;
-      if(options.isReady&&!options.isReady())return fail("Smart Count recognition is unavailable. Refresh the staging app or continue with manual counting.");
+      if(options.isReady&&!options.isReady())return fail("PourGrid Vision recognition is unavailable. Refresh the staging app or continue with Manual Count.");
       opening=true;
       try{
-        if(typeof options.openModal!=="function")return fail("Smart Count could not initialize. Continue with manual counting and report this staging error.");
+        if(typeof options.openModal!=="function")return fail("PourGrid Vision could not initialize. Continue with Manual Count and report this staging error.");
         options.openModal(args.products,args.isG,args.onDone);return true;
       }catch(error){
-        return fail("Smart Count could not initialize. Continue with manual counting and report this staging error.",error);
+        return fail("PourGrid Vision could not initialize. Continue with Manual Count and report this staging error.",error);
       }finally{opening=false;}
     }
     function bind(button,getArgs){
