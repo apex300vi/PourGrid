@@ -754,8 +754,9 @@ body:not(.pg-booting) > *{visibility:visible}
 .pg-recipe-close{position:absolute;right:18px;top:18px;width:38px;height:38px;border:0;border-radius:50%;background:rgba(255,255,255,.09);color:#fff;font-size:22px}
 </style>
 </head>
-<body class="pg-booting"><div class="pg-rc-marker">V1 RC1.4 STAGING</div><div id="pgSplash" class="pg-splash"><div class="pg-splash-inner"><div class="pg-splash-icon pg-inline-mark" aria-label="PourGrid"><span></span><span></span><span></span><span></span></div><div class="pg-splash-word"><span>POUR</span><span>GRID</span></div><div class="pg-splash-tag">Count what you see. Order what you need.</div></div></div>
+<body class="pg-booting"><div class="pg-rc-marker">V1 RC1.6 STAGING</div><div id="pgSplash" class="pg-splash"><div class="pg-splash-inner"><div class="pg-splash-icon pg-inline-mark" aria-label="PourGrid"><span></span><span></span><span></span><span></span></div><div class="pg-splash-word"><span>POUR</span><span>GRID</span></div><div class="pg-splash-tag">Count what you see. Order what you need.</div></div></div>
 <div class="app" id="app"></div>
+<script src="bottle-intelligence.js"></script>
 <script>
 
 
@@ -3503,12 +3504,13 @@ function showPhotoCountModal(items, isG, onDone){
   var resultCounts={}; // productName -> final applied count (from AI or manual)
 
   items.forEach(function(p){
+    var intelligencePack=Number(pgPackaging(p.name).unitsPerCase||p.pack)||1;
     var row=mk("div","photo-item-row");
     var topRow=mk("div","");topRow.style.cssText="display:flex;justify-content:space-between;align-items:center;gap:10px;";
     var nmWrap=mk("div","");nmWrap.style.cssText="flex:1;min-width:0;";
     var nm=mk("div","");nm.style.cssText="font-size:14px;font-weight:800;color:#F3F4F6;letter-spacing:-0.1px;";nm.textContent=p.name;
     var meta=mk("div","");meta.style.cssText="font-size:11px;color:#8D939B;margin-top:2px;font-weight:600;font-family:var(--mono);";
-    meta.textContent=p.pack>1?("Case = "+p.pack+" "+(p.unit==="Case"?"bottles/cans":"units")):"Counted individually";
+    meta.textContent=intelligencePack>1?("Case = "+intelligencePack+" "+(p.unit==="Case"?"bottles/cans":"units")):"Counted individually";
     nmWrap.appendChild(nm);nmWrap.appendChild(meta);
 
     var takePhotoBtn=mk("button","photobtn-sm");
@@ -3547,15 +3549,21 @@ function showPhotoCountModal(items, isG, onDone){
     };
 
     function runCount(){
-      countBottlesViaAI(itemPhotos,p.name,p.pack,function(done,total,message){
-          statusRow.style.display="block";statusRow.style.color=accentSolid;statusRow.innerHTML=message+"<div class=\"pg-smart-progress\"><span style=\"width:"+Math.round((done/Math.max(1,total))*100)+"%\"></span></div>";
+      var scanStarted=Date.now(),elapsedTimer=setInterval(function(){
+        var seconds=Math.floor((Date.now()-scanStarted)/1000),slow=seconds>=30?" · Slower than expected; completed photos will remain available.":"";
+        var clock=statusRow.querySelector("[data-elapsed]");if(clock)clock.textContent=seconds+"s elapsed"+slow;
+      },1000);
+      countBottlesViaAI(itemPhotos,p.name,intelligencePack,function(progress){
+          var labels={upload:"Uploading",analyzing:"Analyzing",merging:"Merging"},done=progress.completed||0,total=progress.total||itemPhotos.length;
+          statusRow.style.display="block";statusRow.style.color=accentSolid;statusRow.innerHTML=(labels[progress.stage]||"Processing")+(progress.photoId?" "+progress.photoId:"")+" · "+done+"/"+total+"<br><span data-elapsed>"+Math.floor(progress.elapsedMs/1000)+"s elapsed</span><div class=\"pg-smart-progress\"><span style=\"width:"+Math.round((done/Math.max(1,total))*100)+"%\"></span></div>";
         })
         .then(function(res){
+          clearInterval(elapsedTimer);
           takePhotoBtn.disabled=false;
           takePhotoBtn.textContent="📷 Retake";
           statusRow.style.display="none";
 
-          var totalUnits=(res.cases||0)*p.pack+(res.loose||0);
+          var totalUnits=(res.cases||0)*intelligencePack+(res.loose||0);
           resultCounts[p.name]=totalUnits;
 
           resultRow.style.display="block";
@@ -3564,8 +3572,13 @@ function showPhotoCountModal(items, isG, onDone){
           rTitle.textContent=res.cases+" case"+(res.cases===1?"":"s")+" + "+res.loose+" loose = "+totalUnits+" total";
           var rConf=mk("div","");rConf.style.cssText="font-size:11px;color:#8D939B;font-weight:600;";
           var confLabel=res.confidence==="high"?"High confidence":res.confidence==="low"?"Low confidence - please verify":"Medium confidence";
-          rConf.textContent=confLabel+(res.notes?" · "+res.notes:"");
+          var mergeLabel=res.deduplicationDecisions.length?"Deduplicated overlapping photos":"Merged distinct photos";
+          rConf.textContent=confLabel+" · "+mergeLabel+" · Sources: "+res.photoResults.reduce(function(a,x){return a.concat(x.sourcePhotoIds||[]);},[]).join(", ");
           resultRow.appendChild(rTitle);resultRow.appendChild(rConf);
+          if(res.partial){var partial=d("pg-photo-result","Partial result available · unfinished: "+res.unfinishedPhotos.map(function(x){return x.photoId;}).join(", "));resultRow.appendChild(partial);}
+          var details=document.createElement("details");details.style.cssText="margin-top:8px;font-size:10px;color:#829BA8";
+          var summary=document.createElement("summary");summary.textContent="Technical details";details.appendChild(summary);
+          var technical=mk("pre","");technical.style.cssText="white-space:pre-wrap;overflow:auto";technical.textContent=JSON.stringify(res.diagnostics,null,2);details.appendChild(technical);resultRow.appendChild(details);
 
           // Manual override row
           var overrideRow=mk("div","");overrideRow.style.cssText="display:flex;align-items:center;gap:8px;margin-top:10px;";
@@ -3579,6 +3592,7 @@ function showPhotoCountModal(items, isG, onDone){
           resultRow.appendChild(overrideRow);
         })
         .catch(function(err){
+          clearInterval(elapsedTimer);
           takePhotoBtn.disabled=false;
           takePhotoBtn.textContent="📷 Take Photo";
           statusRow.style.display="block";
@@ -3627,67 +3641,41 @@ function pgLoadImage(file){
   return new Promise(function(resolve,reject){
     var url=URL.createObjectURL(file),img=new Image();
     img.onload=function(){URL.revokeObjectURL(url);resolve(img);};
-    img.onerror=function(){URL.revokeObjectURL(url);reject(new Error("Could not read this photo"));};
-    img.src=url;
+    img.onerror=function(){URL.revokeObjectURL(url);reject(new Error("Could not read this photo"));};img.src=url;
   });
 }
 async function pgCompressPhoto(file){
-  var img=await pgLoadImage(file),maxSide=1280,w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
+  var started=performance.now(),img=await pgLoadImage(file),ow=img.naturalWidth||img.width,oh=img.naturalHeight||img.height,maxSide=1280,w=ow,h=oh;
   var scale=Math.min(1,maxSide/Math.max(w,h));w=Math.max(1,Math.round(w*scale));h=Math.max(1,Math.round(h*scale));
-  var canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;
-  var ctx=canvas.getContext("2d",{alpha:false});ctx.fillStyle="#fff";ctx.fillRect(0,0,w,h);ctx.drawImage(img,0,0,w,h);
-  var quality=.76,dataUrl=canvas.toDataURL("image/jpeg",quality);
-  while(dataUrl.length>1200000&&quality>.38){quality-=.08;dataUrl=canvas.toDataURL("image/jpeg",quality);}
-  return {base64:dataUrl.split(",")[1],mediaType:"image/jpeg",dataUrl:dataUrl,width:w,height:h,originalBytes:file.size,compressedBytes:Math.round(dataUrl.length*.75)};
+  var canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;var ctx=canvas.getContext("2d",{alpha:false});ctx.fillStyle="#fff";ctx.fillRect(0,0,w,h);ctx.drawImage(img,0,0,w,h);
+  var quality=.76,dataUrl=canvas.toDataURL("image/jpeg",quality);while(dataUrl.length>900000&&quality>.4){quality-=.08;dataUrl=canvas.toDataURL("image/jpeg",quality);}
+  return {base64:dataUrl.split(",")[1],mediaType:"image/jpeg",dataUrl:dataUrl,width:w,height:h,originalWidth:ow,originalHeight:oh,originalBytes:file.size,compressedBytes:Math.round(dataUrl.length*.75),compressionMs:Math.round(performance.now()-started)};
 }
 function pgFriendlySmartCountError(data,status){
-  var code=data&&data.code?data.code:"";
-  if(code==="PAYLOAD_TOO_LARGE"||status===413)return "This photo is still too large. Retake it a little farther away or choose a lower-resolution photo.";
-  if(code==="ANTHROPIC_AUTH")return "Smart Count needs its secure AI connection repaired. Manual counting still works.";
-  if(code==="ANTHROPIC_BILLING")return "Smart Count is temporarily unavailable because the AI account needs attention.";
-  if(code==="ANTHROPIC_RATE_LIMIT")return "Smart Count is busy right now. Wait a moment and try again.";
-  if(code==="IMAGE_INVALID")return "PourGrid could not read this photo. Try again with better light and the product fully visible.";
-  var msg=(data&&data.userMessage)||"PourGrid couldn\'t analyze this photo. Try again or enter the count manually.";return data&&data.requestId?msg+" (Ref "+String(data.requestId).slice(0,8)+")":msg;
+  if(status===413)return "Photo is still too large. Try a lower-resolution photo.";
+  return (data&&data.userMessage)||"PourGrid could not analyze this photo.";
 }
-
-async function pgSmartCountHealth(){
-  var controller=new AbortController(),timer=setTimeout(function(){controller.abort();},10000);
-  try{
-    var resp=await fetch(SB_URL+"/functions/v1/count-bottles",{method:"POST",signal:controller.signal,headers:{"Content-Type":"application/json","apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY},body:JSON.stringify({mode:"health",clientVersion:"v10-josh-priority"})});
-    var data=await resp.json().catch(function(){return {};});
-    return {ok:resp.ok&&data.ready===true,data:data,status:resp.status};
-  }catch(e){return {ok:false,error:e};}finally{clearTimeout(timer);}
+async function pgAnalyzeOnePhoto(image,productId,pack,index,total,candidateSet){
+  var payload=PourGridIntelligence.request(image,image.id||("photo-"+index),candidateSet);
+  payload.productId=productId;payload.unitsPerCase=pack;payload.photoIndex=index;payload.totalPhotos=total;payload.clientVersion="rc1.6-staging";
+  var started=performance.now(),resp=await fetch(SB_URL+"/functions/v1/count-bottles",{method:"POST",headers:{"Content-Type":"application/json","apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY},body:JSON.stringify(payload)});
+  var data=await resp.json().catch(function(){return {};});if(!resp.ok)throw new Error(pgFriendlySmartCountError(data,resp.status));
+  data._uploadAndAiMs=Math.round(performance.now()-started);return data;
 }
-
-async function pgAnalyzeOnePhoto(image,productName,pack,index,total){
-  var controller=new AbortController(),timer=setTimeout(function(){controller.abort();},45000),resp,data;
-  try{
-    resp=await fetch(SB_URL+"/functions/v1/count-bottles",{
-      method:"POST",signal:controller.signal,
-      headers:{"Content-Type":"application/json","apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY},
-      body:JSON.stringify({image:{base64:image.base64,mediaType:image.mediaType},productName:productName,pack:pack||1,photoIndex:index,totalPhotos:total,clientVersion:"v10-josh-priority"})
-    });
-    data=await resp.json().catch(function(){return {};});
-    if(!resp.ok){var e=new Error(pgFriendlySmartCountError(data,resp.status));e.detail=data;e.status=resp.status;throw e;}
-    if(typeof data.cases!=="number"||typeof data.loose!=="number")throw new Error("PourGrid received an incomplete count. Try this photo again.");
-    return data;
-  }catch(err){
-    if(err&&err.name==="AbortError")throw new Error("Smart Count took too long. Check your connection and try again.");
-    throw err;
-  }finally{clearTimeout(timer);}
-}
+function pgSaveScanDiagnostics(record){var h=lsGet("pourgrid-scan-history")||[];h.unshift(record);lsSet("pourgrid-scan-history",h.slice(0,40));}
 async function countBottlesViaAI(images,productName,pack,onProgress){
-  if(!images||images.length===0)throw new Error("No photos to analyze");
-  var results=[],cases=0,loose=0,confidence="high",notes=[];
-  for(var i=0;i<images.length;i++){
-    if(onProgress)onProgress(i,images.length,"Analyzing photo "+(i+1)+" of "+images.length+"…");
-    var r=await pgAnalyzeOnePhoto(images[i],productName,pack,i+1,images.length);
-    results.push(r);cases+=Number(r.cases)||0;loose+=Number(r.loose)||0;
-    if(r.confidence==="low")confidence="low";else if(r.confidence==="medium"&&confidence==="high")confidence="medium";
-    if(r.notes)notes.push("Photo "+(i+1)+": "+r.notes);
-  }
-  if(onProgress)onProgress(images.length,images.length,"Review the suggested total");
-  return {cases:cases,loose:loose,confidence:confidence,notes:notes.join(" · "),photoResults:results};
+  if(!images||!images.length)throw new Error("No photos to analyze");
+  var product=PRODUCTS.find(function(x){return x.name===productName;})||{},stableProductId=String(product.id||product.productId||product.catalogId||product.sku||productName),cfg=pgPackaging(productName),unitsPerCase=Number(cfg.unitsPerCase||pack)||1;
+  var candidateSet=PourGridIntelligence.candidates(PRODUCTS,{vendor:product.dist,category:product.cat});
+  images.forEach(function(x,i){x.id=x.id||("photo-"+(i+1));});
+  var compression=images.map(function(x){return {photoId:x.id,compressionMs:x.compressionMs,originalDimensions:[x.originalWidth,x.originalHeight],compressedDimensions:[x.width,x.height],originalBytes:x.originalBytes,compressedBytes:x.compressedBytes};});
+  var res=await PourGridIntelligence.run({photos:images,unitsPerCase:unitsPerCase,concurrency:3,perPhotoTimeoutMs:25000,batchTimeoutMs:60000,onProgress:onProgress,analyze:function(photo,id,index){return pgAnalyzeOnePhoto(photo,stableProductId,unitsPerCase,index+1,images.length,candidateSet);}});
+  var matching=res.results.filter(function(x){return x.productId===stableProductId||x.productId===productName||x.productId==="Unknown";});
+  var cases=matching.reduce(function(n,x){return n+x.detectedCases;},0),loose=matching.reduce(function(n,x){return n+x.detectedLooseUnits;},0);
+  var confidence=matching.some(function(x){return x.confidence==="low";})?"low":matching.some(function(x){return x.confidence==="medium";})?"medium":"high";
+  var diagnostic={id:"scan-"+Date.now(),createdAt:new Date().toISOString(),productId:stableProductId,productName:productName,compression:compression,uploadTimeMs:res.diagnostics.aiByPhoto.map(function(x){return {photoId:x.photoId,uploadAndAiMs:x.aiMs};}),aiTimePerPhoto:res.diagnostics.aiByPhoto,mergeTimeMs:res.diagnostics.mergeMs,totalSessionTimeMs:res.diagnostics.totalSessionMs,status:res.diagnostics.status,unfinishedPhotos:res.unfinishedPhotos,rawCompactResponses:res.diagnostics.aiByPhoto.map(function(x){return x.rawCompactResponse;}).filter(Boolean),deduplicationDecisions:res.deduplicationDecisions};
+  pgSaveScanDiagnostics(diagnostic);
+  return {cases:cases,loose:loose,confidence:confidence,photoResults:matching,partial:res.partial,unfinishedPhotos:res.unfinishedPhotos,deduplicationDecisions:res.deduplicationDecisions,diagnostics:diagnostic};
 }
 
 function rPhotoBtn(products,accent,isG){
