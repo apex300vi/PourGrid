@@ -1,5 +1,16 @@
 # PourGrid V1 RC1.7.1 — PourGrid Vision UX Hotfix
 
+## Reliability hotfix
+
+- Replaces implicit processing flags with explicit Preparing Photos, Uploading Photos, Analyzing Inventory, Combining Results, Ready For Review, and Inventory Updated states.
+- Prevents any review or completion presentation while photos remain unfinished.
+- Shows failed-photo recovery with Retry Failed Photos, Add More Photos, and Cancel while retaining successful results.
+- Retries only failed photo IDs and never discards completed detections.
+- Disables confirmation until processing reaches Ready For Review and at least one known, non-removed result exists.
+- Treats empty or malformed AI payloads as explicit failures instead of successful Unknown detections.
+- Adds staging-only compression, upload, Supabase, Claude, HTTP, retry, failure-ID, exception, merge, and total-duration diagnostics.
+- Adds clearer zero-result and offline/timeout recovery language.
+
 RC1.7.1 streamlines the staging photo-count workflow into one category-level session. This release is staging-only and must not be merged or deployed until real-photo validation is complete.
 
 ## Workflow

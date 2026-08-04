@@ -4,6 +4,11 @@
   else root.PourGridVision=api;
 })(typeof self!=="undefined"?self:this,function(){
   "use strict";
+  var WORKFLOW_STATES={PREPARING:"Preparing Photos",UPLOADING:"Uploading Photos",ANALYZING:"Analyzing Inventory",COMBINING:"Combining Results",REVIEW:"Ready For Review",UPDATED:"Inventory Updated",FAILED:"Some photos could not be analyzed"};
+  function createWorkflow(){
+    var state=WORKFLOW_STATES.PREPARING,completed=false;
+    return {state:function(){return state;},set:function(next){state=next;if(next===WORKFLOW_STATES.REVIEW)completed=true;return state;},canReview:function(){return completed&&state===WORKFLOW_STATES.REVIEW;},canConfirm:function(rows){return completed&&state===WORKFLOW_STATES.REVIEW&&(rows||[]).some(function(row){return !row.removed&&!row.unknown&&row.productId!=="Unknown";});}};
+  }
   function idOf(p){return String(p&& (p.id||p.productId||p.catalogId||p.sku||p.name)||"Unknown");}
   function context(products){var first=(products||[])[0]||{};return {vendor:first.dist||"",category:first.cat||""};}
   function byId(products,id){return (products||[]).find(function(p){return idOf(p)===String(id)||p.name===String(id);});}
@@ -33,7 +38,7 @@
   }
   function createPhotoSession(){
     var photos=[],started=false;
-    return {add:function(photo){if(!started&&photo)photos.push(photo);return photos.slice();},remove:function(index){if(!started&&index>=0&&index<photos.length)photos.splice(index,1);return photos.slice();},process:function(){if(!photos.length||started)return false;started=true;return true;},photos:function(){return photos.slice();},isProcessing:function(){return started;}};
+    return {add:function(photo){if(!started&&photo)photos.push(photo);return photos.slice();},remove:function(index){if(!started&&index>=0&&index<photos.length)photos.splice(index,1);return photos.slice();},process:function(){if(!photos.length||started)return false;started=true;return true;},resume:function(){started=false;return photos.slice();},failed:function(ids){var wanted=ids||[];return photos.filter(function(photo){return wanted.indexOf(photo.id)>=0;});},photos:function(){return photos.slice();},isProcessing:function(){return started;}};
   }
   function applyReviewedCounts(existing,reviewed,products){
     var counts=Object.assign({},existing||{}),updated=[];
@@ -73,5 +78,5 @@
     if(manualAdjustment){text+=" Manual adjustment: "+(manualAdjustment>0?"+":"")+manualAdjustment+" "+plural(Math.abs(manualAdjustment),"case","cases")+". Final suggested order: "+suggested+" "+plural(suggested,"case","cases")+".";}
     return {target:target,counted:countedForTarget,shortage:shortage,unitsPerCase:divisor,baseSuggestedOrder:base,manualAdjustment:manualAdjustment,suggestedOrder:suggested,text:text};
   }
-  return {idOf:idOf,context:context,unitInfo:unitInfo,reviewRows:reviewRows,reviewSummary:reviewSummary,resultStatus:resultStatus,inventoryLines:inventoryLines,createPhotoSession:createPhotoSession,applyReviewedCounts:applyReviewedCounts,orderQuantity:orderQuantity,orderExplanation:orderExplanation};
+  return {WORKFLOW_STATES:WORKFLOW_STATES,createWorkflow:createWorkflow,idOf:idOf,context:context,unitInfo:unitInfo,reviewRows:reviewRows,reviewSummary:reviewSummary,resultStatus:resultStatus,inventoryLines:inventoryLines,createPhotoSession:createPhotoSession,applyReviewedCounts:applyReviewedCounts,orderQuantity:orderQuantity,orderExplanation:orderExplanation};
 });

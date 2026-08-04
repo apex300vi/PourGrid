@@ -46,9 +46,24 @@ test('no user-facing legacy count name remains and one category action is render
 
 test('capture UI supports camera, library, removal, explicit processing, and review stages',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),section=html.slice(html.indexOf('function showPhotoCountModal'),html.indexOf('// Calls the Supabase Edge Function'));
-  ['Take Photo','Add from Library','Remove photo','Process Photos','Preparing photos','Analyzing photo','Combining results','Preparing review','PourGrid Vision Complete'].forEach(text=>assert.match(section,new RegExp(text)));
-  assert.match(section,/process\.onclick=async function/);
+  ['Take Photo','Add from Library','Remove photo','Process Photos','Preparing photo','Analyzing photo','Comparing duplicate bottles','Grouping products','Review Results'].forEach(text=>assert.match(section,new RegExp(text)));
+  assert.match(section,/process\.onclick=function/);
   assert.doesNotMatch(section,/onchange[\s\S]{0,250}countCategoryViaAI/);
+});
+
+test('reliability UI never labels unfinished processing complete and gates confirmation',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),section=html.slice(html.indexOf('function showPhotoCountModal'),html.indexOf('// Calls the Supabase Edge Function'));
+  assert.doesNotMatch(section,/Vision Complete/);assert.match(section,/WORKFLOW_STATES\.REVIEW/);assert.match(section,/workflow\.canConfirm\(reviewed\)/);assert.match(section,/Some photos could not be analyzed/);assert.match(section,/Retry Failed Photos/);assert.match(section,/Add More Photos/);
+});
+
+test('zero recognized products shows clearer-photo guidance instead of a zero completion',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  assert.match(html,/No products from this category were recognized\. Try adding clearer photos\./);assert.doesNotMatch(html,/Products detected: 0[\s\S]{0,80}Photos processed: 0/);
+});
+
+test('offline and mobile Safari recovery paths stay wired',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  assert.match(html,/navigator\.onLine===false\?"OFFLINE"/);assert.match(html,/cameraInput\.capture="environment"/);assert.match(html,/Retry Failed Photos/);
 });
 
 test('single-product recount remains available only inside Bottle Intelligence',()=>{
