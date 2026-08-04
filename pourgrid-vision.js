@@ -9,8 +9,10 @@
   function byId(products,id){return (products||[]).find(function(p){return idOf(p)===String(id)||p.name===String(id);});}
   function unitInfo(product){
     var cfg=product&&product.visionPackaging||{},unitsPerCase=Number(cfg.unitsPerCase||product&&product.unitsPerCase||product&&product.pack)||1;
-    return {mode:cfg.mode||"standard",unitsPerCase:Math.max(1,unitsPerCase),unitLabel:cfg.unitLabel||product&&product.unitLabel||"units",innerPacksPerCase:Number(cfg.innerPacksPerCase)||0,unitsPerInner:Number(cfg.unitsPerInner)||0,buildToBasis:cfg.buildToBasis||"cases"};
+    var mode=cfg.mode||"standard",defaultBasis=mode==="standard"&&product&&product.unit==="Case"&&Number(product.pack)>1?"units":"cases";
+    return {mode:mode,unitsPerCase:Math.max(1,unitsPerCase),unitLabel:cfg.unitLabel||product&&product.unitLabel||"units",innerPacksPerCase:Number(cfg.innerPacksPerCase)||0,unitsPerInner:Number(cfg.unitsPerInner)||0,buildToBasis:cfg.buildToBasis||defaultBasis,countBasis:cfg.countBasis||(mode==="standard"?"units":"cases")};
   }
+  function effectiveInfo(product,config){var info=Object.assign(unitInfo(product),config||{});info.unitsPerCase=Math.max(1,Number(info.unitsPerCase)||1);if(!info.countBasis)info.countBasis=info.mode==="standard"?"units":"cases";return info;}
   function reviewRows(results,products){
     var rows={};(results||[]).forEach(function(result){
       var product=byId(products,result.productId),id=product?idOf(product):"Unknown",key=id==="Unknown"?"Unknown":id,row=rows[key];
@@ -41,21 +43,22 @@
     if(/^bib/.test(String(product.name||"").toLowerCase()))return "BIBs";
     if(/co2|tank/.test(String(product.name||"").toLowerCase()))return "tanks";
     if(info.mode==="halfCase")return "half cases";
-    if(info.buildToBasis!=="units"&&product.unit==="Case"&&Number(product.pack)===1)return "cases";
+    if(info.buildToBasis!=="units"&&product.unit==="Case")return "cases";
     if(raw==="units"&&/can/i.test(String(product.name||"")))return "cans";
     if(raw==="units"&&product.unit==="Case"&&Number(product.pack)>1)return "bottles";
     return raw;
   }
   function orderQuantity(product,onHand,config){
-    var info=Object.assign(unitInfo(product),config||{}),counted=Number(onHand)||0,target=Number(product.buildTo)||0,countedForTarget=info.buildToBasis==="units"?counted*info.unitsPerCase:counted,shortage=Math.max(target-countedForTarget,0);if(shortage===0)return 0;return product.unit==="Case"?(Number(product.pack)>1?Math.ceil(shortage/Number(product.pack)):Math.ceil(shortage)):shortage;
+    var info=effectiveInfo(product,config),counted=Number(onHand)||0,target=Number(product.buildTo)||0,unitBasis=info.buildToBasis==="units",countedForTarget=unitBasis&&info.countBasis==="cases"?counted*info.unitsPerCase:counted,shortage=Math.max(target-countedForTarget,0);if(shortage===0)return 0;if(product.unit!=="Case")return shortage;return unitBasis?Math.ceil(shortage/info.unitsPerCase):Math.ceil(shortage);
   }
   function orderExplanation(product,onHand,config,adjustment){
-    var info=Object.assign(unitInfo(product),config||{}),counted=Number(onHand)||0,target=Number(product.buildTo)||0,countedForTarget=info.buildToBasis==="units"?counted*info.unitsPerCase:counted;
-    var shortage=Math.max(target-countedForTarget,0),orderedByCase=product.unit==="Case",divisor=orderedByCase&&Number(product.pack)>1?Number(product.pack):1,base=orderQuantity(product,onHand,info),suggested=Math.max(0,base+(Number(adjustment)||0)),itemWords=words(product,info);
+    var info=effectiveInfo(product,config),counted=Number(onHand)||0,target=Number(product.buildTo)||0,unitBasis=info.buildToBasis==="units",countedForTarget=unitBasis&&info.countBasis==="cases"?counted*info.unitsPerCase:counted;
+    var shortage=Math.max(target-countedForTarget,0),orderedByCase=product.unit==="Case",divisor=unitBasis&&orderedByCase?info.unitsPerCase:1,base=orderQuantity(product,onHand,info),manualAdjustment=Number(adjustment)||0,suggested=Math.max(0,base+manualAdjustment),itemWords=words(product,info);
     var text="You have "+countedForTarget+" "+itemWords+". Your target is "+target+". You are short "+shortage+" "+itemWords+". ";
-    if(orderedByCase&&divisor>1){text+=(shortage&&shortage%divisor!==0?"This product is ordered by full case, so PourGrid rounds up to ":"At "+divisor+" "+itemWords+" per case, order ")+suggested+" "+plural(suggested,"case","cases")+".";}
-    else text+=(orderedByCase?"This item is ordered by the case. ":"")+"Order "+suggested+" "+plural(suggested,String(product.unit||"unit").toLowerCase(),String(product.unit||"unit").toLowerCase()+"s")+".";
-    return {target:target,counted:countedForTarget,shortage:shortage,unitsPerCase:divisor,suggestedOrder:suggested,text:text};
+    if(orderedByCase&&divisor>1){text+=(shortage&&shortage%divisor!==0?"This product is ordered by full case, so PourGrid rounds the base recommendation up to ":"At "+divisor+" "+itemWords+" per case, the base recommendation is ")+base+" "+plural(base,"case","cases")+".";}
+    else text+=(orderedByCase?"This item is ordered by the case. ":"")+"The base recommendation is "+base+" "+plural(base,String(product.unit||"unit").toLowerCase(),String(product.unit||"unit").toLowerCase()+"s")+".";
+    if(manualAdjustment){text+=" Manual adjustment: "+(manualAdjustment>0?"+":"")+manualAdjustment+" "+plural(Math.abs(manualAdjustment),"case","cases")+". Final suggested order: "+suggested+" "+plural(suggested,"case","cases")+".";}
+    return {target:target,counted:countedForTarget,shortage:shortage,unitsPerCase:divisor,baseSuggestedOrder:base,manualAdjustment:manualAdjustment,suggestedOrder:suggested,text:text};
   }
   return {idOf:idOf,context:context,unitInfo:unitInfo,reviewRows:reviewRows,applyReviewedCounts:applyReviewedCounts,orderQuantity:orderQuantity,orderExplanation:orderExplanation};
 });
