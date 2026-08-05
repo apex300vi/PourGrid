@@ -10,6 +10,11 @@
 - Treats empty or malformed AI payloads as explicit failures instead of successful Unknown detections.
 - Adds staging-only compression, upload, Supabase, Claude, HTTP, retry, failure-ID, exception, merge, and total-duration diagnostics.
 - Adds clearer zero-result and offline/timeout recovery language.
+- Stores Bottle Intelligence overrides by stable catalog identity instead of editable display name.
+- Verifies every product edit by writing and immediately reading the full record back before showing Saved.
+- Keeps the editor open with a visible error when storage verification fails and records write/read timing in staging diagnostics.
+- Persists identity, vendor, category, par, order unit, bottle size, packaging mode and bases, unit labels, inner packs, alternate packaging, recognition settings/images, and notes.
+- Sets Lime Juice to an 8-bottle target with 12 bottles per case, unit-based counting/build-to, and full-case ordering.
 
 RC1.7.1 streamlines the staging photo-count workflow into one category-level session. This release is staging-only and must not be merged or deployed until real-photo validation is complete.
 

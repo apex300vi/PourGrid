@@ -72,8 +72,10 @@
   function orderExplanation(product,onHand,config,adjustment){
     var info=effectiveInfo(product,config),counted=Number(onHand)||0,target=Number(product.buildTo)||0,unitBasis=info.buildToBasis==="units",countedForTarget=unitBasis&&info.countBasis==="cases"?counted*info.unitsPerCase:counted;
     var shortage=Math.max(target-countedForTarget,0),orderedByCase=product.unit==="Case",divisor=unitBasis&&orderedByCase?info.unitsPerCase:1,base=orderQuantity(product,onHand,info),manualAdjustment=Number(adjustment)||0,suggested=Math.max(0,base+manualAdjustment),itemWords=words(product,info);
-    var text="You currently have "+countedForTarget+" "+itemWords+". Your target is "+target+" "+itemWords+". You are short "+shortage+" "+itemWords+". ";
-    if(orderedByCase&&divisor>1){text+="At "+divisor+" "+itemWords+" per case, order "+base+" "+plural(base,"case","cases")+"."+(shortage&&shortage%divisor!==0?" Full-case ordering rounds the shortage up.":"");}
+    function itemLabel(n){return Number(n)===1&&/s$/.test(itemWords)&&itemWords!=="BIBs"?itemWords.slice(0,-1):itemWords;}
+    var text="You have "+countedForTarget+" "+itemLabel(countedForTarget)+". Your target is "+target+" "+itemLabel(target)+". You are short "+shortage+" "+itemLabel(shortage)+". ";
+    if(orderedByCase&&divisor>1&&shortage&&shortage%divisor!==0){text+="This item is ordered by full case. PourGrid rounds up to "+base+" "+plural(base,"case","cases")+".";}
+    else if(orderedByCase&&divisor>1){text+="At "+divisor+" "+itemWords+" per case, order "+base+" "+plural(base,"case","cases")+".";}
     else text+=(orderedByCase?"This item is ordered by the case. ":"")+"Order "+base+" "+plural(base,String(product.unit||"unit").toLowerCase(),String(product.unit||"unit").toLowerCase()+"s")+".";
     if(manualAdjustment){text+=" Manual adjustment: "+(manualAdjustment>0?"+":"")+manualAdjustment+" "+plural(Math.abs(manualAdjustment),"case","cases")+". Final suggested order: "+suggested+" "+plural(suggested,"case","cases")+".";}
     return {target:target,counted:countedForTarget,shortage:shortage,unitsPerCase:divisor,baseSuggestedOrder:base,manualAdjustment:manualAdjustment,suggestedOrder:suggested,text:text};
