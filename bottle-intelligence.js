@@ -36,7 +36,9 @@
   }
   function responseItems(raw){return Array.isArray(raw)?raw:(raw&&Array.isArray(raw.results)?raw.results:[raw]);}
   function requireResponse(raw){
-    var items=responseItems(raw);if(!raw||typeof raw!=="object"||!items.length||items.some(function(item){return !item||typeof item!=="object"||!("productId" in item)||!("detectedCases" in item)||!("detectedLooseUnits" in item);})){var e=new Error("AI response was malformed or incomplete");e.code="MALFORMED_AI_RESPONSE";throw e;}return items;
+    var validObject=raw&&typeof raw==="object",hasEnvelope=validObject&&!Array.isArray(raw)&&Object.prototype.hasOwnProperty.call(raw,"results"),items=validObject?responseItems(raw):[];
+    var invalidEnvelope=hasEnvelope&&!Array.isArray(raw.results),invalidEmpty=!items.length&&!hasEnvelope,invalidRows=items.some(function(item){return !item||typeof item!=="object"||!("productId" in item)||!("detectedCases" in item)||!("detectedLooseUnits" in item);});
+    if(!validObject||invalidEnvelope||invalidEmpty||invalidRows){var e=new Error("AI response was malformed or incomplete");e.code="MALFORMED_AI_RESPONSE";throw e;}return items;
   }
   function normalized(value){return String(value||"").trim().toLowerCase().replace(/\s+/g,"-");}
   function reliableEvidence(value){var v=String(value||"").trim();return v&&!WEAK_EVIDENCE.test(v)?v:"";}

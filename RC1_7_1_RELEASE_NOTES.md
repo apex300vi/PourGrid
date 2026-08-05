@@ -7,7 +7,8 @@
 - Shows failed-photo recovery with Retry Failed Photos, Add More Photos, and Cancel while retaining successful results.
 - Retries only failed photo IDs and never discards completed detections.
 - Disables confirmation until processing reaches Ready For Review and at least one known, non-removed result exists.
-- Treats empty or malformed AI payloads as explicit failures instead of successful Unknown detections.
+- Treats null, blank, or malformed AI payloads as explicit failures instead of successful Unknown detections.
+- Accepts a structurally valid `{ results: [] }` response as completed zero-recognition while still rejecting null, blank, or malformed responses.
 - Adds staging-only compression, upload, Supabase, Claude, HTTP, retry, failure-ID, exception, merge, and total-duration diagnostics.
 - Adds clearer zero-result and offline/timeout recovery language.
 - Stores Bottle Intelligence overrides by stable catalog identity instead of editable display name.

@@ -78,10 +78,11 @@ test('one category photo can return multiple compact product detections',async()
   assert.equal(out.completedPhotoCount,1);assert.equal(out.results.length,2);assert.deepEqual(out.results.map(x=>x.productId).sort(),['orange','pine']);
 });
 
-test('malformed AI responses become explicit failed photos',async()=>{
-  const out=await BI.run({photos:[{id:'bad'}],analyze:()=>({})});
-  assert.equal(out.completedPhotoCount,0);assert.deepEqual(out.failedPhotoIds,['bad']);assert.equal(out.diagnostics.aiByPhoto[0].errorType,'MALFORMED_AI_RESPONSE');assert.match(out.diagnostics.aiByPhoto[0].exceptionMessage,/malformed/i);
-});
+test('a valid empty result envelope completes with zero recognitions',async()=>{const out=await BI.run({photos:[{id:'empty'}],analyze:()=>({results:[]})});assert.equal(out.completedPhotoCount,1);assert.equal(out.partial,false);assert.deepEqual(out.failedPhotoIds,[]);assert.deepEqual(out.results,[]);});
+test('a null response fails safely as malformed',async()=>{const out=await BI.run({photos:[{id:'null'}],analyze:()=>null});assert.equal(out.completedPhotoCount,0);assert.deepEqual(out.failedPhotoIds,['null']);assert.equal(out.diagnostics.aiByPhoto[0].errorType,'MALFORMED_AI_RESPONSE');});
+test('a blank object fails safely as malformed',async()=>{const out=await BI.run({photos:[{id:'blank'}],analyze:()=>({})});assert.equal(out.completedPhotoCount,0);assert.deepEqual(out.failedPhotoIds,['blank']);assert.equal(out.diagnostics.aiByPhoto[0].errorType,'MALFORMED_AI_RESPONSE');});
+test('a nonempty malformed result row fails safely',async()=>{const out=await BI.run({photos:[{id:'bad-row'}],analyze:()=>({results:[{productId:'pine',detectedCases:0}]})});assert.equal(out.completedPhotoCount,0);assert.deepEqual(out.failedPhotoIds,['bad-row']);assert.equal(out.diagnostics.aiByPhoto[0].errorType,'MALFORMED_AI_RESPONSE');});
+test('valid-empty and recognized photos complete together without retry',async()=>{const out=await BI.run({photos:[{id:'empty'},{id:'known'}],analyze:(_,id)=>id==='empty'?{results:[]}:result(id,1,0,'KNOWN')});assert.equal(out.completedPhotoCount,2);assert.equal(out.partial,false);assert.deepEqual(out.failedPhotoIds,[]);assert.equal(out.results.length,1);assert.equal(out.results[0].detectedCases,1);});
 
 test('partial uploads preserve successful photo results',async()=>{
   const error=Object.assign(new Error('offline'),{code:'OFFLINE',httpStatus:0});
