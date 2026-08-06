@@ -4,6 +4,11 @@
   else root.PourGridVision=api;
 })(typeof self!=="undefined"?self:this,function(){
   "use strict";
+  var WORKFLOW_STATES={PREPARING:"Preparing Photos",UPLOADING:"Uploading Photos",ANALYZING:"Analyzing Inventory",COMBINING:"Combining Results",REVIEW:"Ready For Review",UPDATED:"Inventory Updated",FAILED:"Some photos could not be analyzed"};
+  function createWorkflow(){
+    var state=WORKFLOW_STATES.PREPARING,completed=false;
+    return {state:function(){return state;},set:function(next){state=next;if(next===WORKFLOW_STATES.REVIEW)completed=true;return state;},canReview:function(){return completed&&state===WORKFLOW_STATES.REVIEW;},canConfirm:function(rows){return completed&&state===WORKFLOW_STATES.REVIEW&&(rows||[]).some(function(row){return !row.removed&&!row.unknown&&row.productId!=="Unknown";});}};
+  }
   function idOf(p){return String(p&& (p.id||p.productId||p.catalogId||p.sku||p.name)||"Unknown");}
   function context(products){var first=(products||[])[0]||{};return {vendor:first.dist||"",category:first.cat||""};}
   function byId(products,id){return (products||[]).find(function(p){return idOf(p)===String(id)||p.name===String(id);});}
@@ -33,7 +38,7 @@
   }
   function createPhotoSession(){
     var photos=[],started=false;
-    return {add:function(photo){if(!started&&photo)photos.push(photo);return photos.slice();},remove:function(index){if(!started&&index>=0&&index<photos.length)photos.splice(index,1);return photos.slice();},process:function(){if(!photos.length||started)return false;started=true;return true;},photos:function(){return photos.slice();},isProcessing:function(){return started;}};
+    return {add:function(photo){if(!started&&photo)photos.push(photo);return photos.slice();},remove:function(index){if(!started&&index>=0&&index<photos.length)photos.splice(index,1);return photos.slice();},process:function(){if(!photos.length||started)return false;started=true;return true;},resume:function(){started=false;return photos.slice();},failed:function(ids){var wanted=ids||[];return photos.filter(function(photo){return wanted.indexOf(photo.id)>=0;});},photos:function(){return photos.slice();},isProcessing:function(){return started;}};
   }
   function applyReviewedCounts(existing,reviewed,products){
     var counts=Object.assign({},existing||{}),updated=[];
@@ -67,11 +72,13 @@
   function orderExplanation(product,onHand,config,adjustment){
     var info=effectiveInfo(product,config),counted=Number(onHand)||0,target=Number(product.buildTo)||0,unitBasis=info.buildToBasis==="units",countedForTarget=unitBasis&&info.countBasis==="cases"?counted*info.unitsPerCase:counted;
     var shortage=Math.max(target-countedForTarget,0),orderedByCase=product.unit==="Case",divisor=unitBasis&&orderedByCase?info.unitsPerCase:1,base=orderQuantity(product,onHand,info),manualAdjustment=Number(adjustment)||0,suggested=Math.max(0,base+manualAdjustment),itemWords=words(product,info);
-    var text="You currently have "+countedForTarget+" "+itemWords+". Your target is "+target+" "+itemWords+". You are short "+shortage+" "+itemWords+". ";
-    if(orderedByCase&&divisor>1){text+="At "+divisor+" "+itemWords+" per case, order "+base+" "+plural(base,"case","cases")+"."+(shortage&&shortage%divisor!==0?" Full-case ordering rounds the shortage up.":"");}
+    function itemLabel(n){return Number(n)===1&&/s$/.test(itemWords)&&itemWords!=="BIBs"?itemWords.slice(0,-1):itemWords;}
+    var text="You have "+countedForTarget+" "+itemLabel(countedForTarget)+". Your target is "+target+" "+itemLabel(target)+". You are short "+shortage+" "+itemLabel(shortage)+". ";
+    if(orderedByCase&&divisor>1&&shortage&&shortage%divisor!==0){text+="This item is ordered by full case. PourGrid rounds up to "+base+" "+plural(base,"case","cases")+".";}
+    else if(orderedByCase&&divisor>1){text+="At "+divisor+" "+itemWords+" per case, order "+base+" "+plural(base,"case","cases")+".";}
     else text+=(orderedByCase?"This item is ordered by the case. ":"")+"Order "+base+" "+plural(base,String(product.unit||"unit").toLowerCase(),String(product.unit||"unit").toLowerCase()+"s")+".";
     if(manualAdjustment){text+=" Manual adjustment: "+(manualAdjustment>0?"+":"")+manualAdjustment+" "+plural(Math.abs(manualAdjustment),"case","cases")+". Final suggested order: "+suggested+" "+plural(suggested,"case","cases")+".";}
     return {target:target,counted:countedForTarget,shortage:shortage,unitsPerCase:divisor,baseSuggestedOrder:base,manualAdjustment:manualAdjustment,suggestedOrder:suggested,text:text};
   }
-  return {idOf:idOf,context:context,unitInfo:unitInfo,reviewRows:reviewRows,reviewSummary:reviewSummary,resultStatus:resultStatus,inventoryLines:inventoryLines,createPhotoSession:createPhotoSession,applyReviewedCounts:applyReviewedCounts,orderQuantity:orderQuantity,orderExplanation:orderExplanation};
+  return {WORKFLOW_STATES:WORKFLOW_STATES,createWorkflow:createWorkflow,idOf:idOf,context:context,unitInfo:unitInfo,reviewRows:reviewRows,reviewSummary:reviewSummary,resultStatus:resultStatus,inventoryLines:inventoryLines,createPhotoSession:createPhotoSession,applyReviewedCounts:applyReviewedCounts,orderQuantity:orderQuantity,orderExplanation:orderExplanation};
 });

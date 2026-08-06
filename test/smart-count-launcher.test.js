@@ -25,6 +25,7 @@ test('index wires the primary button through the guarded launcher and current pa
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
   assert.ok(html.indexOf('bottle-intelligence.js')<html.indexOf('smart-count-launcher.js'));
   assert.ok(html.indexOf('smart-count-launcher.js')<html.indexOf('pourgrid-vision.js'));
+  assert.ok(html.indexOf('pourgrid-vision.js')<html.indexOf('product-persistence.js'));
   assert.match(html,/pgSmartCountLauncher\.bind\(pbtn,args\)/);
   assert.match(html,/data-pg-smart-count-modal/);
   assert.doesNotMatch(html,/pgPackaging\s*\(/);
@@ -46,9 +47,35 @@ test('no user-facing legacy count name remains and one category action is render
 
 test('capture UI supports camera, library, removal, explicit processing, and review stages',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),section=html.slice(html.indexOf('function showPhotoCountModal'),html.indexOf('// Calls the Supabase Edge Function'));
-  ['Take Photo','Add from Library','Remove photo','Process Photos','Preparing photos','Analyzing photo','Combining results','Preparing review','PourGrid Vision Complete'].forEach(text=>assert.match(section,new RegExp(text)));
-  assert.match(section,/process\.onclick=async function/);
+  ['Take Photo','Add from Library','Remove photo','Process Photos','Preparing photo','Analyzing photo','Comparing duplicate bottles','Grouping products','Review Results'].forEach(text=>assert.match(section,new RegExp(text)));
+  assert.match(section,/process\.onclick=function/);
   assert.doesNotMatch(section,/onchange[\s\S]{0,250}countCategoryViaAI/);
+});
+
+test('Bottle Intelligence editor persists all editable configuration with verified read-back',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),section=html.slice(html.indexOf('function pgOpenProductEditor'),html.indexOf('function s71Close'));
+  ['pge-name','pge-dist','pge-cat','pge-build','pge-pack','pge-unit','pge-mode','pge-count-basis','pge-build-basis','pge-ml','pge-loose','pge-loose-label','pge-large-label','pge-inner','pge-alternate','pge-recognition','pge-note','pge-recognition-images'].forEach(id=>assert.match(section,new RegExp(id)));
+  assert.match(section,/saveVerified|pgSaveCatalogEdits/);assert.match(section,/persistenceVerificationResult/);assert.match(section,/storageWriteDurationMs/);assert.match(section,/storageReadDurationMs/);assert.match(section,/toast\("Saved"\)/);assert.match(section,/Save failed/);
+});
+
+test('Lime Juice ships with the required persisted-compatible defaults',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  assert.match(html,/"Lime Juice":\{mode:"standard",unitsPerCase:12,largeUnit:"Case",largeUnitLabel:"cases",looseUnit:"Bottle",unitLabel:"bottles",countBasis:"units",buildToBasis:"units"/);
+});
+
+test('reliability UI never labels unfinished processing complete and gates confirmation',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),section=html.slice(html.indexOf('function showPhotoCountModal'),html.indexOf('// Calls the Supabase Edge Function'));
+  assert.doesNotMatch(section,/Vision Complete/);assert.match(section,/WORKFLOW_STATES\.REVIEW/);assert.match(section,/workflow\.canConfirm\(reviewed\)/);assert.match(section,/Some photos could not be analyzed/);assert.match(section,/Retry Failed Photos/);assert.match(section,/Add More Photos/);
+});
+
+test('zero recognized products shows clearer-photo guidance instead of a zero completion',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  assert.match(html,/No products from this category were recognized\. Try adding clearer photos\./);assert.doesNotMatch(html,/Products detected: 0[\s\S]{0,80}Photos processed: 0/);
+});
+
+test('offline and mobile Safari recovery paths stay wired',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  assert.match(html,/navigator\.onLine===false\?"OFFLINE"/);assert.match(html,/cameraInput\.capture="environment"/);assert.match(html,/Retry Failed Photos/);
 });
 
 test('single-product recount remains available only inside Bottle Intelligence',()=>{
