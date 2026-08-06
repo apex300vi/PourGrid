@@ -88,11 +88,12 @@ test('packaged-item order stays blank until every physical-count field is entere
   assert.match(cardSection,/var has=pgHasPhysicalCount\(p\)/);
 });
 
-test('attention-first home keeps deadline actions and removes duplicate dashboard links',()=>{
+test('briefing home presents one next action without rebuilding the dashboard',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),home=html.slice(html.indexOf('function rHome'),html.indexOf('function rStabs'));
-  assert.match(home,/What order needs/);assert.match(home,/rDeadlines/);
+  assert.match(home,/Your next order/);assert.match(home,/pgHomeBriefing/);assert.doesNotMatch(home,/rDeadlines/);
   assert.doesNotMatch(home,/Start Bar Count|Start Merchants Count|Open History & Insights|s81-action-card/);
-  assert.match(html,/Previous order/);assert.match(html,/Begin upcoming order/);assert.match(html,/pgOpenUpcomingCycle/);
+  const briefing=html.slice(html.indexOf('function pgHomeBriefing'),html.indexOf('function rOrderNotes'));
+  assert.match(briefing,/Next action/);assert.match(briefing,/Coming up/);assert.match(briefing,/Latest submitted order/);assert.match(briefing,/pgOpenUpcomingCycle/);
 });
 
 test('PourGrid Vision uses compact premium workspace classes without inline modal sizing',()=>{
