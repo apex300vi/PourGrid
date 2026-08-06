@@ -88,6 +88,20 @@ test('packaged-item order stays blank until every physical-count field is entere
   assert.match(cardSection,/var has=pgHasPhysicalCount\(p\)/);
 });
 
+test('attention-first home keeps deadline actions and removes duplicate dashboard links',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),home=html.slice(html.indexOf('function rHome'),html.indexOf('function rStabs'));
+  assert.match(home,/What order needs/);assert.match(home,/rDeadlines/);
+  assert.doesNotMatch(home,/Start Bar Count|Start Merchants Count|Open History & Insights|s81-action-card/);
+  assert.match(html,/Previous order/);assert.match(html,/Begin upcoming order/);assert.match(html,/pgOpenUpcomingCycle/);
+});
+
+test('PourGrid Vision uses compact premium workspace classes without inline modal sizing',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),section=html.slice(html.indexOf('function showPhotoCountModal'),html.indexOf('// Calls the Supabase Edge Function'));
+  ['pg-vision-overlay','pg-vision-modal','pg-vision-head','pg-vision-instruction','pg-vision-actions','pg-vision-process'].forEach(name=>assert.match(section,new RegExp(name)));
+  assert.match(section,/01 · FRAME/);assert.match(section,/02 · COVER/);assert.match(section,/03 · REVIEW/);
+  assert.doesNotMatch(section,/max-height:94vh/);
+});
+
 test('reliability UI never labels unfinished processing complete and gates confirmation',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),section=html.slice(html.indexOf('function showPhotoCountModal'),html.indexOf('// Calls the Supabase Edge Function'));
   assert.doesNotMatch(section,/Vision Complete/);assert.match(section,/WORKFLOW_STATES\.REVIEW/);assert.match(section,/workflow\.canConfirm\(reviewed\)/);assert.match(section,/Some photos could not be analyzed/);assert.match(section,/Retry Failed Photos/);assert.match(section,/Add More Photos/);
