@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Sapphire Bar">
 <meta name="theme-color" content="#04111F">
-<meta name="pourgrid-release" content="PourGrid V1 RC1.4 Staging"><title>Sapphire Beach Bar · Inventory & Ordering</title>
+<meta name="pourgrid-release" content="PourGrid V1 RC1.7.1 STAGING"><title>Sapphire Beach Bar · Inventory & Ordering</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
@@ -754,12 +754,12 @@ body:not(.pg-booting) > *{visibility:visible}
 .pg-recipe-close{position:absolute;right:18px;top:18px;width:38px;height:38px;border:0;border-radius:50%;background:rgba(255,255,255,.09);color:#fff;font-size:22px}
 </style>
 </head>
-<body class="pg-booting"><div class="pg-rc-marker">V1 RC1.7 STAGING</div><div id="pgSplash" class="pg-splash"><div class="pg-splash-inner"><div class="pg-splash-icon pg-inline-mark" aria-label="PourGrid"><span></span><span></span><span></span><span></span></div><div class="pg-splash-word"><span>POUR</span><span>GRID</span></div><div class="pg-splash-tag">Count what you see. Order what you need.</div></div></div>
+<body class="pg-booting"><div class="pg-rc-marker">V1 RC1.7.1 STAGING</div><div id="pgSplash" class="pg-splash"><div class="pg-splash-inner"><div class="pg-splash-icon pg-inline-mark" aria-label="PourGrid"><span></span><span></span><span></span><span></span></div><div class="pg-splash-word"><span>POUR</span><span>GRID</span></div><div class="pg-splash-tag">Count what you see. Order what you need.</div></div></div>
 <div class="app" id="app"></div>
-<script src="bottle-intelligence.js"></script>
-<script src="smart-count-launcher.js"></script>
-<script src="pourgrid-vision.js"></script>
-<script src="product-persistence.js"></script>
+<script src="bottle-intelligence.js?v=1.7.1.1"></script>
+<script src="smart-count-launcher.js?v=1.7.1.1"></script>
+<script src="pourgrid-vision.js?v=1.7.1.1"></script>
+<script src="product-persistence.js?v=1.7.1.1"></script>
 <script>
 
 
@@ -807,12 +807,27 @@ function pgCatalogEdits(){
   return PourGridProductPersistence.read(localStorage);
 }
 function pgSaveCatalogEdits(v){return PourGridProductPersistence.saveVerified(localStorage,v||{});}
+function pgMigrateLimeJuiceUnits(){
+  var migrationKey="pourgrid-migration-rc1.7.1-lime-units-v1";
+  if(localStorage.getItem(migrationKey)==="complete")return;
+  var product=PRODUCTS.find(function(x){return x._catalogName==="Lime Juice";});
+  if(!product)return;
+  var all=pgCatalogEdits(),existing=PourGridProductPersistence.resolve(all,product);
+  if(existing){
+    var corrected=Object.assign({},existing,{buildTo:8,pack:12,unit:"Case"});
+    corrected.packaging=Object.assign({},existing.packaging||{},{mode:"caseLoose",unitsPerCase:12,largeUnit:"Case",largeUnitLabel:"cases",looseUnit:"Bottle",unitLabel:"bottles",countBasis:"units",buildToBasis:"units"});
+    var saved=pgSaveCatalogEdits(PourGridProductPersistence.withEdit(all,product,corrected));
+    if(!saved.ok)return;
+  }
+  localStorage.setItem(migrationKey,"complete");
+}
 function pgApplyCatalogEdits(){
   var edits=pgCatalogEdits();
   PRODUCTS.forEach(function(product){
     PourGridProductPersistence.apply(product,PourGridProductPersistence.resolve(edits,product));
   });
 }
+pgMigrateLimeJuiceUnits();
 pgApplyCatalogEdits();
 
 var BAR=PRODUCTS.filter(function(p){return p.dist!=="Merchants";});
@@ -837,7 +852,7 @@ var PG_PACKAGING={
   "Cranberry Juice":{mode:"caseLoose",unitsPerCase:8,unitLabel:"bottles"},
   "Coco Lopez":{mode:"caseLoose",unitsPerCase:24,unitLabel:"cans"},
   "Grapefruit Juice":{mode:"caseLoose",unitsPerCase:24,unitLabel:"cans"},
-  "Lime Juice":{mode:"standard",unitsPerCase:12,largeUnit:"Case",largeUnitLabel:"cases",looseUnit:"Bottle",unitLabel:"bottles",countBasis:"units",buildToBasis:"units",innerPacksPerCase:0,alternatePackaging:"",recognitionSettings:"",recognitionImages:[]},
+  "Lime Juice":{mode:"caseLoose",unitsPerCase:12,largeUnit:"Case",largeUnitLabel:"cases",looseUnit:"Bottle",unitLabel:"bottles",countBasis:"units",buildToBasis:"units",innerPacksPerCase:0,alternatePackaging:"",recognitionSettings:"",recognitionImages:[]},
   "Bubly Blackberry":{mode:"nestedCase",innerPacksPerCase:3,unitsPerInner:8,unitLabel:"cans"},
   "Bubly Strawberry":{mode:"nestedCase",innerPacksPerCase:3,unitsPerInner:8,unitLabel:"cans"},
   "Bubly Lime":{mode:"nestedCase",innerPacksPerCase:3,unitsPerInner:8,unitLabel:"cans"}
@@ -866,7 +881,7 @@ function pgPhysicalCount(p){
   if(cfg.mode==="caseLoose"){
     var cases=pgNum(S.counts[pgCountKey(p.name,"cases")]);
     var loose=pgNum(S.counts[pgCountKey(p.name,"loose")]);
-    return cases+(loose/cfg.unitsPerCase);
+    return cfg.countBasis==="units"?cases*cfg.unitsPerCase+loose:cases+(loose/cfg.unitsPerCase);
   }
   if(cfg.mode==="nestedCase"){
     var cases=pgNum(S.counts[pgCountKey(p.name,"cases")]);
@@ -899,7 +914,10 @@ function pgSavePart(name,suffix,val){
 }
 function pgPhysicalCountFrom(counts,p){
   var cfg=pgPack(p);if(!cfg)return counts[p.name]||"";
-  if(cfg.mode==="caseLoose")return pgNum(counts[pgCountKey(p.name,"cases")])+pgNum(counts[pgCountKey(p.name,"loose")])/cfg.unitsPerCase;
+  if(cfg.mode==="caseLoose"){
+    var cases=pgNum(counts[pgCountKey(p.name,"cases")]),loose=pgNum(counts[pgCountKey(p.name,"loose")]);
+    return cfg.countBasis==="units"?cases*cfg.unitsPerCase+loose:cases+loose/cfg.unitsPerCase;
+  }
   if(cfg.mode==="nestedCase")return pgNum(counts[pgCountKey(p.name,"cases")])+pgNum(counts[pgCountKey(p.name,"inner")])/cfg.innerPacksPerCase+pgNum(counts[pgCountKey(p.name,"loose")])/(cfg.innerPacksPerCase*cfg.unitsPerInner);
   if(cfg.mode==="halfCase")return pgNum(counts[pgCountKey(p.name,"cases")])+(pgNum(counts[pgCountKey(p.name,"halves")])*.5);
   return counts[p.name]||"";
@@ -965,7 +983,11 @@ function pgMigrateMerchantPackaging(){
       nc[pgCountKey(product.name,"inner")]!==undefined||
       nc[pgCountKey(product.name,"halves")]!==undefined;
     if(!hasStructured&&nc[product.name]!==undefined&&nc[product.name]!==""){
-      nc[caseKey]=nc[product.name];
+      if(cfg.mode==="caseLoose"&&cfg.countBasis==="units"){
+        var totalUnits=pgNum(nc[product.name]),unitsPerCase=Math.max(1,Number(cfg.unitsPerCase)||1);
+        nc[caseKey]=String(Math.floor(totalUnits/unitsPerCase));
+        nc[pgCountKey(product.name,"loose")]=String(totalUnits%unitsPerCase);
+      }else nc[caseKey]=nc[product.name];
       changed=true;
     }
   });

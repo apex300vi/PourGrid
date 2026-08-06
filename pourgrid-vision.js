@@ -48,7 +48,7 @@
       if(info.mode==="caseLoose"||info.mode==="nestedCase"){
         counts[name+"::cases"]=String(cases);counts[name+"::loose"]=String(loose);
         if(info.mode==="nestedCase")counts[name+"::inner"]="0";
-        counts[name]=String(cases+(loose/info.unitsPerCase));
+        counts[name]=String(info.countBasis==="units"?cases*info.unitsPerCase+loose:cases+(loose/info.unitsPerCase));
       }else if(info.mode==="halfCase"){
         counts[name+"::cases"]=String(cases);counts[name+"::halves"]=String(loose);counts[name]=String(cases+(loose*.5));
       }else counts[name]=String(product.unit==="Case"?cases+(loose/info.unitsPerCase):cases*info.unitsPerCase+loose);

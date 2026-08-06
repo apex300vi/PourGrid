@@ -60,7 +60,10 @@ test('Bottle Intelligence editor persists all editable configuration with verifi
 
 test('Lime Juice ships with the required persisted-compatible defaults',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
-  assert.match(html,/"Lime Juice":\{mode:"standard",unitsPerCase:12,largeUnit:"Case",largeUnitLabel:"cases",looseUnit:"Bottle",unitLabel:"bottles",countBasis:"units",buildToBasis:"units"/);
+  assert.match(html,/"Lime Juice":\{mode:"caseLoose",unitsPerCase:12,largeUnit:"Case",largeUnitLabel:"cases",looseUnit:"Bottle",unitLabel:"bottles",countBasis:"units",buildToBasis:"units"/);
+  assert.match(html,/pourgrid-migration-rc1\.7\.1-lime-units-v1/);
+  assert.match(html,/V1 RC1\.7\.1 STAGING/);
+  assert.match(html,/cfg\.mode==="caseLoose"&&cfg\.countBasis==="units"/);
 });
 
 test('reliability UI never labels unfinished processing complete and gates confirmation',()=>{
