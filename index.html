@@ -758,6 +758,7 @@ body:not(.pg-booting) > *{visibility:visible}
 .pg-recipe-price{color:#e9c878;font-weight:850;margin-top:4px}
 .pg-recipe-body{margin-top:18px;padding:16px;border-radius:17px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.09);color:#e8f0f4;font-size:16px;line-height:1.55}
 .pg-recipe-close{position:absolute;right:18px;top:18px;width:38px;height:38px;border:0;border-radius:50%;background:rgba(255,255,255,.09);color:#fff;font-size:22px}
+.pg-briefing{display:flex;flex-direction:column;gap:12px}.pg-next-card{padding:20px;border-radius:24px;background:radial-gradient(circle at 100% 0,rgba(237,201,120,.16),transparent 34%),linear-gradient(145deg,#10364d,#071c2c 70%);border:1px solid rgba(237,201,120,.24);box-shadow:0 20px 50px rgba(0,0,0,.28)}.pg-next-eyebrow{font-size:9px;font-weight:850;letter-spacing:1.9px;text-transform:uppercase;color:#edc978}.pg-next-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:9px}.pg-next-name{font-size:25px;font-weight:800;color:#fff}.pg-next-due{margin-top:5px;color:#a8bec9;font-size:11.5px}.pg-next-badge{padding:7px 9px;border-radius:999px;background:rgba(237,201,120,.11);color:#efd083;font-size:9.5px;font-weight:800}.pg-next-message{margin-top:17px;padding-top:15px;border-top:1px solid rgba(255,255,255,.07);color:#cad8dd;font-size:12px;line-height:1.5}.pg-next-action{width:100%;min-height:54px;margin-top:16px;border:0;border-radius:16px;background:linear-gradient(125deg,#dfb65f,#f1d590);color:#091722;font-size:14px;font-weight:850}.pg-week-strip{padding:16px;border-radius:20px;background:rgba(8,30,45,.72);border:1px solid rgba(151,213,235,.11)}.pg-week-head{display:flex;justify-content:space-between;align-items:center}.pg-week-head strong,.pg-recent-copy strong{font-size:12px;color:#e3ecef}.pg-week-head span{font-size:9.5px;color:#718b99}.pg-week-item{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 0;border-top:1px solid rgba(255,255,255,.055)}.pg-week-item:first-child{border-top:0}.pg-week-dot{width:7px;height:7px;border-radius:50%;background:#557482}.pg-week-item.active .pg-week-dot{background:#edc978;box-shadow:0 0 12px rgba(237,201,120,.45)}.pg-week-vendor{font-size:11.5px;font-weight:750;color:#c9d6dc}.pg-week-time{font-size:10px;color:#7e97a4}.pg-recent{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 16px;border-radius:18px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.065)}.pg-recent-copy span{display:block;margin-top:4px;font-size:10px;color:#78919e}.pg-recent button{border:1px solid rgba(151,213,235,.14);border-radius:12px;background:rgba(100,199,231,.07);color:#a9dcea;padding:10px 12px;font-size:10.5px;font-weight:800}
 </style>
 </head>
 <body class="pg-booting"><div class="pg-rc-marker">V1 RC1.7.1 STAGING</div><div id="pgSplash" class="pg-splash"><div class="pg-splash-inner"><div class="pg-splash-icon pg-inline-mark" aria-label="PourGrid"><span></span><span></span><span></span><span></span></div><div class="pg-splash-word"><span>POUR</span><span>GRID</span></div><div class="pg-splash-tag">Count what you see. Order what you need.</div></div></div>
@@ -1500,8 +1501,8 @@ function rHome(){
   var pillRow=mk("div","pg-home-top");pillRow.appendChild(d("pg-home-brand","POURGRID"));
   var dot=mk("div","sdot");dot.style.cssText="background:"+sc+";color:"+sc+";";
   var pill=d("sync-pill");ap(pill,dot,sp("sync-lbl",sl));ap(pillRow,pill);
-  var q=mk("div","pg-home-question");q.innerHTML='What order needs <em>your attention next?</em>';
-  ap(hdr,pillRow,q,d("pg-home-answer","PourGrid sorts every vendor window by urgency, then keeps the last order and the next action together."));
+  var q=mk("div","pg-home-question");q.innerHTML='Your next order.<em>Already prioritized.</em>';
+  ap(hdr,pillRow,q,d("pg-home-answer","A live shift briefing—not another dashboard."));
   wrap.appendChild(hdr);
 
   var body=d("pg-home-body");
@@ -1510,8 +1511,8 @@ function rHome(){
   var venueCopy=d("venue-copy");ap(venueCopy,d("venue-name","Sapphire Beach Bar"),d("venue-sub","Powered by PourGrid"));
   var venueLogoWrap=d("pg-venue-logo-wrap");venueLogoWrap.appendChild(venueImg);
   ap(venue,venueLogoWrap,venueCopy);body.appendChild(venue);
-  var section=d("pg-home-section"),label=mk("strong","");label.textContent="Order deadlines";ap(section,label,sp("","Most urgent first"));body.appendChild(section);
-  body.appendChild(rDeadlines());
+  var section=d("pg-home-section"),label=mk("strong","");label.textContent="Right now";ap(section,label,sp("","Based on the next deadline"));body.appendChild(section);
+  body.appendChild(pgHomeBriefing());
   wrap.appendChild(body);return wrap;
 }
 function rStabs(active,fn,isG){
@@ -2934,6 +2935,26 @@ function rDeadlines(){
     col.appendChild(card);
   });
   wrap.appendChild(col);
+  return wrap;
+}
+
+function pgHomeStreamList(){
+  var all=getDeadlines(),standard=all.filter(function(x){return x.key==="bellows"||x.key==="cc1";}),pair=pgNextMerchantsCycle();
+  var streams=standard.map(function(dl){return {dl:dl,state:pgCycleState(dl)};});
+  streams.push({dl:pair.next,state:pgCycleState(pair.next),merchant:true});
+  var rank={urgent:0,soon:1,watch:2,quiet:3,done:4};
+  return streams.sort(function(a,b){return rank[a.state.tone]!==rank[b.state.tone]?rank[a.state.tone]-rank[b.state.tone]:a.dl.deadline-b.dl.deadline;});
+}
+function pgHomeBriefing(){
+  var streams=pgHomeStreamList(),primary=streams[0],dl=primary.dl,st=primary.state,info=pgCycleProgress(dl);
+  var wrap=d("pg-briefing"),card=d("pg-next-card "+st.tone);card.appendChild(d("pg-next-eyebrow","Next action"));
+  var row=d("pg-next-row"),left=d("");left.appendChild(d("pg-next-name",primary.merchant?"Merchants":dl.dist));left.appendChild(d("pg-next-due","Due "+dl.deadline.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})+" · "+dl.deadline.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})));ap(row,left,d("pg-next-badge",st.label));card.appendChild(row);
+  card.appendChild(d("pg-next-message",st.key==="quiet"?"No action is required yet. PourGrid will bring this forward when the order window opens.":st.key==="done"?"This cycle is marked sent. The next deadline will take over automatically.":"This is the only order that needs to lead your attention right now."));
+  var prog=d("pg-cycle-progress"),track=d("pg-cycle-progress-track"),fill=mk("i","");fill.style.width=info.progress.pct+"%";track.appendChild(fill);ap(prog,track,sp("",info.progress.counted+" / "+info.products.length+" counted"));card.appendChild(prog);
+  var action=mk("button","pg-next-action",{onclick:function(){pgOpenUpcomingCycle(dl);}});action.textContent=pgCycleActionLabel(dl);card.appendChild(action);wrap.appendChild(card);
+  var week=d("pg-week-strip"),head=d("pg-week-head");ap(head,d("","Coming up"),sp("","Next 7 days"));week.appendChild(head);
+  streams.forEach(function(s,i){var x=d("pg-week-item"+(i===0?" active":""));ap(x,d("pg-week-dot"),d("pg-week-vendor",s.merchant?"Merchants":s.dl.dist),d("pg-week-time",s.dl.deadline.toLocaleDateString("en-US",{weekday:"short"})+" · "+s.dl.deadline.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})));week.appendChild(x);});wrap.appendChild(week);
+  var latest=(S.history||[])[0],recent=d("pg-recent"),copy=d("pg-recent-copy");copy.appendChild(d("",latest?"Latest submitted order":"No submitted orders yet"));copy.appendChild(sp("",latest?pgFmtAgo(latest.id||latest.date):"Your first completed order will appear here"));var b=mk("button","",{onclick:function(){ss({screen:"app",tab:"history",histDet:latest?latest.id:null,s8Dist:null});}});b.textContent=latest?"View order":"Open history";ap(recent,copy,b);wrap.appendChild(recent);
   return wrap;
 }
 
