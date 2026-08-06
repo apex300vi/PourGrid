@@ -899,10 +899,11 @@ function pgPhysicalCount(p){
 function pgHasPhysicalCount(p){
   var cfg=pgPack(p);
   if(!cfg)return S.counts[p.name]!==undefined&&S.counts[p.name]!=="";
-  if(cfg.mode==="caseLoose")return S.counts[pgCountKey(p.name,"cases")]!==undefined||S.counts[pgCountKey(p.name,"loose")]!==undefined;
-  if(cfg.mode==="nestedCase")return S.counts[pgCountKey(p.name,"cases")]!==undefined||S.counts[pgCountKey(p.name,"inner")]!==undefined||S.counts[pgCountKey(p.name,"loose")]!==undefined;
-  if(cfg.mode==="halfCase")return S.counts[pgCountKey(p.name,"cases")]!==undefined||S.counts[pgCountKey(p.name,"halves")]!==undefined;
-  return false;
+  function entered(suffix){var v=S.counts[pgCountKey(p.name,suffix)];return v!==undefined&&v!=="";}
+  if(cfg.mode==="caseLoose")return entered("cases")&&entered("loose");
+  if(cfg.mode==="nestedCase")return entered("cases")&&entered("inner")&&entered("loose");
+  if(cfg.mode==="halfCase")return entered("cases")&&entered("halves");
+  return S.counts[p.name]!==undefined&&S.counts[p.name]!=="";
 }
 function pgSavePart(name,suffix,val){
   var product=PRODUCTS.find(function(x){return x.name===name;});
@@ -931,6 +932,7 @@ function pgFmtFraction(v){
   return (whole?whole+" ":"")+num+"/"+den+" cases";
 }
 function pgInventorySummary(p,cfg){
+  if(!pgHasPhysicalCount(p))return "";
   if(cfg&&cfg.mode==="caseLoose"){
     var cases=pgNum(S.counts[pgCountKey(p.name,"cases")]);
     var loose=pgNum(S.counts[pgCountKey(p.name,"loose")]);
@@ -962,6 +964,7 @@ function pgSetAlt(name,size,val){
 }
 
 function cq(p,oh){
+  if(!pgHasPhysicalCount(p))return null;
   if(oh===""||oh===null||oh===undefined)return null;
   var onHand=Number(oh),cfg=pgPack(p);
   var vp=pgVisionProducts([p])[0];return PourGridVision.orderQuantity(vp,onHand,cfg||{});
@@ -1661,7 +1664,7 @@ function rCatCount(cat,prods,isG){
     var getVal=function(){var v=pgEffectiveCount(p);return v===undefined?"":v;};
     var val=getVal();
     var qty=cq(p,val);
-    var has=pgTouched(sessionType,p.name);
+    var has=pgHasPhysicalCount(p);
     var col=DC[p.dist];
     var card=d("icard");
     if(has)card.style.border="1.5px solid "+(qty===0?"#3DDC84":accent);
