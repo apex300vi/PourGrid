@@ -930,6 +930,15 @@ function pgFmtFraction(v){
   var d=g(num,den);num/=d;den/=d;
   return (whole?whole+" ":"")+num+"/"+den+" cases";
 }
+function pgInventorySummary(p,cfg){
+  if(cfg&&cfg.mode==="caseLoose"){
+    var cases=pgNum(S.counts[pgCountKey(p.name,"cases")]);
+    var loose=pgNum(S.counts[pgCountKey(p.name,"loose")]);
+    var total=cases*Math.max(1,Number(cfg.unitsPerCase)||1)+loose;
+    return cases+" "+(cases===1?"case":"cases")+" + "+loose+" "+cfg.unitLabel+" = "+total+" "+cfg.unitLabel+" on hand";
+  }
+  return pgFmtFraction(pgPhysicalCount(p));
+}
 function pgAltKey(name,size){return name+"::alt"+size;}
 function pgNormalMl(p){var n=Number(p&&p.bottleMl);return isFinite(n)&&n>0?n:(/\bcruzan\b/i.test(p.name)?750:1000);}
 function pgAltMl(p){return pgNormalMl(p)===750?1000:750;}
@@ -1385,8 +1394,8 @@ function pgCommitProductEdit(originalName){
   }
   pgRenameProductData(originalName,newName);
   PourGridProductPersistence.apply(product,edit);
-  pgCloseProductEditor();s71Close();toast("Saved");
-  setTimeout(function(){location.reload();},700);
+  pgCloseProductEditor();s71Close();toast("Bottle Intelligence saved and verified");
+  render();
 }
 function pgResetProductEdit(name){
   var all=pgCatalogEdits(),product=PRODUCTS.find(function(x){return x.name===name;}),stableId=product&&PourGridProductPersistence.stableId(product);
@@ -1680,7 +1689,7 @@ function rCatCount(cat,prods,isG){
       var qb=d("qbadge");
       qb.style.background=qty===0?"rgba(0,184,147,0.16)":"rgba(79,168,255,0.16)";
       qb.style.color=qty===0?"#3DDC84":accent;
-      ap(qb,d("qnum",qty===0?"✓":String(qty)),d("qunit",qty===0?"stocked":p.unit));
+      ap(qb,d("qnum",qty===0?"✓":"Order "+String(qty)),d("qunit",qty===0?"stocked":p.unit));
       top.appendChild(qb);
     }
     card.appendChild(top);
@@ -1705,7 +1714,7 @@ function rCatCount(cat,prods,isG){
       var eff=pgPhysicalCount(p),left=sp("",cfg.mode==="nestedCase"
         ?"1 case = "+cfg.innerPacksPerCase+" packs = "+(cfg.innerPacksPerCase*cfg.unitsPerInner)+" "+cfg.unitLabel
         :cfg.mode==="halfCase"?"2 half cases = 1 full case":"1 case = "+cfg.unitsPerCase+" "+cfg.unitLabel);
-      var right=mk("strong","");right.textContent=pgFmtFraction(eff);
+      var right=mk("strong","");right.textContent=pgInventorySummary(p,cfg);
       ap(sum,left,right);pc.appendChild(sum);
       card.appendChild(pc);
     }else{
