@@ -55,7 +55,7 @@ test('capture UI supports camera, library, removal, explicit processing, and rev
 test('Bottle Intelligence editor persists all editable configuration with verified read-back',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),section=html.slice(html.indexOf('function pgOpenProductEditor'),html.indexOf('function s71Close'));
   ['pge-name','pge-dist','pge-cat','pge-build','pge-pack','pge-unit','pge-mode','pge-count-basis','pge-build-basis','pge-ml','pge-loose','pge-loose-label','pge-large-label','pge-inner','pge-alternate','pge-recognition','pge-note','pge-recognition-images'].forEach(id=>assert.match(section,new RegExp(id)));
-  assert.match(section,/saveVerified|pgSaveCatalogEdits/);assert.match(section,/persistenceVerificationResult/);assert.match(section,/storageWriteDurationMs/);assert.match(section,/storageReadDurationMs/);assert.match(section,/toast\("Saved"\)/);assert.match(section,/Save failed/);
+  assert.match(section,/saveVerified|pgSaveCatalogEdits/);assert.match(section,/persistenceVerificationResult/);assert.match(section,/storageWriteDurationMs/);assert.match(section,/storageReadDurationMs/);assert.match(section,/Bottle Intelligence saved and verified/);assert.match(section,/Save failed/);
 });
 
 test('Lime Juice ships with the required persisted-compatible defaults',()=>{
@@ -64,6 +64,16 @@ test('Lime Juice ships with the required persisted-compatible defaults',()=>{
   assert.match(html,/pourgrid-migration-rc1\.7\.1-lime-units-v1/);
   assert.match(html,/V1 RC1\.7\.1 STAGING/);
   assert.match(html,/cfg\.mode==="caseLoose"&&cfg\.countBasis==="units"/);
+});
+
+test('manual count clearly separates on-hand inventory from the order recommendation',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  assert.match(html,/function pgInventorySummary/);
+  assert.match(html,/\+total\+" "\+cfg\.unitLabel\+" on hand"/);
+  assert.match(html,/"Order "\+String\(qty\)/);
+  assert.match(html,/Bottle Intelligence saved and verified/);
+  const commitSection=html.slice(html.indexOf('function pgCommitProductEdit'),html.indexOf('function pgResetProductEdit'));
+  assert.doesNotMatch(commitSection,/location\.reload/);
 });
 
 test('reliability UI never labels unfinished processing complete and gates confirmation',()=>{
