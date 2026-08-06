@@ -94,15 +94,15 @@ test('briefing home presents one next action without rebuilding the dashboard',(
   assert.doesNotMatch(home,/Start Bar Count|Start Merchants Count|Open History & Insights|s81-action-card/);
   const briefing=html.slice(html.indexOf('function pgHomeBriefing'),html.indexOf('function rOrderNotes'));
   assert.match(briefing,/Next action/);assert.match(briefing,/Coming up/);assert.match(briefing,/Latest submitted order/);assert.match(briefing,/pgOpenUpcomingCycle/);
-  assert.match(briefing,/mk\\("button","pg-week-item/);assert.match(briefing,/aria-label","Open /);
+  assert.match(briefing,/mk\("button","pg-week-item/);assert.match(briefing,/aria-label","Open /);
   const streamList=html.slice(html.indexOf('function pgHomeStreamList'),html.indexOf('function pgHomeBriefing'));
-  assert.match(streamList,/a\\.dl\\.deadline-b\\.dl\\.deadline/);
+  assert.match(streamList,/a\.dl\.deadline-b\.dl\.deadline/);
 });
 
 test('document shell is complete and cannot publish as a black screen',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
-  assert.equal((html.match(/<style(?:\\s|>)/g)||[]).length,(html.match(/<\\/style>/g)||[]).length);
-  assert.match(html,/<\\/head>\\s*<body[^>]*>/);assert.match(html,/<\\/body>\\s*<\\/html>\\s*$/);
+  assert.equal((html.match(/<style(?:\s|>)/g)||[]).length,(html.match(/<\/style>/g)||[]).length);
+  assert.match(html,/<\/head>\s*<body[^>]*>/);assert.match(html,/<\/body>\s*<\/html>\s*$/);
 });
 
 test('PourGrid Vision uses compact premium workspace classes without inline modal sizing',()=>{
@@ -138,3 +138,36 @@ test('Bottle Intelligence remains wired for both Bar and Merchants product cards
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),section=html.slice(html.indexOf('function rCatCount'),html.indexOf('function pgPlural'));
   assert.match(section,/var top=d\("itop"\);top\.onclick=/);assert.doesNotMatch(section,/if\(!isG\).*top\.onclick/);assert.match(section,/Bottle Intelligence/);
 });
+
+test('vendor count filters are alternate views of one shared inventory draft',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  assert.match(html,/countFilter:"all",countCat:null,counts:lsGet\("sbb-counts"\)/);
+  const filters=html.slice(html.indexOf('function pgCountTypeForProduct'),html.indexOf('function rHome'));
+  assert.match(filters,/filter==="all"\?PRODUCTS:PRODUCTS\.filter/);
+  assert.match(filters,/pgHasPhysicalCount\(p\)/);
+  const workspace=html.slice(html.indexOf('function rUnifiedCount'),html.indexOf('function rCatGrid'));
+  ['all','Bellows/WI','CC1','Merchants'].forEach(v=>assert.match(workspace,new RegExp('"'+v.replace('/','\\/')+'"')));
+  assert.match(workspace,/rCatCount\(S\.countCat,products/);assert.match(workspace,/rCatGrid\(products/);
+  const routing=html.slice(html.indexOf('function rContent'),html.indexOf('function rTabs2'));
+  assert.equal((routing.match(/wrap\.appendChild\(rUnifiedCount\(\)\)/g)||[]).length,2);
+});
+
+test('home vendor orders enter filtered count while Dashboard retains Full Count',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const home=html.slice(html.indexOf('function rHome'),html.indexOf('function rStabs'));
+  assert.match(home,/pg-full-count-launcher/);assert.match(home,/pgOpenFullCount/);
+  const upcoming=html.slice(html.indexOf('function pgOpenUpcomingCycle'),html.indexOf('function pgCycleActionLabel'));
+  assert.match(upcoming,/countFilter:filter,countCat:null/);assert.match(upcoming,/mSub:"count"/);assert.match(upcoming,/bSub:"count"/);
+  assert.doesNotMatch(upcoming,/complete\?"order":"count"/);
+});
+
+test('shared count preserves vendor assignment and previous-order Home navigation',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const category=html.slice(html.indexOf('function rCatCount'),html.indexOf('function pgPlural'));
+  assert.match(category,/pgTouch\(pgCountTypeForProduct\(product\),pn\)/);
+  const history=html.slice(html.indexOf('function rHistDet'),html.indexOf('function rContent'));
+  assert.match(history,/← History/);assert.match(history,/"Home"/);assert.match(history,/screen:"home"/);
+  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function rEmailTab'));
+  assert.match(order,/p\.dist===dist/);
+});
+
