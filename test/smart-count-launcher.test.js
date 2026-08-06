@@ -76,6 +76,18 @@ test('manual count clearly separates on-hand inventory from the order recommenda
   assert.doesNotMatch(commitSection,/location\.reload/);
 });
 
+test('packaged-item order stays blank until every physical-count field is entered',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const presenceSection=html.slice(html.indexOf('function pgHasPhysicalCount'),html.indexOf('function pgSavePart'));
+  assert.match(presenceSection,/entered\("cases"\)&&entered\("loose"\)/);
+  assert.match(presenceSection,/entered\("cases"\)&&entered\("inner"\)&&entered\("loose"\)/);
+  assert.match(presenceSection,/entered\("cases"\)&&entered\("halves"\)/);
+  const calculationSection=html.slice(html.indexOf('function cq'),html.indexOf('function finalOrderQty'));
+  assert.match(calculationSection,/if\(!pgHasPhysicalCount\(p\)\)return null/);
+  const cardSection=html.slice(html.indexOf('function rCatCount'),html.indexOf('function pgPlural'));
+  assert.match(cardSection,/var has=pgHasPhysicalCount\(p\)/);
+});
+
 test('reliability UI never labels unfinished processing complete and gates confirmation',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),section=html.slice(html.indexOf('function showPhotoCountModal'),html.indexOf('// Calls the Supabase Edge Function'));
   assert.doesNotMatch(section,/Vision Complete/);assert.match(section,/WORKFLOW_STATES\.REVIEW/);assert.match(section,/workflow\.canConfirm\(reviewed\)/);assert.match(section,/Some photos could not be analyzed/);assert.match(section,/Retry Failed Photos/);assert.match(section,/Add More Photos/);
