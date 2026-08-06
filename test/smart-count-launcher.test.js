@@ -92,8 +92,11 @@ test('briefing home presents one next action without rebuilding the dashboard',(
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),home=html.slice(html.indexOf('function rHome'),html.indexOf('function rStabs'));
   assert.match(home,/Your next order/);assert.match(home,/pgHomeBriefing/);assert.doesNotMatch(home,/rDeadlines/);
   assert.doesNotMatch(home,/Start Bar Count|Start Merchants Count|Open History & Insights|s81-action-card/);
-  const briefing=html.slice(html.indexOf('function pgHomeBriefing'),html.indexOf('function rOrderNotes'));
+  const briefing=html.slice(html.indexOf('function pgHomeStreamList'),html.indexOf('function rOrderNotes'));
   assert.match(briefing,/Next action/);assert.match(briefing,/Coming up/);assert.match(briefing,/Latest submitted order/);assert.match(briefing,/pgOpenUpcomingCycle/);
+  assert.match(briefing,/return streams\.sort\(function\(a,b\)\{return a\.dl\.deadline-b\.dl\.deadline;\}\)/);
+  assert.match(briefing,/streams\.slice\(1\)\.forEach/);assert.match(briefing,/mk\("button","pg-week-item"/);
+  assert.match(briefing,/onclick:function\(\)\{pgOpenUpcomingCycle\(s\.dl\);\}/);
 });
 
 test('PourGrid Vision uses compact premium workspace classes without inline modal sizing',()=>{
@@ -129,3 +132,4 @@ test('Bottle Intelligence remains wired for both Bar and Merchants product cards
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),section=html.slice(html.indexOf('function rCatCount'),html.indexOf('function pgPlural'));
   assert.match(section,/var top=d\("itop"\);top\.onclick=/);assert.doesNotMatch(section,/if\(!isG\).*top\.onclick/);assert.match(section,/Bottle Intelligence/);
 });
+
