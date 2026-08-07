@@ -11,7 +11,7 @@ create function public.finalize_receiving(p_session uuid) returns void language 
    if movement_id is not null then update order_lines set received_units=received_units+l.received_units where id=l.order_line_id; end if;
  end loop;
  update receiving_sessions set status='finalized',finalized_at=now() where id=s.id;
- update structured_orders o set status=case when exists(select 1 from order_lines ol where ol.order_id=o.id and ol.received_units<ol.expected_units) then 'partially_received' else 'received' end where o.id=s.order_id;
+ update structured_orders o set status=case when exists(select 1 from order_lines ol where ol.order_id=o.id and ol.received_units<ol.expected_units) then 'partially_received'::order_status else 'received'::order_status end where o.id=s.order_id;
  insert into audit_events(organization_id,location_id,actor_id,event_type,entity_table,entity_id) values(s.organization_id,s.location_id,auth.uid(),'receiving.finalized','receiving_sessions',s.id);
 end$$;
 revoke all on function public.finalize_receiving(uuid) from public,anon; grant execute on function public.finalize_receiving(uuid) to authenticated;

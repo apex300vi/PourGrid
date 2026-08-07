@@ -163,7 +163,7 @@ begin
    if movement_id is not null then update public.order_lines set received_units=received_units+l.received_units where id=l.order_line_id; end if;
  end loop;
  update public.receiving_sessions set status='finalized',finalized_at=now() where id=s.id;
- update public.structured_orders o set status=case when exists(select 1 from public.order_lines ol where ol.order_id=o.id and ol.received_units<ol.expected_units) then 'partially_received' else 'received' end where o.id=s.order_id;
+ update public.structured_orders o set status=case when exists(select 1 from public.order_lines ol where ol.order_id=o.id and ol.received_units<ol.expected_units) then 'partially_received'::public.order_status else 'received'::public.order_status end where o.id=s.order_id;
  insert into public.audit_events(organization_id,location_id,actor_id,event_type,entity_table,entity_id) values(s.organization_id,s.location_id,auth.uid(),'receiving.finalized','receiving_sessions',s.id);
 end$$;
 
