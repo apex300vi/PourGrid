@@ -1,5 +1,7 @@
 \set ON_ERROR_STOP on
 create function test.assert(ok boolean,message text) returns void language plpgsql as $$begin if not coalesce(ok,false) then raise exception 'ASSERTION FAILED: %',message; end if; end$$;
+grant usage on schema test to authenticated;
+grant execute on function test.assert(boolean,text) to authenticated;
 select test.assert((select row_count=33 from test.legacy_before),'bootstrap has 33 legacy rows');
 select test.assert((select b.row_count=count(*) and b.checksum=md5(string_agg(o.id::text||':'||o.created_at::text||':'||o.data::text,'|' order by o.id)) from test.legacy_before b cross join public.orders o group by b.row_count,b.checksum),'legacy rows and JSON preserved');
 select test.assert((select count(*)=33 from public.legacy_order_references where classification='legacy_unassigned' and organization_id is null),'legacy rows quarantined');
