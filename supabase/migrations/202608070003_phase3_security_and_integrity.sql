@@ -93,7 +93,11 @@ create trigger guard_submitted_order_lines before update or delete on public.ord
 create trigger guard_finalized_baseline_lines before update or delete on public.inventory_baseline_lines for each row execute function public.guard_phase3_changes();
 
 grant insert,update on public.structured_orders,public.order_lines,public.receiving_sessions,public.receiving_lines,public.inventory_baselines,public.inventory_baseline_lines,public.approved_exceptions,public.reconciliation_requests to authenticated;
+grant update on public.organizations to authenticated;
 grant insert,update on public.locations,public.vendors,public.inventory_items to authenticated;
+create policy org_admin_update on public.organizations for update to authenticated
+using(public.has_org_role(id,array['administrator']::public.app_role[]))
+with check(public.has_org_role(id,array['administrator']::public.app_role[]));
 create policy location_admin_insert on public.locations for insert to authenticated with check(public.has_org_role(organization_id,array['administrator']::public.app_role[]));
 create policy location_admin_update on public.locations for update to authenticated using(public.has_org_role(organization_id,array['administrator']::public.app_role[])) with check(public.has_org_role(organization_id,array['administrator']::public.app_role[]));
 do $$declare t text; begin foreach t in array array['vendors','inventory_items'] loop execute format('create policy manager_write on public.%I for all to authenticated using(public.has_org_role(organization_id,array[''administrator'',''manager'']::public.app_role[])) with check(public.has_org_role(organization_id,array[''administrator'',''manager'']::public.app_role[]))',t); end loop; end$$;
@@ -110,6 +114,24 @@ create policy baseline_insert on public.inventory_baselines for insert to authen
 create policy baseline_line_insert on public.inventory_baseline_lines for insert to authenticated with check(exists(select 1 from public.inventory_baselines b where b.id=baseline_id and b.status='in_progress' and public.has_location_role(b.organization_id,b.location_id,array['administrator','manager','inventory_staff']::public.app_role[])));
 create policy baseline_line_update on public.inventory_baseline_lines for update to authenticated using(exists(select 1 from public.inventory_baselines b where b.id=baseline_id and b.status='in_progress' and public.has_location_role(b.organization_id,b.location_id,array['administrator','manager','inventory_staff']::public.app_role[]))) with check(exists(select 1 from public.inventory_baselines b where b.id=baseline_id and b.status='in_progress' and public.has_location_role(b.organization_id,b.location_id,array['administrator','manager','inventory_staff']::public.app_role[])));
 create policy reconciliation_request on public.reconciliation_requests for insert to authenticated with check(status='pending' and requested_by=auth.uid() and public.has_location_role(organization_id,location_id,array['administrator','manager','inventory_staff']::public.app_role[]));
+
+create function public.admin_upsert_membership(p_org uuid,p_user uuid,p_role public.app_role,p_location uuid) returns uuid
+language plpgsql security definer set search_path=pg_catalog,public,pg_temp as $$
+declare membership_id uuid;
+begin
+ if not public.has_org_role(p_org,array['administrator']::public.app_role[]) then raise exception 'Administrator required'; end if;
+ if not exists(select 1 from public.profiles where id=p_user) then raise exception 'Unknown profile'; end if;
+ if not exists(select 1 from public.locations where id=p_location and organization_id=p_org) then raise exception 'Location is outside organization'; end if;
+ insert into public.memberships(organization_id,user_id,role) values(p_org,p_user,p_role)
+ on conflict(organization_id,user_id) do update set role=excluded.role returning id into membership_id;
+ insert into public.location_memberships(membership_id,location_id,organization_id) values(membership_id,p_location,p_org)
+ on conflict(membership_id,location_id) do update set organization_id=excluded.organization_id;
+ insert into public.audit_events(organization_id,location_id,actor_id,event_type,entity_table,entity_id,detail)
+ values(p_org,p_location,auth.uid(),'membership.upserted','memberships',membership_id,jsonb_build_object('user_id',p_user,'role',p_role));
+ return membership_id;
+end$$;
+revoke all on function public.admin_upsert_membership(uuid,uuid,public.app_role,uuid) from public,anon;
+grant execute on function public.admin_upsert_membership(uuid,uuid,public.app_role,uuid) to authenticated;
 
 create or replace function public.approve_receiving_exception(p_exception uuid,p_approved boolean) returns void language plpgsql security definer set search_path=pg_catalog,public,pg_temp as $$
 declare e public.approved_exceptions;

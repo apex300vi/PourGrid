@@ -37,6 +37,22 @@ insert into public.inventory_items(id,organization_id,name,workflow,units_per_pa
  ('50000000-0000-0000-0000-000000000003','10000000-0000-0000-0000-000000000001','Juice','merchants',8),
  ('50000000-0000-0000-0000-000000000004','10000000-0000-0000-0000-000000000002','Other Item','bar',12);
 
+-- Explicit role boundaries: administrators manage organization/membership,
+-- managers manage catalog data, while staff cannot invoke administration RPCs.
+set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+update public.organizations set name='Sapphire Beach Bar Verified' where id='10000000-0000-0000-0000-000000000001';
+select test.assert((select name='Sapphire Beach Bar Verified' from public.organizations where id='10000000-0000-0000-0000-000000000001'),'administrator can update own organization');
+select test.assert(public.admin_upsert_membership('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','read_only_viewer','20000000-0000-0000-0000-000000000001')='30000000-0000-0000-0000-000000000004','administrator can manage membership');
+do $$begin begin perform public.admin_upsert_membership('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','read_only_viewer','20000000-0000-0000-0000-000000000002'); raise exception 'cross-tenant location assignment unexpectedly succeeded'; exception when raise_exception then if sqlerrm='cross-tenant location assignment unexpectedly succeeded' then raise; end if; end; end$$;
+reset role;
+set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false);
+update public.vendors set name='Bellows Verified' where id='40000000-0000-0000-0000-000000000001';
+select test.assert((select name='Bellows Verified' from public.vendors where id='40000000-0000-0000-0000-000000000001'),'manager can manage catalog');
+reset role;
+set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);
+do $$begin begin perform public.admin_upsert_membership('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','read_only_viewer','20000000-0000-0000-0000-000000000001'); raise exception 'staff administration unexpectedly succeeded'; exception when raise_exception then if sqlerrm='staff administration unexpectedly succeeded' then raise; end if; end; end$$;
+reset role;
+
 set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);
 select test.assert((select count(*)=1 from public.organizations),'staff sees own organization only');
 select test.assert((select count(*)=1 from public.locations),'staff sees own location only');
