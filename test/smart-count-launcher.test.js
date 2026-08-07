@@ -296,7 +296,7 @@ test('Merchants Clear Order is confirmed, idempotent, persistent, and isolated f
   assert.match(clear,/merchantView="Mixer"/);assert.match(clear,/pushCounts\(S\.counts\)/);assert.match(clear,/sbb-counts-cleared/);
   assert.doesNotMatch(clear,/S\.history|saveDB|delDB|buildTo|pgSaveCatalogEdits|pourgrid-scan-history/);
   const merchants=html.slice(html.indexOf('function rMerchantsCountWorkspace'),html.indexOf('function rCatGrid'));
-  assert.match(merchants,/Clear Order/);assert.match(merchants,/pgOpenMerchantsClearOrder/);
+  assert.match(merchants,/Clear Order/);assert.match(merchants,/pgOpenMerchantsClearOrder/);assert.match(merchants,/if\(!pgDraftHasMeaningfulWork\("merchants"\)\)clear\.disabled=true/);
 });
 
 test('Merchants clear executes across Mixers and Fruit while preserving Bar state',()=>{
