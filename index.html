@@ -1701,29 +1701,18 @@ function pgClearWorkflowDraft(type,options){
   if(options.render!==false)render();
 }
 
-var pgClearOrderBusy=false;
-function pgClearOrderConfig(type){
-  return type==="merchants"?{type:"merchants",name:"Merchants",title:"Clear Merchants Order?",message:"This will permanently clear the current Mixers and Fruit order. Submitted orders and Bar will not be affected."}:{type:"bar",name:"Bar",title:"Clear Bar Order?",message:"This will permanently clear the current Bar order. Submitted orders and Merchants will not be affected."};
-}
-function pgOpenClearOrder(type,trigger){
-  var config=pgClearOrderConfig(type);
-  if(!pgDraftHasMeaningfulWork(config.type)){toast(config.name+" order is already empty");return;}
-  s4Sheet(config.title,config.message,
-    '<div class="s6-sheet-actions pg-clear-order-actions"><button class="s6-sheet-btn danger" id="pgClearOrderConfirm">Clear Order</button><button class="s6-sheet-btn" id="pgClearOrderCancel">Cancel</button></div>',{locked:true,returnFocus:trigger});
-  setTimeout(function(){
-    var yes=document.getElementById("pgClearOrderConfirm"),no=document.getElementById("pgClearOrderCancel");
-    if(no)no.onclick=function(){s4CloseSheet();};
-    if(yes)yes.onclick=function(){if(pgClearOrderBusy)return;pgClearOrderBusy=true;yes.disabled=true;yes.setAttribute("aria-busy","true");pgClearWorkflowDraft(config.type);s4CloseSheet();pgClearOrderBusy=false;toast(config.name+" order cleared");};
-    if(no)no.focus();
-  },0);
+function pgClearOrderName(type){return type==="merchants"?"Merchants":"Bar";}
+function pgClearActiveOrder(type){
+  if(!pgDraftHasMeaningfulWork(type))return;
+  pgClearWorkflowDraft(type);
 }
 function pgCountClearContext(type,products){
   var hasWork=pgDraftHasMeaningfulWork(type),counted=(products||[]).filter(function(product){return pgHasPhysicalCount(product);}).length,row=d("ch"),label=sp("cc",hasWork?(counted===(products||[]).length&&counted>0?"Count complete":"Keep counting"):"Ready to start");
-  var clear=btn("clrbtn","Clear",function(){pgOpenClearOrder(type,clear);});clear.type="button";clear.setAttribute("aria-label","Clear "+pgClearOrderConfig(type).name+" order");clear.setAttribute("data-workflow",type);clear.hidden=!hasWork;clear.disabled=!hasWork;ap(row,label,clear);return row;
+  var clear=btn("clrbtn","Clear",function(){pgClearActiveOrder(type);});clear.type="button";clear.setAttribute("aria-label","Clear "+pgClearOrderName(type)+" order");clear.setAttribute("data-workflow",type);clear.hidden=!hasWork;clear.disabled=!hasWork;ap(row,label,clear);return row;
 }
 function pgRefreshCountClearContext(type){
-  var hasWork=pgDraftHasMeaningfulWork(type),config=pgClearOrderConfig(type);
-  document.querySelectorAll('.clrbtn[data-workflow="'+type+'"]').forEach(function(button){button.hidden=!hasWork;button.disabled=!hasWork;button.title=hasWork?"Clear the active "+config.name+" draft":config.name+" order is empty";var label=button.parentNode&&button.parentNode.querySelector(".cc");if(label)label.textContent=hasWork?"Keep counting":"Ready to start";});
+  var hasWork=pgDraftHasMeaningfulWork(type),name=pgClearOrderName(type);
+  document.querySelectorAll('.clrbtn[data-workflow="'+type+'"]').forEach(function(button){button.hidden=!hasWork;button.disabled=!hasWork;button.title=hasWork?"Clear the active "+name+" draft":name+" order is empty";var label=button.parentNode&&button.parentNode.querySelector(".cc");if(label)label.textContent=hasWork?"Keep counting":"Ready to start";});
 }
 
 function pgOpenManualAdjustment(name,trigger){
