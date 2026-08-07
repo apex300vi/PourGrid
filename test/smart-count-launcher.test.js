@@ -316,7 +316,7 @@ test('manual adjustments persist per workflow without mutating inventory or buil
   const persistence=html.slice(html.indexOf('var PG_DRAFT_KEY'),html.indexOf('function pgMigrateMerchantPackaging'));
   assert.match(persistence,/pourgrid-order-drafts-v2/);assert.match(persistence,/record\.adjustments=adjustments/);assert.match(persistence,/record\.adjustmentMeta=meta/);assert.match(persistence,/record\.note=S\.notes/);
   assert.match(persistence,/pgHydrateDrafts/);assert.match(persistence,/adjustmentMeta:PG_BOOT_DRAFTS\.adjustmentMeta/);
-  const set=html.slice(html.indexOf('function pgSetManualAdjustment'),html.indexOf('function pgDraftHasMeaningfulWork'));
+  const set=html.slice(html.indexOf('function pgSetManualAdjustment'),html.indexOf('function pgDraftWorkState'));
   assert.match(set,/pgStartSession\(type\)/);assert.match(set,/pgPersistDraft\(type\)/);assert.match(set,/reason:reason\|\|""/);assert.match(set,/note:note\|\|""/);
   assert.doesNotMatch(set,/counts\[|buildTo\s*=|pgSaveCatalogEdits/);
 });
@@ -332,8 +332,8 @@ test('manual additions with zero calculated demand reach vendor output and submi
   context.S.adjustments={'Any Adjusted Product':3};
   const generic=context.build({name:'Any Adjusted Product',dist:'CC1',cat:'Other',pack:1,unit:'Case',buildTo:0});
   assert.equal(generic.adjQty,3);assert.equal(context.visible(generic),true);
-  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));
-  assert.match(order,/prods\.map\(pgOrderItem\)\.filter\(pgOrderItemVisible\)/);assert.match(order,/Add or Adjust Product/);assert.match(order,/pgOpenAdjustmentPicker/);assert.match(order,/pgOpenManualAdjustment/);
+  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos')),controls=html.slice(html.indexOf('function pgClearOrderButton'),html.indexOf('function pgOpenManualAdjustment'));
+  assert.match(order,/prods\.map\(pgOrderItem\)\.filter\(pgOrderItemVisible\)/);assert.match(order,/pgClearOrderControls\(activeType,true\)/);assert.match(controls,/Add or Adjust Product/);assert.match(controls,/pgOpenAdjustmentPicker/);
   assert.match(order,/calculatedOrderQty:base===null\?0:base/);assert.match(order,/manualAdjustment:adj/);assert.match(order,/manualAdjustmentDetails:manual/);assert.match(order,/finalOrderQty:final/);
   assert.match(order,/items\.filter\(function\(p\)\{return p\.dist===dist&&p\.adjQty>0;/);
   assert.match(order,/Saved manual adjustments/);assert.match(order,/Assigned vendor:/);assert.match(order,/Use the vendor tabs above to review them/);
@@ -392,13 +392,43 @@ test('Bar and Merchants share one canonical Clear Order interaction with workflo
   const clear=html.slice(html.indexOf('function pgDraftHasMeaningfulWork'),html.indexOf('function pgOpenManualAdjustment'));
   assert.match(clear,/function pgClearOrderConfig/);assert.match(clear,/Clear Merchants Order\?/);assert.match(clear,/current Mixers and Fruit order/);assert.match(clear,/Clear Bar Order\?/);assert.match(clear,/Submitted orders and Bar will not be affected/);assert.match(clear,/Submitted orders and Merchants will not be affected/);
   assert.match(clear,/function pgOpenClearOrder/);assert.match(clear,/function pgClearOrderButton/);assert.match(clear,/pg-clear-order-actions/);assert.match(clear,/s6-sheet-btn danger/);assert.match(clear,/Clear Order/);assert.match(clear,/Cancel/);assert.match(clear,/locked:true/);assert.match(clear,/returnFocus:trigger/);
-  assert.match(clear,/pgClearOrderBusy/);assert.match(clear,/yes\.disabled=true/);assert.match(clear,/aria-busy/);assert.match(clear,/s5ShowSuccess/);assert.match(clear,/button\.disabled=!pgDraftHasMeaningfulWork\(type\)/);assert.match(clear,/if\(no\)no\.focus\(\)/);
+  assert.match(clear,/pgClearOrderBusy/);assert.match(clear,/yes\.disabled=true/);assert.match(clear,/aria-busy/);assert.match(clear,/s5ShowSuccess/);assert.match(clear,/button\.disabled=!hasWork/);assert.match(clear,/if\(no\)no\.focus\(\)/);
   assert.match(clear,/pgPruneWorkflowDraftState\(type,S,products\)/);assert.match(clear,/delete drafts\[type\]/);assert.match(clear,/delete sessions\[type\]/);
   assert.match(clear,/merchantView="Mixer"/);assert.match(clear,/pushCounts\(S\.counts\)/);assert.match(clear,/sbb-counts-cleared/);
   assert.doesNotMatch(clear,/S\.history|saveDB|delDB|buildTo|pgSaveCatalogEdits|pourgrid-scan-history/);
+  const barCount=html.slice(html.indexOf('function rBarCountWorkspace'),html.indexOf('function rMerchantsCountWorkspace'));
   const merchants=html.slice(html.indexOf('function rMerchantsCountWorkspace'),html.indexOf('function rCatGrid'));
-  assert.doesNotMatch(merchants,/Clear Order|pgOpenClearOrder|pg-clear-order/);
-  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));assert.match(order,/activeType=isG\?"merchants":"bar"/);assert.match(order,/orderTools\.appendChild\(pgClearOrderButton\(activeType\)\)/);assert.equal((order.match(/pgClearOrderButton\(activeType\)/g)||[]).length,1);
+  assert.match(barCount,/pgClearOrderControls\("bar",false\)/);assert.match(merchants,/pgClearOrderControls\("merchants",false\)/);
+  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));assert.match(order,/activeType=isG\?"merchants":"bar"/);assert.match(order,/pgClearOrderControls\(activeType,true\)/);assert.equal((order.match(/pgClearOrderControls\(activeType,true\)/g)||[]).length,1);
+});
+
+test('Clear Order visibility detects every persisted workflow work surface without cross-contamination',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm');
+  const bar={name:'BarA'},mixer={name:'MixerA'},fruit={name:'FruitA'};
+  function evaluate(overrides,type){
+    const base={counts:{},adjustments:{},adjustmentMeta:{},notes:{bar:'',mer:''}},context={S:null,Object,String,Number,Array};context.S=Object.assign(base,overrides.S||{});
+    context.pgProductSet=t=>t==='merchants'?[mixer,fruit]:[bar];context.pgSession=()=>overrides.session||{};context.pgDraftNoteKey=t=>t==='merchants'?'mer':'bar';context.pgDraftRecord=(t)=>((overrides.drafts||{})[t]||null);context.pgEmailStatus=()=>overrides.email||{};
+    const source=html.slice(html.indexOf('function pgDraftWorkState'),html.indexOf('function pgWorkflowCountSnapshot'));vm.runInNewContext(source+';this.has=pgDraftHasMeaningfulWork;this.state=pgDraftWorkState;',context);return {has:context.has(type),state:context.state(type)};
+  }
+  assert.equal(evaluate({},'bar').has,false);
+  assert.equal(evaluate({S:{counts:{BarA:'0'}}},'bar').has,true);
+  assert.equal(evaluate({S:{counts:{'MixerA::cases':'2'}}},'merchants').has,true);
+  assert.equal(evaluate({S:{adjustments:{BarA:2}}},'bar').has,true);
+  assert.equal(evaluate({S:{adjustmentMeta:{MixerA:{reason:'event'}}}},'merchants').has,true);
+  assert.equal(evaluate({S:{notes:{bar:'order note',mer:''}}},'bar').has,true);
+  assert.equal(evaluate({email:{mer:{Merchants:{copiedAt:1}}}},'merchants').has,true);
+  assert.equal(evaluate({session:{merchants:{touched:['FruitA']}}},'merchants').has,true);
+  assert.equal(evaluate({drafts:{bar:{adjustments:{BarA:1}}}},'bar').has,true);
+  assert.equal(evaluate({S:{counts:{MixerA:'3'}}},'bar').has,false);
+});
+
+test('shared renderer produces an on-screen actionable Clear Order button for Bar and Merchants',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm');
+  function element(tag,cls){return {tag,className:cls||'',children:[],attributes:{},style:{},appendChild(child){this.children.push(child);},setAttribute(key,value){this.attributes[key]=String(value);}};}
+  const context={mk:(tag,cls)=>element(tag,cls),d:cls=>element('div',cls),pgDraftHasMeaningfulWork:()=>true,pgClearOrderConfig:type=>({type,name:type==='merchants'?'Merchants':'Bar'}),pgOpenClearOrder:()=>{},pgOpenAdjustmentPicker:()=>{}};
+  const source=html.slice(html.indexOf('function pgClearOrderButton'),html.indexOf('function pgOpenManualAdjustment'));vm.runInNewContext(source+';this.controls=pgClearOrderControls;',context);
+  ['bar','merchants'].forEach(type=>{const controls=context.controls(type,true),clear=controls.children[1];assert.equal(controls.className,'pg-order-tools');assert.equal(clear.className,'pg-clear-order');assert.equal(clear.disabled,false);assert.equal(clear.attributes['data-workflow'],type);assert.equal(clear.attributes['data-clearable'],'true');assert.equal(clear.textContent,'🗑 Clear Order');});
+  assert.match(html,/\.pg-order-tools\{display:flex!important;visibility:visible!important/);assert.match(html,/\.pg-order-tools button\{display:block;visibility:visible;min-height:44px/);assert.match(html,/\.pg-count-order-tools \.pg-clear-order\{flex:1 1 100%\}/);
 });
 
 test('Merchants clear executes across Mixers and Fruit while preserving Bar state',()=>{
