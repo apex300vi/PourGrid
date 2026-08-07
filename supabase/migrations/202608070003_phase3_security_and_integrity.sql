@@ -117,18 +117,18 @@ create policy reconciliation_request on public.reconciliation_requests for inser
 
 create function public.admin_upsert_membership(p_org uuid,p_user uuid,p_role public.app_role,p_location uuid) returns uuid
 language plpgsql security definer set search_path=pg_catalog,public,pg_temp as $$
-declare membership_id uuid;
+declare v_membership_id uuid;
 begin
  if not public.has_org_role(p_org,array['administrator']::public.app_role[]) then raise exception 'Administrator required'; end if;
  if not exists(select 1 from public.profiles where id=p_user) then raise exception 'Unknown profile'; end if;
  if not exists(select 1 from public.locations where id=p_location and organization_id=p_org) then raise exception 'Location is outside organization'; end if;
  insert into public.memberships(organization_id,user_id,role) values(p_org,p_user,p_role)
- on conflict(organization_id,user_id) do update set role=excluded.role returning id into membership_id;
- insert into public.location_memberships(membership_id,location_id,organization_id) values(membership_id,p_location,p_org)
+ on conflict(organization_id,user_id) do update set role=excluded.role returning id into v_membership_id;
+ insert into public.location_memberships(membership_id,location_id,organization_id) values(v_membership_id,p_location,p_org)
  on conflict(membership_id,location_id) do update set organization_id=excluded.organization_id;
  insert into public.audit_events(organization_id,location_id,actor_id,event_type,entity_table,entity_id,detail)
- values(p_org,p_location,auth.uid(),'membership.upserted','memberships',membership_id,jsonb_build_object('user_id',p_user,'role',p_role));
- return membership_id;
+ values(p_org,p_location,auth.uid(),'membership.upserted','memberships',v_membership_id,jsonb_build_object('user_id',p_user,'role',p_role));
+ return v_membership_id;
 end$$;
 revoke all on function public.admin_upsert_membership(uuid,uuid,public.app_role,uuid) from public,anon;
 grant execute on function public.admin_upsert_membership(uuid,uuid,public.app_role,uuid) to authenticated;
