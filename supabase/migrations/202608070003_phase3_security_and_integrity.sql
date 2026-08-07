@@ -18,6 +18,10 @@ language sql stable security definer set search_path=pg_catalog,public,pg_temp a
   )
 $$;
 
+drop policy org_read on public.organizations;
+create policy org_read on public.organizations for select to authenticated
+using(exists(select 1 from public.memberships m where m.organization_id=organizations.id and m.user_id=auth.uid()));
+
 alter table public.locations add constraint locations_id_org_unique unique(id,organization_id);
 alter table public.memberships add constraint memberships_id_org_unique unique(id,organization_id);
 alter table public.vendors add constraint vendors_id_org_unique unique(id,organization_id);
