@@ -280,12 +280,44 @@ test('manual adjustments persist per workflow without mutating inventory or buil
 
 test('manual additions with zero calculated demand reach vendor output and submitted History',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const vm=require('node:vm'),context={S:{adjustments:{'Deep Eddy Grapefruit':2}},cq:()=>null,pgEffectiveCount:()=>'',Object};
+  const lifecycle=html.slice(html.indexOf('function pgOrderItem'),html.indexOf('var PG_DRAFT_KEY'));
+  vm.runInNewContext(lifecycle+';this.build=pgOrderItem;this.visible=pgOrderItemVisible;',context);
+  const grapefruit={name:'Deep Eddy Grapefruit',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',buildTo:6};
+  const line=context.build(grapefruit);
+  assert.equal(line.orderQty,null);assert.equal(line.adj,2);assert.equal(line.adjQty,2);assert.equal(context.visible(line),true);
+  context.S.adjustments={'Any Adjusted Product':3};
+  const generic=context.build({name:'Any Adjusted Product',dist:'CC1',cat:'Other',pack:1,unit:'Case',buildTo:0});
+  assert.equal(generic.adjQty,3);assert.equal(context.visible(generic),true);
   const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));
-  assert.match(order,/adj>0\?adj:null/);assert.match(order,/Add or Adjust Product/);assert.match(order,/pgOpenAdjustmentPicker/);assert.match(order,/pgOpenManualAdjustment/);
+  assert.match(order,/prods\.map\(pgOrderItem\)\.filter\(pgOrderItemVisible\)/);assert.match(order,/Add or Adjust Product/);assert.match(order,/pgOpenAdjustmentPicker/);assert.match(order,/pgOpenManualAdjustment/);
   assert.match(order,/calculatedOrderQty:base===null\?0:base/);assert.match(order,/manualAdjustment:adj/);assert.match(order,/manualAdjustmentDetails:manual/);assert.match(order,/finalOrderQty:final/);
   assert.match(order,/items\.filter\(function\(p\)\{return p\.dist===dist&&p\.adjQty>0;/);
+  assert.match(order,/Saved manual adjustments/);assert.match(order,/Assigned vendor:/);assert.match(order,/Use the vendor tabs above to review them/);
   const history=html.slice(html.indexOf('function rHistDet'),html.indexOf('function rEmpty'));
   assert.match(history,/Manual addition/);assert.match(history,/Calculated .*Manual .*Final/);
+});
+
+test('Deep Eddy Grapefruit adjustment persists under the active Bar draft and remains observable until removed or submitted',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm');
+  const stored={},deep={name:'Deep Eddy Grapefruit',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',buildTo:6};
+  const context={BAR:[deep],MER:[],S:{adjustments:{deep:99,'Deep Eddy Grapefruit':2},adjustmentMeta:{'Deep Eddy Grapefruit':{cases:2,loose:0,direction:'add',orderUnits:2}},notes:{bar:'',mer:''}},lsGet:key=>stored[key],lsSet:(key,value)=>{stored[key]=JSON.parse(JSON.stringify(value));},Date,Math,Object};
+  const persistence=html.slice(html.indexOf('var PG_DRAFT_KEY'),html.indexOf('var PG_BOOT_DRAFTS'));
+  vm.runInNewContext(persistence+';this.persist=pgPersistDraft;this.hydrate=pgHydrateDrafts;this.record=pgDraftRecord;',context);
+  const record=context.persist('bar');
+  assert.match(record.id,/^bar-/);assert.equal(record.adjustments['Deep Eddy Grapefruit'],2);assert.equal(record.adjustments.deep,undefined);
+  const hydrated=context.hydrate();assert.equal(hydrated.adjustments['Deep Eddy Grapefruit'],2);assert.equal(hydrated.adjustmentMeta['Deep Eddy Grapefruit'].cases,2);
+  const setter=html.slice(html.indexOf('function pgSetManualAdjustment'),html.indexOf('function pgDraftHasMeaningfulWork'));
+  assert.match(setter,/product\.name/);assert.match(setter,/pgPersistDraft\(type\)/);assert.match(setter,/product:product\.name/);assert.match(setter,/vendor:product\.dist/);assert.match(setter,/final:finalOrderQty\(product\)/);
+  assert.match(html,/Saved order adjustment/);assert.match(html,/Review on Order & Send/);assert.match(html,/saved · Final/);
+  const routes=html.slice(html.indexOf('function pgRouteSnapshot'),html.indexOf('var pgSheetGestures'));
+  assert.doesNotMatch(routes,/adjustments\s*:/);assert.doesNotMatch(routes,/adjustmentMeta\s*:/);
+  const remove=html.slice(html.indexOf('function pgRemoveManualAdjustment'),html.indexOf('function pgDraftHasMeaningfulWork'));
+  assert.match(remove,/delete adjustments\[product\.name\]/);assert.match(remove,/delete meta\[product\.name\]/);assert.match(remove,/pgPersistDraft\(type\)/);
+  assert.match(remove,/function pgStepManualAdjustment/);assert.match(remove,/pgStartSession\(type\)/);
+  const submission=html.slice(html.indexOf('var saveBtn=mk'),html.indexOf('function calcSuggestedBuildTos'));
+  assert.match(submission,/calculatedOrderQty:base===null\?0:base/);assert.match(submission,/manualAdjustment:adj/);assert.match(submission,/finalOrderQty:final/);assert.match(submission,/draftId:activeSession\.id/);
+  assert.doesNotMatch(setter,/S\.counts\s*=|buildTo\s*=|pgSaveCatalogEdits/);
 });
 
 test('Merchants Clear Order is confirmed, idempotent, persistent, and isolated from Bar and History',()=>{
