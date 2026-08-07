@@ -265,7 +265,33 @@ test('manual adjustment parser supports cases, bottles, conversion, direction, a
   assert.equal(context.adjust({unit:'Bottle',pack:12},'1','4','add').orderUnits,16);
   assert.equal(context.adjust({unit:'Bottle',pack:12},'1','4','reduce').orderUnits,-16);
   ['-1','1.5','nope','NaN','Infinity'].forEach(value=>assert.equal(context.adjust({unit:'Bottle',pack:12},value,'','add').valid,false));
-  assert.equal(context.adjust({unit:'Bottle',pack:12},'0','0','add').valid,false);
+  const zero=context.adjust({unit:'Bottle',pack:12},'0','0','add');assert.equal(zero.valid,true);assert.equal(zero.zero,true);assert.equal(zero.orderUnits,0);
+});
+
+test('Deep Eddy Grapefruit is case preferred and preserves exact case and bottle adjustments',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm');
+  const quantities=html.slice(html.indexOf('function pgWholeQuantity'),html.indexOf('function pgPackParts'));
+  const purchasing=html.slice(html.indexOf('function pgAdjustmentCapability'),html.indexOf('function pgSetManualAdjustment'));
+  const context={pgPack:()=>null,pgPlural:(n,one,many)=>Number(n)===1?one:many};
+  vm.runInNewContext(quantities+purchasing+';this.adjust=pgManualAdjustment;this.capability=pgAdjustmentCapability;this.breakdown=pgFinalPurchaseBreakdown;this.manualText=pgManualPurchaseText;this.finalText=pgFinalPurchaseText;',context);
+  const deep={name:'Deep Eddy Grapefruit',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',purchaseRule:'casePreferred',bottleMl:1000,buildTo:6};
+  const twoCases=context.adjust(deep,'2','','add');assert.equal(twoCases.orderUnits,2);assert.equal(twoCases.cases,2);assert.equal(twoCases.loose,0);
+  const bottles=context.adjust(deep,'0','3','add');assert.equal(bottles.orderUnits,.25);assert.equal(context.manualText(deep,{cases:0,loose:3,direction:'add'},.25),'+3 individual bottles');
+  const combined=context.adjust(deep,'1','2','add');assert.equal(combined.orderUnits,14/12);assert.equal(context.manualText(deep,{cases:1,loose:2,direction:'add'},14/12),'+1 case + 2 individual bottles');
+  assert.equal(context.adjust(deep,'','','add').valid,false);
+  const enteredZero=context.adjust(deep,'0','0','add');assert.equal(enteredZero.valid,true);assert.equal(enteredZero.zero,true);assert.equal(enteredZero.orderUnits,0);
+  const finalBottles=context.breakdown(deep,0,{cases:0,loose:3,direction:'add'});assert.deepEqual({...finalBottles},{cases:0,loose:3,totalBottles:3,unitsPerCase:12,rule:'casePreferred'});assert.equal(context.finalText(deep,.25,finalBottles),'3 individual bottles');
+  const finalCombined=context.breakdown(deep,0,{cases:1,loose:2,direction:'add'});assert.equal(context.finalText(deep,14/12,finalCombined),'1 case + 2 individual bottles');
+  const reduced=context.adjust(deep,'0','1','reduce');assert.ok(0+reduced.orderUnits<0);assert.equal(1+reduced.orderUnits,11/12);
+  ['-1','1.5','nope','NaN','Infinity'].forEach(value=>{assert.equal(context.adjust(deep,value,'','add').valid,false);assert.equal(context.adjust(deep,'',value,'add').valid,false);});
+  assert.equal(context.capability(deep).allowLoose,true);assert.equal(context.capability(deep).unitsPerCase,12);assert.equal(context.capability(deep).rule,'casePreferred');
+  const lime={name:'Lime Juice',unit:'Case',pack:12};assert.equal(context.adjust(lime,'0','3','add').valid,false);assert.equal(context.capability(lime).rule,'caseOnly');
+  const tito={name:"Tito's Handmade Vodka",unit:'Case',pack:12};assert.equal(context.adjust(tito,'0','3','add').valid,false);assert.equal(context.capability(tito).allowLoose,false);
+  const bottleOnly={name:'Bombay Sapphire Gin',unit:'Bottle',pack:12};assert.equal(context.adjust(bottleOnly,'0','3','add').orderUnits,3);assert.equal(context.adjust(bottleOnly,'1','2','add').orderUnits,14);
+  const explicitBottleOnly={name:'Bottle Only',unit:'Bottle',pack:12,purchaseRule:'bottleOnly'};assert.equal(context.capability(explicitBottleOnly).allowCases,false);assert.equal(context.adjust(explicitBottleOnly,'1','0','add').valid,false);
+  const caseOrBottle={name:'Routine Split',unit:'Case',pack:12,purchaseRule:'caseOrBottle'};assert.equal(context.capability(caseOrBottle).allowCases,true);assert.equal(context.capability(caseOrBottle).allowLoose,true);
+  assert.match(html,/PG_PURCHASE_RULES=\{"Deep Eddy Grapefruit":"casePreferred"\}/);
+  assert.match(html,/"Deep Eddy Grapefruit"[\s\S]*?"pack":12[\s\S]*?"unit":"Case"[\s\S]*?"bottleMl":1000/);
 });
 
 test('manual adjustments persist per workflow without mutating inventory or build-to',()=>{
@@ -280,7 +306,7 @@ test('manual adjustments persist per workflow without mutating inventory or buil
 
 test('manual additions with zero calculated demand reach vendor output and submitted History',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
-  const vm=require('node:vm'),context={S:{adjustments:{'Deep Eddy Grapefruit':2}},cq:()=>null,pgEffectiveCount:()=>'',Object};
+  const vm=require('node:vm'),context={S:{adjustments:{'Deep Eddy Grapefruit':2},adjustmentMeta:{}},cq:()=>null,pgEffectiveCount:()=>'',pgFinalPurchaseBreakdown:()=>null,Object};
   const lifecycle=html.slice(html.indexOf('function pgOrderItem'),html.indexOf('var PG_DRAFT_KEY'));
   vm.runInNewContext(lifecycle+';this.build=pgOrderItem;this.visible=pgOrderItemVisible;',context);
   const grapefruit={name:'Deep Eddy Grapefruit',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',buildTo:6};
@@ -318,6 +344,30 @@ test('Deep Eddy Grapefruit adjustment persists under the active Bar draft and re
   const submission=html.slice(html.indexOf('var saveBtn=mk'),html.indexOf('function calcSuggestedBuildTos'));
   assert.match(submission,/calculatedOrderQty:base===null\?0:base/);assert.match(submission,/manualAdjustment:adj/);assert.match(submission,/finalOrderQty:final/);assert.match(submission,/draftId:activeSession\.id/);
   assert.doesNotMatch(setter,/S\.counts\s*=|buildTo\s*=|pgSaveCatalogEdits/);
+});
+
+test('Deep Eddy case and bottle components edit, persist, route to Bellows, submit, render in History, and remove cleanly',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm');
+  const stored={},deep={name:'Deep Eddy Grapefruit',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',purchaseRule:'casePreferred',bottleMl:1000,buildTo:6};
+  const context={BAR:[deep],MER:[],S:{adjustments:{'Deep Eddy Grapefruit':14/12},adjustmentMeta:{'Deep Eddy Grapefruit':{cases:1,loose:2,direction:'add',orderUnits:14/12}},notes:{bar:'',mer:''}},lsGet:key=>stored[key],lsSet:(key,value)=>{stored[key]=JSON.parse(JSON.stringify(value));},Date,Math,Object};
+  const persistence=html.slice(html.indexOf('var PG_DRAFT_KEY'),html.indexOf('var PG_BOOT_DRAFTS'));
+  vm.runInNewContext(persistence+';this.persist=pgPersistDraft;this.hydrate=pgHydrateDrafts;',context);
+  context.persist('bar');let hydrated=context.hydrate();assert.equal(hydrated.adjustments['Deep Eddy Grapefruit'],14/12);assert.equal(hydrated.adjustmentMeta['Deep Eddy Grapefruit'].cases,1);assert.equal(hydrated.adjustmentMeta['Deep Eddy Grapefruit'].loose,2);
+  context.S.adjustments['Deep Eddy Grapefruit']=.25;context.S.adjustmentMeta['Deep Eddy Grapefruit']={cases:0,loose:3,direction:'add',orderUnits:.25};context.persist('bar');hydrated=context.hydrate();assert.equal(hydrated.adjustmentMeta['Deep Eddy Grapefruit'].cases,0);assert.equal(hydrated.adjustmentMeta['Deep Eddy Grapefruit'].loose,3);
+  context.S.adjustments['Deep Eddy Grapefruit']=2;context.S.adjustmentMeta['Deep Eddy Grapefruit']={cases:2,loose:0,direction:'add',orderUnits:2};context.persist('bar');hydrated=context.hydrate();assert.equal(hydrated.adjustmentMeta['Deep Eddy Grapefruit'].cases,2);assert.equal(hydrated.adjustmentMeta['Deep Eddy Grapefruit'].loose,0);
+  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));
+  assert.match(order,/pgOrderLine\(p,p\.adjQty\)/);assert.match(order,/finalPurchaseBreakdown:pgFinalPurchaseBreakdown\(p,base,manual\)/);assert.match(order,/pgManualPurchaseText/);assert.match(order,/pgFinalPurchaseText/);
+  assert.match(order,/if\(p\.supplier==="West Indies"\|\|WI_PRODS2\.indexOf\(p\.name\)>=0\)wLines\.push\(line\);else bLines\.push\(line\)/);assert.doesNotMatch(order,/WI_PRODS2=\[[^\]]*Deep Eddy Grapefruit/);
+  const sheet=html.slice(html.indexOf('function pgOpenManualAdjustment'),html.indexOf('function pgOpenAdjustmentPicker'));assert.match(sheet,/base\+result\.orderUnits<0/);assert.match(sheet,/The final order cannot be negative/);
+  const formatter=html.slice(html.indexOf('function pgPlural'),html.indexOf('function pgStoliFlavor'));
+  const formatContext={pgFinalPurchaseText:(p,q,b)=>b.loose&&!b.cases?b.loose+' individual bottles':b.cases+' case'+(b.cases===1?'':'s')+(b.loose?' + '+b.loose+' individual bottles':''),pgPlural:(n,o,m)=>Number(n)===1?o:m};
+  vm.runInNewContext(formatter+';this.line=pgOrderLine;',formatContext);
+  assert.equal(formatContext.line(Object.assign({},deep,{finalPurchaseBreakdown:{cases:0,loose:3}}),.25),'3 individual bottles - Deep Eddy Grapefruit');
+  assert.equal(formatContext.line(Object.assign({},deep,{finalPurchaseBreakdown:{cases:1,loose:2}}),14/12),'1 case + 2 individual bottles - Deep Eddy Grapefruit');
+  const history=html.slice(html.indexOf('function rHistDet'),html.indexOf('function rEmpty'));assert.match(history,/pgManualPurchaseText/);assert.match(history,/pgFinalPurchaseText/);
+  const remove=html.slice(html.indexOf('function pgRemoveManualAdjustment'),html.indexOf('function pgDraftHasMeaningfulWork'));assert.match(remove,/delete adjustments\[product\.name\]/);assert.match(remove,/delete meta\[product\.name\]/);assert.match(remove,/pgPersistDraft\(type\)/);
+  const routes=html.slice(html.indexOf('function pgRouteSnapshot'),html.indexOf('var pgSheetGestures'));assert.doesNotMatch(routes,/adjustments\s*:/);assert.doesNotMatch(routes,/adjustmentMeta\s*:/);
+  const setter=html.slice(html.indexOf('function pgSetManualAdjustment'),html.indexOf('function pgDraftHasMeaningfulWork'));assert.doesNotMatch(setter,/S\.counts\s*=|buildTo\s*=|pgSaveCatalogEdits/);
 });
 
 test('Merchants Clear Order is confirmed, idempotent, persistent, and isolated from Bar and History',()=>{
