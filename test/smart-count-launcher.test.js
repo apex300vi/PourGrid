@@ -252,3 +252,79 @@ test('failed-photo sheet is compact, non-repetitive, and preserves successful wo
   assert.match(html,/\.pg-vision-failure-actions\{display:grid;grid-template-columns:1fr/);
   assert.match(html,/\.pg-vision-failure-actions button\{width:100%/);
 });
+
+test('manual adjustment parser supports cases, bottles, conversion, direction, and safe validation',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm'),context={};
+  const quantities=html.slice(html.indexOf('function pgWholeQuantity'),html.indexOf('function pgPackParts'));
+  const adjustments=html.slice(html.indexOf('function pgAdjustmentCapability'),html.indexOf('function pgSetManualAdjustment'));
+  context.pgPack=()=>null;vm.runInNewContext(quantities+adjustments+';this.adjust=pgManualAdjustment;',context);
+  const casesOnly=context.adjust({unit:'Case',pack:12},'2','','add');assert.equal(casesOnly.valid,true);assert.equal(casesOnly.orderUnits,2);assert.equal(casesOnly.cases,2);assert.equal(casesOnly.loose,0);assert.equal(casesOnly.capability.allowLoose,false);
+  assert.equal(context.adjust({unit:'Case',pack:12},'2','1','add').valid,false);
+  assert.equal(context.adjust({unit:'Bottle',pack:12},'','','add').valid,false);
+  assert.equal(context.adjust({unit:'Bottle',pack:12},'0','5','add').orderUnits,5);
+  assert.equal(context.adjust({unit:'Bottle',pack:12},'1','4','add').orderUnits,16);
+  assert.equal(context.adjust({unit:'Bottle',pack:12},'1','4','reduce').orderUnits,-16);
+  ['-1','1.5','nope','NaN','Infinity'].forEach(value=>assert.equal(context.adjust({unit:'Bottle',pack:12},value,'','add').valid,false));
+  assert.equal(context.adjust({unit:'Bottle',pack:12},'0','0','add').valid,false);
+});
+
+test('manual adjustments persist per workflow without mutating inventory or build-to',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const persistence=html.slice(html.indexOf('var PG_DRAFT_KEY'),html.indexOf('function pgMigrateMerchantPackaging'));
+  assert.match(persistence,/pourgrid-order-drafts-v2/);assert.match(persistence,/record\.adjustments=adjustments/);assert.match(persistence,/record\.adjustmentMeta=meta/);assert.match(persistence,/record\.note=S\.notes/);
+  assert.match(persistence,/pgHydrateDrafts/);assert.match(persistence,/adjustmentMeta:PG_BOOT_DRAFTS\.adjustmentMeta/);
+  const set=html.slice(html.indexOf('function pgSetManualAdjustment'),html.indexOf('function pgDraftHasMeaningfulWork'));
+  assert.match(set,/pgStartSession\(type\)/);assert.match(set,/pgPersistDraft\(type\)/);assert.match(set,/reason:reason\|\|""/);assert.match(set,/note:note\|\|""/);
+  assert.doesNotMatch(set,/counts\[|buildTo\s*=|pgSaveCatalogEdits/);
+});
+
+test('manual additions with zero calculated demand reach vendor output and submitted History',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));
+  assert.match(order,/adj>0\?adj:null/);assert.match(order,/Add or Adjust Product/);assert.match(order,/pgOpenAdjustmentPicker/);assert.match(order,/pgOpenManualAdjustment/);
+  assert.match(order,/calculatedOrderQty:base===null\?0:base/);assert.match(order,/manualAdjustment:adj/);assert.match(order,/manualAdjustmentDetails:manual/);assert.match(order,/finalOrderQty:final/);
+  assert.match(order,/items\.filter\(function\(p\)\{return p\.dist===dist&&p\.adjQty>0;/);
+  const history=html.slice(html.indexOf('function rHistDet'),html.indexOf('function rEmpty'));
+  assert.match(history,/Manual addition/);assert.match(history,/Calculated .*Manual .*Final/);
+});
+
+test('Merchants Clear Order is confirmed, idempotent, persistent, and isolated from Bar and History',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const clear=html.slice(html.indexOf('function pgDraftHasMeaningfulWork'),html.indexOf('function pgOpenManualAdjustment'));
+  assert.match(clear,/Clear Merchants order\?/);assert.match(clear,/both Mixers and Fruit/);assert.match(clear,/Cancel/);assert.match(clear,/pgClearOrderBusy/);assert.match(clear,/yes\.disabled=true/);
+  assert.match(clear,/pgPruneWorkflowDraftState\(type,S,products\)/);assert.match(clear,/delete drafts\[type\]/);assert.match(clear,/delete sessions\[type\]/);
+  assert.match(clear,/merchantView="Mixer"/);assert.match(clear,/pushCounts\(S\.counts\)/);assert.match(clear,/sbb-counts-cleared/);
+  assert.doesNotMatch(clear,/S\.history|saveDB|delDB|buildTo|pgSaveCatalogEdits|pourgrid-scan-history/);
+  const merchants=html.slice(html.indexOf('function rMerchantsCountWorkspace'),html.indexOf('function rCatGrid'));
+  assert.match(merchants,/Clear Order/);assert.match(merchants,/pgOpenMerchantsClearOrder/);
+});
+
+test('Merchants clear executes across Mixers and Fruit while preserving Bar state',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm'),context={pgDraftNoteKey:type=>type==='merchants'?'mer':'bar'};
+  const source=html.slice(html.indexOf('function pgPruneWorkflowDraftState'),html.indexOf('function pgClearWorkflowDraft'));
+  vm.runInNewContext(source+';this.prune=pgPruneWorkflowDraftState;',context);
+  const state={counts:{MixerA:'2','MixerA::loose':'4',FruitA:'1',BarA:'9'},adjustments:{MixerA:2,FruitA:1,BarA:3},adjustmentMeta:{MixerA:{reason:'event'},FruitA:{reason:'manager'},BarA:{reason:'bar'}},notes:{mer:'merchant note',bar:'bar note'}};
+  const result=context.prune('merchants',state,[{name:'MixerA'},{name:'FruitA'}]);
+  assert.equal(result.counts.MixerA,undefined);assert.equal(result.counts['MixerA::loose'],undefined);assert.equal(result.counts.FruitA,undefined);assert.equal(result.counts.BarA,'9');
+  assert.equal(result.adjustments.MixerA,undefined);assert.equal(result.adjustments.FruitA,undefined);assert.equal(result.adjustments.BarA,3);
+  assert.equal(result.adjustmentMeta.MixerA,undefined);assert.equal(result.adjustmentMeta.FruitA,undefined);assert.equal(result.adjustmentMeta.BarA.reason,'bar');
+  assert.equal(result.notes.mer,'');assert.equal(result.notes.bar,'bar note');assert.equal(state.notes.mer,'merchant note');
+});
+
+test('workflow submission clears only its own draft and preserves draft identity in History',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));
+  assert.match(order,/activeType=isG\?"merchants":"bar"/);assert.match(order,/draftId:activeSession\.id\|\|null/);assert.match(order,/orderType:activeType/);
+  assert.match(order,/counts:pgWorkflowCountSnapshot\(activeType\)/);
+  assert.match(order,/pgClearWorkflowDraft\(activeType,\{render:false\}\)/);
+  assert.doesNotMatch(order,/var clearedCounts=\{\}/);assert.doesNotMatch(order,/adjustments:\{\}/);
+  const sessions=html.slice(html.indexOf('function pgStartSession'),html.indexOf('function pgCountTypeForProduct'));
+  assert.match(sessions,/id:pgDraftRecord\(type,true\)\.id/);
+});
+
+test('destructive sheets lock background dismissal and restore focus',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const sheet=html.slice(html.indexOf('var pgSheetReturnFocus'),html.indexOf('function pgTodayKey'));
+  assert.match(sheet,/options\.locked/);assert.match(sheet,/wrap\.dataset\.locked/);assert.match(sheet,/options\.returnFocus\|\|document\.activeElement/);
+  assert.match(html,/window\.s4CloseSheet=function\(\)[\s\S]*pgSheetReturnFocus\.focus/);
+});
