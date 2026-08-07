@@ -76,12 +76,12 @@ test('manual count clearly separates on-hand inventory from the order recommenda
   assert.doesNotMatch(commitSection,/location\.reload/);
 });
 
-test('packaged-item order stays blank until every physical-count field is entered',()=>{
+test('packaged-item order accepts any valid entered component and blocks invalid input',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
   const presenceSection=html.slice(html.indexOf('function pgHasPhysicalCount'),html.indexOf('function pgSavePart'));
-  assert.match(presenceSection,/entered\("cases"\)&&entered\("loose"\)/);
-  assert.match(presenceSection,/entered\("cases"\)&&entered\("inner"\)&&entered\("loose"\)/);
-  assert.match(presenceSection,/entered\("cases"\)&&entered\("halves"\)/);
+  assert.match(presenceSection,/pgPackParts\(S\.counts,p\)/);
+  assert.match(presenceSection,/normalized&&normalized\.valid&&normalized\.entered/);
+  assert.doesNotMatch(presenceSection,/entered\("cases"\)&&entered\("loose"\)/);
   const calculationSection=html.slice(html.indexOf('function cq'),html.indexOf('function finalOrderQty'));
   assert.match(calculationSection,/if\(!pgHasPhysicalCount\(p\)\)return null/);
   const cardSection=html.slice(html.indexOf('function rCatCount'),html.indexOf('function pgPlural'));
