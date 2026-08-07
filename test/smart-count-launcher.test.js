@@ -226,7 +226,7 @@ test('one reusable sheet gesture enforces direction, distance, velocity, scroll,
 test('handled sheets use the reusable safe dismissal controller',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
   assert.match(html,/sheet:overlay\.querySelector\("\.s71-sheet"\)[\s\S]*onDismiss:s71Close/);
-  assert.match(html,/sheet:wrap\.querySelector\("\.s4-sheet"\)[\s\S]*onDismiss:s4CloseSheet/);
+  assert.match(html,/sheet:panel[\s\S]*onDismiss:s4CloseSheet[\s\S]*canDismiss:/);
   assert.match(html,/sheet:modal,handle:visionHandle,direction:"down"[\s\S]*canDismiss:function\(\)\{var safe=/);
 });
 
@@ -251,4 +251,244 @@ test('failed-photo sheet is compact, non-repetitive, and preserves successful wo
   assert.equal((failed.match(/couldn't analyze/g)||[]).length,1);assert.match(failed,/session\.failed\(failedPhotoIds\)/);
   assert.match(html,/\.pg-vision-failure-actions\{display:grid;grid-template-columns:1fr/);
   assert.match(html,/\.pg-vision-failure-actions button\{width:100%/);
+});
+
+test('manual adjustment parser supports cases, bottles, conversion, direction, and safe validation',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm'),context={};
+  const quantities=html.slice(html.indexOf('function pgWholeQuantity'),html.indexOf('function pgPackParts'));
+  const adjustments=html.slice(html.indexOf('function pgAdjustmentCapability'),html.indexOf('function pgSetManualAdjustment'));
+  context.pgPack=()=>null;vm.runInNewContext(quantities+adjustments+';this.adjust=pgManualAdjustment;',context);
+  const casesOnly=context.adjust({dist:'Merchants',unit:'Case',pack:12},'2','','add');assert.equal(casesOnly.valid,true);assert.equal(casesOnly.orderUnits,2);assert.equal(casesOnly.cases,2);assert.equal(casesOnly.loose,0);assert.equal(casesOnly.capability.allowLoose,false);
+  assert.equal(context.adjust({dist:'Merchants',unit:'Case',pack:12},'2','1','add').valid,false);
+  assert.equal(context.adjust({dist:'Merchants',unit:'Bottle',pack:12},'','','add').valid,false);
+  assert.equal(context.adjust({dist:'Merchants',unit:'Bottle',pack:12},'0','5','add').orderUnits,5);
+  assert.equal(context.adjust({dist:'Merchants',unit:'Bottle',pack:12},'1','4','add').orderUnits,16);
+  assert.equal(context.adjust({dist:'Merchants',unit:'Bottle',pack:12},'1','4','reduce').orderUnits,-16);
+  ['-1','1.5','nope','NaN','Infinity'].forEach(value=>assert.equal(context.adjust({dist:'Merchants',unit:'Bottle',pack:12},value,'','add').valid,false));
+  const zero=context.adjust({dist:'Merchants',unit:'Bottle',pack:12},'0','0','add');assert.equal(zero.valid,true);assert.equal(zero.zero,true);assert.equal(zero.orderUnits,0);
+});
+
+test('Bar workflow permits cases and loose units for every valid-pack product while Merchants retains configured rules',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm');
+  const quantities=html.slice(html.indexOf('function pgWholeQuantity'),html.indexOf('function pgPackParts'));
+  const purchasing=html.slice(html.indexOf('function pgAdjustmentCapability'),html.indexOf('function pgSetManualAdjustment'));
+  const context={pgPack:()=>null,pgPlural:(n,one,many)=>Number(n)===1?one:many};
+  vm.runInNewContext(quantities+purchasing+';this.adjust=pgManualAdjustment;this.capability=pgAdjustmentCapability;this.breakdown=pgFinalPurchaseBreakdown;this.manualText=pgManualPurchaseText;this.finalText=pgFinalPurchaseText;',context);
+  const stoli={name:'Stoli Raz',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',purchaseRule:'caseOnly',bottleMl:1000,buildTo:12};
+  const deep={name:'Deep Eddy Grapefruit',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',bottleMl:1000,buildTo:6};
+  const tito={name:"Tito's Handmade Vodka",dist:'CC1',cat:'Vodka',pack:12,unit:'Case',bottleMl:1000};
+  [stoli,deep,tito].forEach(product=>{assert.equal(context.capability(product).rule,'barCaseAndLoose');assert.equal(context.capability(product).allowCases,true);assert.equal(context.capability(product).allowLoose,true);});
+  const twoCases=context.adjust(stoli,'2','','add');assert.equal(twoCases.orderUnits,2);assert.equal(twoCases.cases,2);assert.equal(twoCases.loose,0);
+  const bottles=context.adjust(stoli,'0','3','add');assert.equal(bottles.orderUnits,.25);assert.equal(context.manualText(stoli,{cases:0,loose:3,direction:'add'},.25),'+3 individual bottles');
+  const combined=context.adjust(stoli,'1','2','add');assert.equal(combined.orderUnits,14/12);assert.equal(context.manualText(stoli,{cases:1,loose:2,direction:'add'},14/12),'+1 case + 2 individual bottles');
+  assert.equal(context.adjust(stoli,'','','add').valid,false);
+  const enteredZero=context.adjust(stoli,'0','0','add');assert.equal(enteredZero.valid,true);assert.equal(enteredZero.zero,true);assert.equal(enteredZero.orderUnits,0);
+  const finalBottles=context.breakdown(stoli,0,{cases:0,loose:3,direction:'add'});assert.deepEqual({...finalBottles},{cases:0,loose:3,totalBottles:3,unitsPerCase:12,rule:'barCaseAndLoose'});assert.equal(context.finalText(stoli,.25,finalBottles),'3 individual bottles');
+  const finalCombined=context.breakdown(stoli,0,{cases:1,loose:2,direction:'add'});assert.equal(context.finalText(stoli,14/12,finalCombined),'1 case + 2 individual bottles');
+  const reduced=context.adjust(stoli,'0','1','reduce');assert.ok(0+reduced.orderUnits<0);assert.equal(1+reduced.orderUnits,11/12);
+  ['-1','1.5','nope','NaN','Infinity'].forEach(value=>{assert.equal(context.adjust(stoli,value,'','add').valid,false);assert.equal(context.adjust(stoli,'',value,'add').valid,false);});
+  const future={name:'Future Bar Product',dist:'New Bar Vendor',unit:'Case',pack:6};assert.equal(context.adjust(future,'1','2','add').orderUnits,8/6);assert.equal(context.capability(future).rule,'barCaseAndLoose');
+  const missing={name:'Future Missing Pack',dist:'New Bar Vendor',unit:'Case',pack:null};assert.equal(context.capability(missing).allowCases,false);assert.equal(context.capability(missing).allowLoose,true);assert.equal(context.capability(missing).missingCaseConfig,true);assert.equal(context.adjust(missing,'1','0','add').valid,false);assert.equal(context.adjust(missing,'0','3','add').orderUnits,3);
+  const lime={name:'Lime Juice',dist:'Merchants',unit:'Case',pack:12};assert.equal(context.adjust(lime,'0','3','add').valid,false);assert.equal(context.capability(lime).rule,'caseOnly');
+  const merchantBottle={name:'Configured Merchant Bottle',dist:'Merchants',unit:'Bottle',pack:12,purchaseRule:'bottleOnly'};assert.equal(context.capability(merchantBottle).allowCases,false);assert.equal(context.adjust(merchantBottle,'1','0','add').valid,false);
+  const catalog=JSON.parse(html.match(/var PG_V12_PRODUCTS=(\[.*?\]);\r?\nvar PRODUCTS/s)[1]),bar=catalog.filter(product=>product.dist!=='Merchants');assert.ok(bar.length>0);assert.equal(bar.filter(product=>!Number.isInteger(Number(product.pack))||Number(product.pack)<=0).length,0);bar.forEach(product=>{const capability=context.capability(product);assert.equal(capability.rule,'barCaseAndLoose',product.name);assert.equal(capability.allowCases,true,product.name);assert.equal(capability.allowLoose,true,product.name);});
+  assert.doesNotMatch(html,/PG_PURCHASE_RULES/);
+  assert.match(html,/"Deep Eddy Grapefruit"[\s\S]*?"pack":12[\s\S]*?"unit":"Case"[\s\S]*?"bottleMl":1000/);
+  assert.match(html,/"Stoli Raz"[\s\S]*?"pack":12[\s\S]*?"unit":"Case"[\s\S]*?"bottleMl":1000/);
+});
+
+test('Stoli Raz exact units persist in the Bar draft and remain in Bellows submission and History paths',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm'),stored={};
+  const stoli={name:'Stoli Raz',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',bottleMl:1000,buildTo:12};
+  const context={BAR:[stoli],MER:[],S:{adjustments:{'Stoli Raz':14/12},adjustmentMeta:{'Stoli Raz':{cases:1,loose:2,direction:'add',orderUnits:14/12}},notes:{bar:'',mer:''}},lsGet:key=>stored[key],lsSet:(key,value)=>{stored[key]=JSON.parse(JSON.stringify(value));},Date,Math,Object};
+  const persistence=html.slice(html.indexOf('var PG_DRAFT_KEY'),html.indexOf('var PG_BOOT_DRAFTS'));
+  vm.runInNewContext(persistence+';this.persist=pgPersistDraft;this.hydrate=pgHydrateDrafts;',context);context.persist('bar');
+  let hydrated=context.hydrate();assert.equal(hydrated.adjustments['Stoli Raz'],14/12);assert.equal(hydrated.adjustmentMeta['Stoli Raz'].cases,1);assert.equal(hydrated.adjustmentMeta['Stoli Raz'].loose,2);
+  context.S.adjustments['Stoli Raz']=.25;context.S.adjustmentMeta['Stoli Raz']={cases:0,loose:3,direction:'add',orderUnits:.25};context.persist('bar');hydrated=context.hydrate();assert.equal(hydrated.adjustmentMeta['Stoli Raz'].cases,0);assert.equal(hydrated.adjustmentMeta['Stoli Raz'].loose,3);
+  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));assert.match(order,/manualAdjustmentDetails:manual/);assert.match(order,/finalPurchaseBreakdown:pgFinalPurchaseBreakdown\(p,base,manual\)/);assert.match(order,/pgOrderLine\(p,p\.adjQty\)/);assert.match(order,/if\(p\.supplier==="West Indies"\|\|WI_PRODS2\.indexOf\(p\.name\)>=0\)wLines\.push\(line\);else bLines\.push\(line\)/);
+  assert.doesNotMatch(order,/orderExplanation\([^;]*,p\.adj\)/);assert.match(order,/adjTag\.textContent=pgManualPurchaseText/);
+  const history=html.slice(html.indexOf('function rHistDet'),html.indexOf('function rEmpty'));assert.match(history,/pgManualPurchaseText/);assert.match(history,/pgFinalPurchaseText/);assert.match(order,/calculatedOrderQty:base===null\?0:base/);assert.match(order,/manualAdjustment:adj/);assert.match(order,/finalOrderQty:final/);
+  const setter=html.slice(html.indexOf('function pgSetManualAdjustment'),html.indexOf('function pgDraftHasMeaningfulWork'));assert.doesNotMatch(setter,/S\.counts\s*=|buildTo\s*=|pgSaveCatalogEdits/);
+});
+
+test('manual adjustments persist per workflow without mutating inventory or build-to',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const persistence=html.slice(html.indexOf('var PG_DRAFT_KEY'),html.indexOf('function pgMigrateMerchantPackaging'));
+  assert.match(persistence,/pourgrid-order-drafts-v2/);assert.match(persistence,/record\.adjustments=adjustments/);assert.match(persistence,/record\.adjustmentMeta=meta/);assert.match(persistence,/record\.note=S\.notes/);
+  assert.match(persistence,/pgHydrateDrafts/);assert.match(persistence,/adjustmentMeta:PG_BOOT_DRAFTS\.adjustmentMeta/);
+  const set=html.slice(html.indexOf('function pgSetManualAdjustment'),html.indexOf('function pgDraftWorkState'));
+  assert.match(set,/pgStartSession\(type\)/);assert.match(set,/pgPersistDraft\(type\)/);assert.match(set,/reason:reason\|\|""/);assert.match(set,/note:note\|\|""/);
+  assert.doesNotMatch(set,/counts\[|buildTo\s*=|pgSaveCatalogEdits/);
+});
+
+test('manual additions with zero calculated demand reach vendor output and submitted History',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const vm=require('node:vm'),context={S:{adjustments:{'Deep Eddy Grapefruit':2},adjustmentMeta:{}},cq:()=>null,pgEffectiveCount:()=>'',pgFinalPurchaseBreakdown:()=>null,Object};
+  const lifecycle=html.slice(html.indexOf('function pgOrderItem'),html.indexOf('var PG_DRAFT_KEY'));
+  vm.runInNewContext(lifecycle+';this.build=pgOrderItem;this.visible=pgOrderItemVisible;',context);
+  const grapefruit={name:'Deep Eddy Grapefruit',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',buildTo:6};
+  const line=context.build(grapefruit);
+  assert.equal(line.orderQty,null);assert.equal(line.adj,2);assert.equal(line.adjQty,2);assert.equal(context.visible(line),true);
+  context.S.adjustments={'Any Adjusted Product':3};
+  const generic=context.build({name:'Any Adjusted Product',dist:'CC1',cat:'Other',pack:1,unit:'Case',buildTo:0});
+  assert.equal(generic.adjQty,3);assert.equal(context.visible(generic),true);
+  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));
+  assert.match(order,/prods\.map\(pgOrderItem\)\.filter\(pgOrderItemVisible\)/);assert.match(order,/Add or Adjust Product/);assert.match(order,/pgOpenAdjustmentPicker/);
+  assert.match(order,/calculatedOrderQty:base===null\?0:base/);assert.match(order,/manualAdjustment:adj/);assert.match(order,/manualAdjustmentDetails:manual/);assert.match(order,/finalOrderQty:final/);
+  assert.match(order,/items\.filter\(function\(p\)\{return p\.dist===dist&&p\.adjQty>0;/);
+  assert.match(order,/Saved manual adjustments/);assert.match(order,/Assigned vendor:/);assert.match(order,/Use the vendor tabs above to review them/);
+  const history=html.slice(html.indexOf('function rHistDet'),html.indexOf('function rEmpty'));
+  assert.match(history,/Manual addition/);assert.match(history,/Calculated .*Manual .*Final/);
+});
+
+test('Deep Eddy Grapefruit adjustment persists under the active Bar draft and remains observable until removed or submitted',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm');
+  const stored={},deep={name:'Deep Eddy Grapefruit',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',buildTo:6};
+  const context={BAR:[deep],MER:[],S:{adjustments:{deep:99,'Deep Eddy Grapefruit':2},adjustmentMeta:{'Deep Eddy Grapefruit':{cases:2,loose:0,direction:'add',orderUnits:2}},notes:{bar:'',mer:''}},lsGet:key=>stored[key],lsSet:(key,value)=>{stored[key]=JSON.parse(JSON.stringify(value));},Date,Math,Object};
+  const persistence=html.slice(html.indexOf('var PG_DRAFT_KEY'),html.indexOf('var PG_BOOT_DRAFTS'));
+  vm.runInNewContext(persistence+';this.persist=pgPersistDraft;this.hydrate=pgHydrateDrafts;this.record=pgDraftRecord;',context);
+  const record=context.persist('bar');
+  assert.match(record.id,/^bar-/);assert.equal(record.adjustments['Deep Eddy Grapefruit'],2);assert.equal(record.adjustments.deep,undefined);
+  const hydrated=context.hydrate();assert.equal(hydrated.adjustments['Deep Eddy Grapefruit'],2);assert.equal(hydrated.adjustmentMeta['Deep Eddy Grapefruit'].cases,2);
+  const setter=html.slice(html.indexOf('function pgSetManualAdjustment'),html.indexOf('function pgDraftHasMeaningfulWork'));
+  assert.match(setter,/product\.name/);assert.match(setter,/pgPersistDraft\(type\)/);assert.match(setter,/product:product\.name/);assert.match(setter,/vendor:product\.dist/);assert.match(setter,/final:finalOrderQty\(product\)/);
+  assert.match(html,/Saved order adjustment/);assert.match(html,/Review on Order & Send/);assert.match(html,/saved · Final/);
+  const routes=html.slice(html.indexOf('function pgRouteSnapshot'),html.indexOf('var pgSheetGestures'));
+  assert.doesNotMatch(routes,/adjustments\s*:/);assert.doesNotMatch(routes,/adjustmentMeta\s*:/);
+  const remove=html.slice(html.indexOf('function pgRemoveManualAdjustment'),html.indexOf('function pgDraftHasMeaningfulWork'));
+  assert.match(remove,/delete adjustments\[product\.name\]/);assert.match(remove,/delete meta\[product\.name\]/);assert.match(remove,/pgPersistDraft\(type\)/);
+  assert.match(remove,/function pgStepManualAdjustment/);assert.match(remove,/pgStartSession\(type\)/);
+  const submission=html.slice(html.indexOf('var saveBtn=mk'),html.indexOf('function calcSuggestedBuildTos'));
+  assert.match(submission,/calculatedOrderQty:base===null\?0:base/);assert.match(submission,/manualAdjustment:adj/);assert.match(submission,/finalOrderQty:final/);assert.match(submission,/draftId:activeSession\.id/);
+  assert.doesNotMatch(setter,/S\.counts\s*=|buildTo\s*=|pgSaveCatalogEdits/);
+});
+
+test('Deep Eddy case and bottle components edit, persist, route to Bellows, submit, render in History, and remove cleanly',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm');
+  const stored={},deep={name:'Deep Eddy Grapefruit',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',bottleMl:1000,buildTo:6};
+  const context={BAR:[deep],MER:[],S:{adjustments:{'Deep Eddy Grapefruit':14/12},adjustmentMeta:{'Deep Eddy Grapefruit':{cases:1,loose:2,direction:'add',orderUnits:14/12}},notes:{bar:'',mer:''}},lsGet:key=>stored[key],lsSet:(key,value)=>{stored[key]=JSON.parse(JSON.stringify(value));},Date,Math,Object};
+  const persistence=html.slice(html.indexOf('var PG_DRAFT_KEY'),html.indexOf('var PG_BOOT_DRAFTS'));
+  vm.runInNewContext(persistence+';this.persist=pgPersistDraft;this.hydrate=pgHydrateDrafts;',context);
+  context.persist('bar');let hydrated=context.hydrate();assert.equal(hydrated.adjustments['Deep Eddy Grapefruit'],14/12);assert.equal(hydrated.adjustmentMeta['Deep Eddy Grapefruit'].cases,1);assert.equal(hydrated.adjustmentMeta['Deep Eddy Grapefruit'].loose,2);
+  context.S.adjustments['Deep Eddy Grapefruit']=.25;context.S.adjustmentMeta['Deep Eddy Grapefruit']={cases:0,loose:3,direction:'add',orderUnits:.25};context.persist('bar');hydrated=context.hydrate();assert.equal(hydrated.adjustmentMeta['Deep Eddy Grapefruit'].cases,0);assert.equal(hydrated.adjustmentMeta['Deep Eddy Grapefruit'].loose,3);
+  context.S.adjustments['Deep Eddy Grapefruit']=2;context.S.adjustmentMeta['Deep Eddy Grapefruit']={cases:2,loose:0,direction:'add',orderUnits:2};context.persist('bar');hydrated=context.hydrate();assert.equal(hydrated.adjustmentMeta['Deep Eddy Grapefruit'].cases,2);assert.equal(hydrated.adjustmentMeta['Deep Eddy Grapefruit'].loose,0);
+  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));
+  assert.match(order,/pgOrderLine\(p,p\.adjQty\)/);assert.match(order,/finalPurchaseBreakdown:pgFinalPurchaseBreakdown\(p,base,manual\)/);assert.match(order,/pgManualPurchaseText/);assert.match(order,/pgFinalPurchaseText/);
+  assert.match(order,/if\(p\.supplier==="West Indies"\|\|WI_PRODS2\.indexOf\(p\.name\)>=0\)wLines\.push\(line\);else bLines\.push\(line\)/);assert.doesNotMatch(order,/WI_PRODS2=\[[^\]]*Deep Eddy Grapefruit/);
+  const sheet=html.slice(html.indexOf('function pgOpenManualAdjustment'),html.indexOf('function pgOpenAdjustmentPicker'));assert.match(sheet,/base\+result\.orderUnits<0/);assert.match(sheet,/The final order cannot be negative/);
+  const formatter=html.slice(html.indexOf('function pgPlural'),html.indexOf('function pgStoliFlavor'));
+  const formatContext={pgFinalPurchaseText:(p,q,b)=>b.loose&&!b.cases?b.loose+' individual bottles':b.cases+' case'+(b.cases===1?'':'s')+(b.loose?' + '+b.loose+' individual bottles':''),pgPlural:(n,o,m)=>Number(n)===1?o:m};
+  vm.runInNewContext(formatter+';this.line=pgOrderLine;',formatContext);
+  assert.equal(formatContext.line(Object.assign({},deep,{finalPurchaseBreakdown:{cases:0,loose:3}}),.25),'3 individual bottles - Deep Eddy Grapefruit');
+  assert.equal(formatContext.line(Object.assign({},deep,{finalPurchaseBreakdown:{cases:1,loose:2}}),14/12),'1 case + 2 individual bottles - Deep Eddy Grapefruit');
+  const history=html.slice(html.indexOf('function rHistDet'),html.indexOf('function rEmpty'));assert.match(history,/pgManualPurchaseText/);assert.match(history,/pgFinalPurchaseText/);
+  const remove=html.slice(html.indexOf('function pgRemoveManualAdjustment'),html.indexOf('function pgDraftHasMeaningfulWork'));assert.match(remove,/delete adjustments\[product\.name\]/);assert.match(remove,/delete meta\[product\.name\]/);assert.match(remove,/pgPersistDraft\(type\)/);
+  const routes=html.slice(html.indexOf('function pgRouteSnapshot'),html.indexOf('var pgSheetGestures'));assert.doesNotMatch(routes,/adjustments\s*:/);assert.doesNotMatch(routes,/adjustmentMeta\s*:/);
+  const setter=html.slice(html.indexOf('function pgSetManualAdjustment'),html.indexOf('function pgDraftHasMeaningfulWork'));assert.doesNotMatch(setter,/S\.counts\s*=|buildTo\s*=|pgSaveCatalogEdits/);
+});
+
+test('Bar and Merchants share the canonical compact contextual immediate Clear interaction',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const clear=html.slice(html.indexOf('function pgDraftHasMeaningfulWork'),html.indexOf('function pgOpenManualAdjustment'));
+  assert.match(clear,/function pgClearActiveOrder/);assert.match(clear,/function pgCountClearContext/);assert.match(clear,/btn\("clrbtn","Clear"/);assert.match(clear,/pgClearActiveOrder\(type\)/);assert.match(clear,/clear\.disabled=!hasWork/);
+  assert.doesNotMatch(clear,/pgOpenClearOrder|Clear Merchants Order\?|Clear Bar Order\?|pg-clear-order-actions|pgClearOrderConfirm|s4Sheet|s4CloseSheet|s5ShowSuccess|toast\(/);
+  assert.match(clear,/pgPruneWorkflowDraftState\(type,S,products\)/);assert.match(clear,/delete drafts\[type\]/);assert.match(clear,/delete sessions\[type\]/);
+  assert.match(clear,/merchantView="Mixer"/);assert.match(clear,/pushCounts\(S\.counts\)/);assert.match(clear,/sbb-counts-cleared/);
+  assert.doesNotMatch(clear,/S\.history|saveDB|delDB|buildTo|pgSaveCatalogEdits|pourgrid-scan-history/);
+  const workspaces=html.slice(html.indexOf('function rBarCountWorkspace'),html.indexOf('function rCatGrid')),grid=html.slice(html.indexOf('function rCatGrid'),html.indexOf('function pgRenderNextAction')),category=html.slice(html.indexOf('function rCatCount'),html.indexOf('function pgPlural'));
+  assert.doesNotMatch(workspaces,/pg-clear-order|pgClearOrderControls/);assert.match(grid,/pgCountClearContext\("bar",prods\)/);assert.match(category,/if\(unified==="merchants"\)pad\.appendChild\(pgCountClearContext\("merchants",prods\)\)/);
+  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));assert.match(order,/activeType=isG\?"merchants":"bar"/);assert.doesNotMatch(order,/pg-clear-order|Clear Order|pgCountClearContext/);
+});
+
+test('Clear Order visibility detects every persisted workflow work surface without cross-contamination',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm');
+  const bar={name:'BarA'},mixer={name:'MixerA'},fruit={name:'FruitA'};
+  function evaluate(overrides,type){
+    const base={counts:{},adjustments:{},adjustmentMeta:{},notes:{bar:'',mer:''}},context={S:null,Object,String,Number,Array};context.S=Object.assign(base,overrides.S||{});
+    context.pgProductSet=t=>t==='merchants'?[mixer,fruit]:[bar];context.pgSession=()=>overrides.session||{};context.pgDraftNoteKey=t=>t==='merchants'?'mer':'bar';context.pgDraftRecord=(t)=>((overrides.drafts||{})[t]||null);context.pgEmailStatus=()=>overrides.email||{};
+    const source=html.slice(html.indexOf('function pgDraftWorkState'),html.indexOf('function pgWorkflowCountSnapshot'));vm.runInNewContext(source+';this.has=pgDraftHasMeaningfulWork;this.state=pgDraftWorkState;',context);return {has:context.has(type),state:context.state(type)};
+  }
+  assert.equal(evaluate({},'bar').has,false);
+  assert.equal(evaluate({S:{counts:{BarA:'0'}}},'bar').has,true);
+  assert.equal(evaluate({S:{counts:{'MixerA::cases':'2'}}},'merchants').has,true);
+  assert.equal(evaluate({S:{adjustments:{BarA:2}}},'bar').has,true);
+  assert.equal(evaluate({S:{adjustmentMeta:{MixerA:{reason:'event'}}}},'merchants').has,true);
+  assert.equal(evaluate({S:{notes:{bar:'order note',mer:''}}},'bar').has,true);
+  assert.equal(evaluate({email:{mer:{Merchants:{copiedAt:1}}}},'merchants').has,true);
+  assert.equal(evaluate({session:{merchants:{touched:['FruitA']}}},'merchants').has,true);
+  assert.equal(evaluate({drafts:{bar:{adjustments:{BarA:1}}}},'bar').has,true);
+  assert.equal(evaluate({S:{counts:{MixerA:'3'}}},'bar').has,false);
+});
+
+test('shared renderer produces the same compact contextual Clear button for Bar and Merchants',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm');
+  function element(tag,cls){return {tag,className:cls||'',children:[],attributes:{},style:{},appendChild(child){child.parentNode=this;this.children.push(child);},setAttribute(key,value){this.attributes[key]=String(value);}};}
+  const cleared=[];const context={d:cls=>element('div',cls),sp:(cls,text)=>Object.assign(element('span',cls),{textContent:text}),btn:(cls,text,fn)=>Object.assign(element('button',cls),{textContent:text,onclick:fn}),ap:(parent,...children)=>{children.forEach(child=>parent.appendChild(child));return parent;},pgDraftHasMeaningfulWork:()=>true,pgHasPhysicalCount:()=>false,pgClearOrderName:type=>type==='merchants'?'Merchants':'Bar',pgClearActiveOrder:type=>cleared.push(type)};
+  const source=html.slice(html.indexOf('function pgCountClearContext'),html.indexOf('function pgRefreshCountClearContext'));vm.runInNewContext(source+';this.contextRow=pgCountClearContext;',context);
+  const rows=['bar','merchants'].map(type=>context.contextRow(type,[{name:'A'}]));rows.forEach((row,index)=>{const clear=row.children[1];assert.equal(row.className,'ch');assert.equal(row.children[0].className,'cc');assert.equal(row.children[0].textContent,'Keep counting');assert.equal(clear.className,'clrbtn');assert.equal(clear.textContent,'Clear');assert.equal(clear.hidden,false);assert.equal(clear.disabled,false);assert.equal(clear.attributes['data-workflow'],index?'merchants':'bar');clear.onclick();});assert.deepEqual(cleared,['bar','merchants']);
+  assert.match(html,/\.clrbtn\{min-height:36px!important;border-radius:12px!important\}/);assert.doesNotMatch(html,/\.pg-clear-order\{/);
+});
+
+test('rendered Merchants Clear performs one immediate reset and cannot render any dialog, sheet, modal, toast, or acknowledgment',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm');let clears=0,feedback=0;
+  function element(tag,cls){return {tag,className:cls||'',children:[],attributes:{},appendChild(child){child.parentNode=this;this.children.push(child);},setAttribute(key,value){this.attributes[key]=String(value);}};}
+  const context={d:cls=>element('div',cls),sp:(cls,text)=>Object.assign(element('span',cls),{textContent:text}),btn:(cls,text,fn)=>Object.assign(element('button',cls),{textContent:text,onclick:fn}),ap:(parent,...children)=>{children.forEach(child=>parent.appendChild(child));return parent;},pgDraftHasMeaningfulWork:()=>true,pgHasPhysicalCount:()=>false,pgClearOrderName:()=>"Merchants",pgClearWorkflowDraft:type=>{assert.equal(type,'merchants');clears++;},s4Sheet:()=>feedback++,s5ShowSuccess:()=>feedback++,toast:()=>feedback++};
+  const active=html.slice(html.indexOf('function pgClearActiveOrder'),html.indexOf('function pgCountClearContext')),renderer=html.slice(html.indexOf('function pgCountClearContext'),html.indexOf('function pgRefreshCountClearContext'));vm.runInNewContext(active+renderer+';this.contextRow=pgCountClearContext;',context);
+  const row=context.contextRow('merchants',[{name:'MixerA'},{name:'FruitA'}]);row.children[1].onclick();assert.equal(clears,1);assert.equal(feedback,0);assert.equal(row.children.some(child=>child.attributes.role==='dialog'||/sheet|modal|ack/i.test(child.className)),false);
+});
+
+test('Clear Order buttons enable immediately as counts, notes, and email state are entered',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const refresh=html.slice(html.indexOf('function pgRefreshCountClearContext'),html.indexOf('function pgOpenManualAdjustment'));
+  assert.match(refresh,/querySelectorAll\('\.clrbtn\[data-workflow=/);assert.match(refresh,/button\.disabled=!hasWork/);assert.match(refresh,/button\.hidden=!hasWork/);assert.match(refresh,/"Keep counting"/);
+  const countWrites=html.slice(html.indexOf('function pgSavePart'),html.indexOf('function cq'));
+  assert.match(countWrites,/pgRefreshCountClearContext\(type\)/);assert.match(countWrites,/pgRefreshCountClearContext\("bar"\)/);
+  const countUi=html.slice(html.indexOf('function rCatCount'),html.indexOf('function pgOrderLine'));
+  assert.match(countUi,/pgRefreshCountClearContext\(type\)/);assert.match(countUi,/pgRefreshCountClearContext\("bar"\)/);
+  const email=html.slice(html.indexOf('function pgMarkEmailCopied'),html.indexOf('function pgCloseSession'));assert.match(email,/pgRefreshCountClearContext\(key==="mer"\?"merchants":"bar"\)/);
+  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));assert.match(order,/pgPersistDraft\(type\);pgRefreshCountClearContext\(type\)/);
+});
+
+test('Merchants clear executes across Mixers and Fruit while preserving Bar state',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm'),context={pgDraftNoteKey:type=>type==='merchants'?'mer':'bar'};
+  const source=html.slice(html.indexOf('function pgPruneWorkflowDraftState'),html.indexOf('function pgClearWorkflowDraft'));
+  vm.runInNewContext(source+';this.prune=pgPruneWorkflowDraftState;',context);
+  const state={counts:{MixerA:'2','MixerA::loose':'4',FruitA:'1',BarA:'9'},adjustments:{MixerA:2,FruitA:1,BarA:3},adjustmentMeta:{MixerA:{reason:'event'},FruitA:{reason:'manager'},BarA:{reason:'bar'}},notes:{mer:'merchant note',bar:'bar note'}};
+  const result=context.prune('merchants',state,[{name:'MixerA'},{name:'FruitA'}]);
+  assert.equal(result.counts.MixerA,undefined);assert.equal(result.counts['MixerA::loose'],undefined);assert.equal(result.counts.FruitA,undefined);assert.equal(result.counts.BarA,'9');
+  assert.equal(result.adjustments.MixerA,undefined);assert.equal(result.adjustments.FruitA,undefined);assert.equal(result.adjustments.BarA,3);
+  assert.equal(result.adjustmentMeta.MixerA,undefined);assert.equal(result.adjustmentMeta.FruitA,undefined);assert.equal(result.adjustmentMeta.BarA.reason,'bar');
+  assert.equal(result.notes.mer,'');assert.equal(result.notes.bar,'bar note');assert.equal(state.notes.mer,'merchant note');
+});
+
+test('confirmed Merchants clear removes every draft surface persistently and is idempotent without touching Bar or History',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm');
+  const mixer={name:'MixerA'},fruit={name:'FruitA'},bar={name:'BarA'},writes={},pushes=[];
+  const context={PG_DRAFT_KEY:'drafts',MER:[mixer,fruit],BAR:[bar],S:{counts:{MixerA:'2','MixerA::loose':'4',FruitA:'1',BarA:'9'},adjustments:{MixerA:2,FruitA:1,BarA:3},adjustmentMeta:{MixerA:{reason:'event'},FruitA:{reason:'manager'},BarA:{reason:'bar'}},notes:{mer:'merchant note',bar:'bar note'},history:[{id:7}],tab:'merchants',mSub:'order',merchantView:'Fruit',mCat:'Fruit'},Object,Date,Math};
+  context.pgDraftNoteKey=type=>type==='merchants'?'mer':'bar';context.pgProductSet=type=>type==='merchants'?context.MER:context.BAR;context.pgDrafts=()=>({merchants:{id:'mer-draft'},bar:{id:'bar-draft'}});context.pgSession=()=>({merchants:{id:'mer-session'},bar:{id:'bar-session'}});context.pgEmailStatus=()=>({mer:{Merchants:{copiedAt:1}},bar:{Bellows:{copiedAt:2}}});context.lsSet=(key,value)=>{writes[key]=JSON.parse(JSON.stringify(value));};context.pgSaveSession=value=>{writes.session=JSON.parse(JSON.stringify(value));};context.schedulePush=value=>pushes.push(JSON.parse(JSON.stringify(value)));context.pushCounts=value=>pushes.push(JSON.parse(JSON.stringify(value)));context.render=()=>{};
+  const source=html.slice(html.indexOf('function pgPruneWorkflowDraftState'),html.indexOf('function pgClearOrderName'));vm.runInNewContext(source+';this.clear=pgClearWorkflowDraft;',context);
+  const historyBefore=JSON.stringify(context.S.history);context.clear('merchants');context.clear('merchants');
+  assert.deepEqual({...context.S.counts},{BarA:'9'});assert.deepEqual({...context.S.adjustments},{BarA:3});assert.equal(context.S.adjustmentMeta.BarA.reason,'bar');assert.equal(context.S.notes.mer,'');assert.equal(context.S.notes.bar,'bar note');
+  assert.equal(writes.drafts.merchants,undefined);assert.equal(writes.drafts.bar.id,'bar-draft');assert.equal(writes.session.merchants,undefined);assert.equal(writes.session.bar.id,'bar-session');assert.equal(writes['pourgrid-email-status'].mer,undefined);assert.equal(writes['pourgrid-email-status'].bar.Bellows.copiedAt,2);
+  assert.equal(context.S.tab,'merchants');assert.equal(context.S.mSub,'count');assert.equal(context.S.merchantView,'Mixer');assert.equal(context.S.mCat,null);assert.equal(JSON.stringify(context.S.history),historyBefore);assert.ok(pushes.length>=2);
+});
+
+test('workflow submission clears only its own draft and preserves draft identity in History',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));
+  assert.match(order,/activeType=isG\?"merchants":"bar"/);assert.match(order,/draftId:activeSession\.id\|\|null/);assert.match(order,/orderType:activeType/);
+  assert.match(order,/counts:pgWorkflowCountSnapshot\(activeType\)/);
+  assert.match(order,/pgClearWorkflowDraft\(activeType,\{render:false\}\)/);
+  assert.doesNotMatch(order,/var clearedCounts=\{\}/);assert.doesNotMatch(order,/adjustments:\{\}/);
+  const sessions=html.slice(html.indexOf('function pgStartSession'),html.indexOf('function pgCountTypeForProduct'));
+  assert.match(sessions,/id:pgDraftRecord\(type,true\)\.id/);
+});
+
+test('destructive sheets lock background dismissal and restore focus',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const sheet=html.slice(html.indexOf('var pgSheetReturnFocus'),html.indexOf('function pgTodayKey'));
+  assert.match(sheet,/options\.locked/);assert.match(sheet,/wrap\.dataset\.locked/);assert.match(sheet,/options\.returnFocus\|\|document\.activeElement/);
+  assert.match(sheet,/role","dialog/);assert.match(sheet,/aria-modal/);assert.match(sheet,/aria-labelledby/);assert.match(sheet,/event\.key==="Escape"/);assert.match(sheet,/canDismiss:function\(\)\{return wrap\.dataset\.locked!=="true"/);
+  assert.match(html,/\.s4-sheet\{[^}]*max-height:min\(88dvh,760px\)[^}]*overflow-y:auto[^}]*safe-area-inset-bottom/);
+  assert.match(html,/window\.s4CloseSheet=function\(\)[\s\S]*pgSheetReturnFocus\.focus/);
 });
