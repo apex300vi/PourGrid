@@ -3074,12 +3074,22 @@ function pgLatestOrderForCycle(dl){
   }
   return null;
 }
-function pgCycleState(dl){
-  var now=new Date(),diff=dl.deadline-now,h=diff/3600000,f=dl.fmt;
+function pgLocalCalendarOffset(now,deadline){
+  var today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  var target=new Date(deadline.getFullYear(),deadline.getMonth(),deadline.getDate());
+  if(target.getTime()===today.getTime())return 0;
+  var tomorrow=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1);
+  if(target.getTime()===tomorrow.getTime())return 1;
+  return target<today?-1:2;
+}
+function pgCycleState(dl,nowValue){
+  var now=nowValue?new Date(nowValue):new Date(),diff=dl.deadline-now,h=diff/3600000,f=dl.fmt;
   if(f.done&&!f.overdue)return {key:"done",label:"Ordered",tone:"done"};
   if(f.overdue)return {key:"urgent",label:"Overdue",tone:"urgent"};
   if(h<=6)return {key:"urgent",label:"Due very soon",tone:"urgent"};
-  if(h<=24)return {key:"soon",label:"Due today",tone:"soon"};
+  var calendarOffset=pgLocalCalendarOffset(now,dl.deadline);
+  if(calendarOffset===0)return {key:h<=24?"soon":"watch",label:"Due today",tone:h<=24?"soon":"watch"};
+  if(calendarOffset===1)return {key:h<=24?"soon":"watch",label:"Due tomorrow",tone:h<=24?"soon":"watch"};
   if(h<=48)return {key:"watch",label:"Coming up",tone:"watch"};
   return {key:"quiet",label:"Plenty of time",tone:"quiet"};
 }
