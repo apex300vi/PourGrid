@@ -83,7 +83,9 @@ begin
   if tg_table_name='order_lines' and exists(select 1 from public.structured_orders o where o.id=old.order_id and o.status<>'draft') then
     if tg_op='DELETE' or (new.order_id,new.organization_id,new.location_id,new.item_id,new.draft_units,new.submitted_units,new.expected_units,new.units_per_package) is distinct from (old.order_id,old.organization_id,old.location_id,old.item_id,old.draft_units,old.submitted_units,old.expected_units,old.units_per_package) then raise exception 'Submitted order facts are immutable'; end if;
   end if;
-  if tg_table_name='inventory_baseline_lines' and exists(select 1 from public.inventory_baselines b where b.id=old.baseline_id and b.status='finalized') then raise exception 'Finalized baseline is immutable'; end if;
+  if tg_table_name='inventory_baseline_lines' then
+    if exists(select 1 from public.inventory_baselines b where b.id=old.baseline_id and b.status='finalized') then raise exception 'Finalized baseline is immutable'; end if;
+  end if;
   return new;
 end$$;
 revoke all on function public.guard_phase3_changes() from public,anon,authenticated;
