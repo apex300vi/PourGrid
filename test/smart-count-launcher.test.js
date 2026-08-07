@@ -227,7 +227,21 @@ test('handled sheets use the reusable safe dismissal controller',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
   assert.match(html,/sheet:overlay\.querySelector\("\.s71-sheet"\)[\s\S]*onDismiss:s71Close/);
   assert.match(html,/sheet:wrap\.querySelector\("\.s4-sheet"\)[\s\S]*onDismiss:s4CloseSheet/);
-  assert.match(html,/sheet:modal,handle:visionHandle[\s\S]*canDismiss:function\(\)\{return !processing;\}/);
+  assert.match(html,/sheet:modal,handle:visionHandle,direction:"down"[\s\S]*canDismiss:function\(\)\{var safe=/);
+});
+
+test('Vision has a reliable top-handle target, safe swipe close, and deterministic listener cleanup',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  assert.match(html,/\.pg-sheet-handle\{[^}]*width:100%[^}]*height:32px[^}]*touch-action:none/);
+  assert.match(html,/\.pg-sheet-handle:before\{[^}]*width:42px[^}]*height:5px/);
+  const vision=html.slice(html.indexOf('function showPhotoCountModal'),html.indexOf('// Calls the Supabase Edge Function'));
+  assert.match(vision,/visionGesture=pgAttachSheetGesture\(\{sheet:modal,handle:visionHandle,direction:"down"/);
+  assert.match(vision,/if\(visionGesture\)\{visionGesture\.destroy\(\);visionGesture=null;\}/);
+  assert.match(vision,/safe=!processing&&!session\.photos\(\)\.length&&!successfulPhotoIds\.length&&!accumulatedResults\.length&&!reviewed\.length/);
+  assert.match(vision,/Use Cancel to close without saving/);
+  assert.match(vision,/overlay\.onclick=function\(\)\{\}/);
+  assert.match(vision,/cancel\.onclick=function\(\)\{if\(processing\)return;cleanup\(\);onDone\(null\);\}/);
+  assert.doesNotMatch(vision,/pg-vision-close|aria-label="Close"/);
 });
 
 test('failed-photo sheet is compact, non-repetitive, and preserves successful work',()=>{
