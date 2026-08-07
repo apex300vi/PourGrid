@@ -451,7 +451,7 @@ textarea,input[type=text],input[type=email],input[type=number]{font-size:16px!im
 /* Sapphire 4 — Apple-like interaction polish */
 :root{--spring:cubic-bezier(.2,.8,.2,1)}html{scroll-behavior:smooth}body{overscroll-behavior-y:none}button,input,textarea{font-family:inherit}button{touch-action:manipulation}.screen{animation:s4enter .28s var(--spring)}@keyframes s4enter{from{opacity:.01;transform:translateY(8px) scale(.995)}to{opacity:1;transform:none}}
 .s4-search{position:sticky;top:105px;z-index:8;margin:8px 15px 10px;display:flex;align-items:center;gap:9px;padding:11px 13px;border-radius:14px;background:rgba(6,25,39,.88);border:1px solid rgba(133,195,218,.13);backdrop-filter:blur(20px);box-shadow:0 7px 22px rgba(0,0,0,.16)}.s4-search input{width:100%;border:0!important;background:transparent!important;padding:0!important;font-size:16px!important;box-shadow:none!important;text-align:left!important}.s4-search .mag{color:#79BDD5;font-size:16px}.s4-search .x{border:0;background:rgba(255,255,255,.07);color:#A9BCC7;width:24px;height:24px;border-radius:50%;display:none}
-.s4-sheet-backdrop{position:fixed;inset:0;background:rgba(0,8,14,.54);backdrop-filter:blur(8px);z-index:90;opacity:0;pointer-events:none;transition:opacity .24s ease}.s4-sheet-backdrop.open{opacity:1;pointer-events:auto}.s4-sheet{position:absolute;left:50%;bottom:0;transform:translate(-50%,105%);width:min(430px,100%);padding:9px 16px calc(18px + env(safe-area-inset-bottom));border-radius:25px 25px 0 0;background:linear-gradient(165deg,#0C2C42,#061A2A);border:1px solid rgba(145,207,229,.16);box-shadow:0 -24px 70px rgba(0,0,0,.5);transition:transform .34s var(--spring)}.s4-sheet-backdrop.open .s4-sheet{transform:translate(-50%,0)}.s4-grabber{width:38px;height:5px;border-radius:9px;background:rgba(255,255,255,.2);margin:0 auto 15px}.s4-sheet h3{font-size:20px;margin-bottom:5px}.s4-sheet p{font-size:13px;color:#8FA8B6;line-height:1.45;margin-bottom:14px}
+.s4-sheet-backdrop{position:fixed;inset:0;background:rgba(0,8,14,.54);backdrop-filter:blur(8px);z-index:90;opacity:0;pointer-events:none;transition:opacity .24s ease}.s4-sheet-backdrop.open{opacity:1;pointer-events:auto}.s4-sheet{position:absolute;left:50%;bottom:0;transform:translate(-50%,105%);width:min(430px,100%);max-height:min(88dvh,760px);overflow-y:auto;padding:9px 16px calc(18px + env(safe-area-inset-bottom));border-radius:25px 25px 0 0;background:linear-gradient(165deg,#0C2C42,#061A2A);border:1px solid rgba(145,207,229,.16);box-shadow:0 -24px 70px rgba(0,0,0,.5);transition:transform .34s var(--spring)}.s4-sheet-backdrop.open .s4-sheet{transform:translate(-50%,0)}.s4-grabber{width:38px;height:5px;border-radius:9px;background:rgba(255,255,255,.2);margin:0 auto 15px}.s4-sheet h3{font-size:20px;margin-bottom:5px}.s4-sheet p{font-size:13px;color:#8FA8B6;line-height:1.45;margin-bottom:14px}
 .s4-undo{position:fixed;left:50%;bottom:101px;transform:translate(-50%,20px);z-index:110;width:min(390px,calc(100% - 28px));display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 13px 12px 16px;border-radius:15px;background:rgba(8,30,45,.97);border:1px solid rgba(141,202,223,.18);box-shadow:0 18px 45px rgba(0,0,0,.42);opacity:0;pointer-events:none;transition:.22s var(--spring);font-size:13px}.s4-undo.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}.s4-undo button{border:0;background:rgba(226,173,74,.13);color:#F0C979;border-radius:10px;padding:8px 12px;font-weight:800}
 .crow,.orow,.ctile,.gauge,.hcard{transition:transform .18s var(--spring),border-color .18s,background .18s}.crow:active,.orow:active,.ctile:active,.gauge:active,.hcard:active{transform:scale(.985)}@media(prefers-reduced-motion:reduce){.screen,.s4-sheet,.s4-sheet-backdrop,.s4-undo,*{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 
@@ -1519,10 +1519,10 @@ function s71Close(){var x=document.getElementById("s71Overlay");if(x)x.classList
 var pgSheetReturnFocus=null;
 function s4Sheet(title,message,content,options){
   options=options||{};
-  var wrap=document.getElementById("s4SheetWrap"),body=document.getElementById("s4SheetBody");if(!wrap||!body)return;
+  var wrap=document.getElementById("s4SheetWrap"),body=document.getElementById("s4SheetBody"),panel=wrap&&wrap.querySelector(".s4-sheet");if(!wrap||!body||!panel)return;
   pgSheetReturnFocus=options.returnFocus||document.activeElement;wrap.dataset.locked=options.locked?"true":"false";wrap.onclick=function(event){if(event.target===wrap&&wrap.dataset.locked!=="true")s4CloseSheet();};
-  body.innerHTML='<h3>'+pgEsc(title)+'</h3><p>'+pgEsc(message)+'</p>'+content;wrap.classList.add("open");document.body.style.overflow="hidden";
-  pgAttachSheetGesture({sheet:wrap.querySelector(".s4-sheet"),handle:wrap.querySelector(".s4-grabber"),direction:"down",scrollElement:wrap.querySelector(".s4-sheet"),onDismiss:s4CloseSheet});
+  body.innerHTML='<h3 id="pgSheetTitle">'+pgEsc(title)+'</h3><p>'+pgEsc(message)+'</p>'+content;panel.setAttribute("role","dialog");panel.setAttribute("aria-modal","true");panel.setAttribute("aria-labelledby","pgSheetTitle");wrap.onkeydown=function(event){if(event.key==="Escape"){event.preventDefault();s4CloseSheet();}};wrap.classList.add("open");document.body.style.overflow="hidden";
+  pgAttachSheetGesture({sheet:panel,handle:wrap.querySelector(".s4-grabber"),direction:"down",scrollElement:panel,onDismiss:s4CloseSheet,canDismiss:function(){return wrap.dataset.locked!=="true";}});
 }
 
 
@@ -1686,19 +1686,28 @@ function pgClearWorkflowDraft(type,options){
   var status=pgEmailStatus();delete status[pgDraftNoteKey(type)];lsSet("pourgrid-email-status",status);
   S.adjustments=pruned.adjustments;S.adjustmentMeta=pruned.adjustmentMeta;S.notes=pruned.notes;
   if(type==="merchants"){S.tab="merchants";S.mSub="count";S.merchantView="Mixer";S.mCat=null;}
+  else{S.tab="bar";S.bSub="count";S.bCat=null;S.countFilter="all";S.countCat=null;}
   if(options.render!==false)render();
 }
 
 var pgClearOrderBusy=false;
-function pgOpenMerchantsClearOrder(trigger){
-  if(!pgDraftHasMeaningfulWork("merchants")){toast("Merchants order is already empty");return;}
-  s4Sheet("Clear Merchants order?","This permanently clears both Mixers and Fruit from the active Merchants draft. Submitted orders and Bar are not affected.",
-    '<div class="s6-sheet-actions"><button class="s6-sheet-btn danger" id="pgClearMerchantsConfirm">Clear Order</button><button class="s6-sheet-btn" id="pgClearMerchantsCancel">Cancel</button></div>',{locked:true,returnFocus:trigger});
+function pgClearOrderConfig(type){
+  return type==="merchants"?{type:"merchants",name:"Merchants",title:"Clear Merchants Order?",message:"This will permanently clear the current Mixers and Fruit order. Submitted orders and Bar will not be affected.",success:"Merchants order cleared. Mixers and Fruit are ready for a new count."}:{type:"bar",name:"Bar",title:"Clear Bar Order?",message:"This will permanently clear the current Bar order. Submitted orders and Merchants will not be affected.",success:"Bar order cleared. Bar is ready for a new count."};
+}
+function pgOpenClearOrder(type,trigger){
+  var config=pgClearOrderConfig(type);
+  if(!pgDraftHasMeaningfulWork(config.type)){toast(config.name+" order is already empty");return;}
+  s4Sheet(config.title,config.message,
+    '<div class="s6-sheet-actions pg-clear-order-actions"><button class="s6-sheet-btn danger" id="pgClearOrderConfirm">Clear Order</button><button class="s6-sheet-btn" id="pgClearOrderCancel">Cancel</button></div>',{locked:true,returnFocus:trigger});
   setTimeout(function(){
-    var yes=document.getElementById("pgClearMerchantsConfirm"),no=document.getElementById("pgClearMerchantsCancel");
+    var yes=document.getElementById("pgClearOrderConfirm"),no=document.getElementById("pgClearOrderCancel");
     if(no)no.onclick=function(){s4CloseSheet();};
-    if(yes)yes.onclick=function(){if(pgClearOrderBusy)return;pgClearOrderBusy=true;yes.disabled=true;pgClearWorkflowDraft("merchants");s4CloseSheet();pgClearOrderBusy=false;toast("Merchants order cleared");};
+    if(yes)yes.onclick=function(){if(pgClearOrderBusy)return;pgClearOrderBusy=true;yes.disabled=true;yes.setAttribute("aria-busy","true");pgClearWorkflowDraft(config.type);s4CloseSheet();pgClearOrderBusy=false;if(typeof s5ShowSuccess==="function")s5ShowSuccess(config.name+" order cleared",config.success);else toast(config.success);};
+    if(no)no.focus();
   },0);
+}
+function pgClearOrderButton(type){
+  var button=mk("button","pg-clear-order",{type:"button"});button.textContent="🗑 Clear Order";button.setAttribute("aria-label","Clear "+pgClearOrderConfig(type).name+" order");button.onclick=function(){pgOpenClearOrder(type,button);};button.disabled=!pgDraftHasMeaningfulWork(type);return button;
 }
 
 function pgOpenManualAdjustment(name,trigger){
@@ -1794,7 +1803,7 @@ function rBarCountWorkspace(){
 function rMerchantsCountWorkspace(){
   var category=S.merchantView==="Fruit"?"Fruit":"Mixer",wrap=d("pg-count-workspace");
   var toolbar=d("pg-count-toolbar"),intro=d("pg-count-intro");ap(intro,d("","Merchants"),sp("","A separate Merchants draft. Mixers and Fruit stay together."));
-  var home=mk("button","pg-count-home",{type:"button",onclick:function(){pgApplyRoute("home");}});home.textContent="Home";var clear=mk("button","pg-clear-order",{type:"button"});clear.textContent="Clear Order";clear.onclick=function(){pgOpenMerchantsClearOrder(clear);};if(!pgDraftHasMeaningfulWork("merchants"))clear.disabled=true;ap(toolbar,intro,home,clear);wrap.appendChild(toolbar);
+  var home=mk("button","pg-count-home",{type:"button",onclick:function(){pgApplyRoute("home");}});home.textContent="Home";ap(toolbar,intro,home);wrap.appendChild(toolbar);
   var filters=d("pg-count-filters");
   ["Mixer","Fruit"].forEach(function(key){
     var products=MER.filter(function(p){return p.cat===key;}),progress=pgSharedProgress(products);
@@ -2670,8 +2679,7 @@ function rOrderTab(prods,dists,dk,isG){
   var items=prods.map(pgOrderItem).filter(pgOrderItemVisible);
 
   var wrap=mk("div","");
-  var orderTools=d("pg-order-tools"),addProduct=mk("button","pg-add-order",{type:"button"});addProduct.textContent="Add or Adjust Product";addProduct.onclick=function(){pgOpenAdjustmentPicker(isG?"merchants":"bar",addProduct);};orderTools.appendChild(addProduct);
-  if(isG){var clearOrder=mk("button","pg-clear-order",{type:"button"});clearOrder.textContent="Clear Order";clearOrder.onclick=function(){pgOpenMerchantsClearOrder(clearOrder);};if(!pgDraftHasMeaningfulWork("merchants"))clearOrder.disabled=true;orderTools.appendChild(clearOrder);}
+  var activeType=isG?"merchants":"bar",orderTools=d("pg-order-tools"),addProduct=mk("button","pg-add-order",{type:"button"});addProduct.textContent="Add or Adjust Product";addProduct.onclick=function(){pgOpenAdjustmentPicker(activeType,addProduct);};orderTools.appendChild(addProduct);orderTools.appendChild(pgClearOrderButton(activeType));
   wrap.appendChild(orderTools);
 
   var adjustedItems=items.filter(function(p){return p.adj!==0;});

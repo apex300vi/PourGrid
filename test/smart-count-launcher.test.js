@@ -226,7 +226,7 @@ test('one reusable sheet gesture enforces direction, distance, velocity, scroll,
 test('handled sheets use the reusable safe dismissal controller',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
   assert.match(html,/sheet:overlay\.querySelector\("\.s71-sheet"\)[\s\S]*onDismiss:s71Close/);
-  assert.match(html,/sheet:wrap\.querySelector\("\.s4-sheet"\)[\s\S]*onDismiss:s4CloseSheet/);
+  assert.match(html,/sheet:panel[\s\S]*onDismiss:s4CloseSheet[\s\S]*canDismiss:/);
   assert.match(html,/sheet:modal,handle:visionHandle,direction:"down"[\s\S]*canDismiss:function\(\)\{var safe=/);
 });
 
@@ -387,15 +387,18 @@ test('Deep Eddy case and bottle components edit, persist, route to Bellows, subm
   const setter=html.slice(html.indexOf('function pgSetManualAdjustment'),html.indexOf('function pgDraftHasMeaningfulWork'));assert.doesNotMatch(setter,/S\.counts\s*=|buildTo\s*=|pgSaveCatalogEdits/);
 });
 
-test('Merchants Clear Order is confirmed, idempotent, persistent, and isolated from Bar and History',()=>{
+test('Bar and Merchants share one canonical Clear Order interaction with workflow-specific copy and placement',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
   const clear=html.slice(html.indexOf('function pgDraftHasMeaningfulWork'),html.indexOf('function pgOpenManualAdjustment'));
-  assert.match(clear,/Clear Merchants order\?/);assert.match(clear,/both Mixers and Fruit/);assert.match(clear,/Cancel/);assert.match(clear,/pgClearOrderBusy/);assert.match(clear,/yes\.disabled=true/);
+  assert.match(clear,/function pgClearOrderConfig/);assert.match(clear,/Clear Merchants Order\?/);assert.match(clear,/current Mixers and Fruit order/);assert.match(clear,/Clear Bar Order\?/);assert.match(clear,/Submitted orders and Bar will not be affected/);assert.match(clear,/Submitted orders and Merchants will not be affected/);
+  assert.match(clear,/function pgOpenClearOrder/);assert.match(clear,/function pgClearOrderButton/);assert.match(clear,/pg-clear-order-actions/);assert.match(clear,/s6-sheet-btn danger/);assert.match(clear,/Clear Order/);assert.match(clear,/Cancel/);assert.match(clear,/locked:true/);assert.match(clear,/returnFocus:trigger/);
+  assert.match(clear,/pgClearOrderBusy/);assert.match(clear,/yes\.disabled=true/);assert.match(clear,/aria-busy/);assert.match(clear,/s5ShowSuccess/);assert.match(clear,/button\.disabled=!pgDraftHasMeaningfulWork\(type\)/);assert.match(clear,/if\(no\)no\.focus\(\)/);
   assert.match(clear,/pgPruneWorkflowDraftState\(type,S,products\)/);assert.match(clear,/delete drafts\[type\]/);assert.match(clear,/delete sessions\[type\]/);
   assert.match(clear,/merchantView="Mixer"/);assert.match(clear,/pushCounts\(S\.counts\)/);assert.match(clear,/sbb-counts-cleared/);
   assert.doesNotMatch(clear,/S\.history|saveDB|delDB|buildTo|pgSaveCatalogEdits|pourgrid-scan-history/);
   const merchants=html.slice(html.indexOf('function rMerchantsCountWorkspace'),html.indexOf('function rCatGrid'));
-  assert.match(merchants,/Clear Order/);assert.match(merchants,/pgOpenMerchantsClearOrder/);assert.match(merchants,/if\(!pgDraftHasMeaningfulWork\("merchants"\)\)clear\.disabled=true/);
+  assert.doesNotMatch(merchants,/Clear Order|pgOpenClearOrder|pg-clear-order/);
+  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));assert.match(order,/activeType=isG\?"merchants":"bar"/);assert.match(order,/orderTools\.appendChild\(pgClearOrderButton\(activeType\)\)/);assert.equal((order.match(/pgClearOrderButton\(activeType\)/g)||[]).length,1);
 });
 
 test('Merchants clear executes across Mixers and Fruit while preserving Bar state',()=>{
@@ -408,6 +411,18 @@ test('Merchants clear executes across Mixers and Fruit while preserving Bar stat
   assert.equal(result.adjustments.MixerA,undefined);assert.equal(result.adjustments.FruitA,undefined);assert.equal(result.adjustments.BarA,3);
   assert.equal(result.adjustmentMeta.MixerA,undefined);assert.equal(result.adjustmentMeta.FruitA,undefined);assert.equal(result.adjustmentMeta.BarA.reason,'bar');
   assert.equal(result.notes.mer,'');assert.equal(result.notes.bar,'bar note');assert.equal(state.notes.mer,'merchant note');
+});
+
+test('confirmed Merchants clear removes every draft surface persistently and is idempotent without touching Bar or History',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm');
+  const mixer={name:'MixerA'},fruit={name:'FruitA'},bar={name:'BarA'},writes={},pushes=[];
+  const context={PG_DRAFT_KEY:'drafts',MER:[mixer,fruit],BAR:[bar],S:{counts:{MixerA:'2','MixerA::loose':'4',FruitA:'1',BarA:'9'},adjustments:{MixerA:2,FruitA:1,BarA:3},adjustmentMeta:{MixerA:{reason:'event'},FruitA:{reason:'manager'},BarA:{reason:'bar'}},notes:{mer:'merchant note',bar:'bar note'},history:[{id:7}],tab:'merchants',mSub:'order',merchantView:'Fruit',mCat:'Fruit'},Object,Date,Math};
+  context.pgDraftNoteKey=type=>type==='merchants'?'mer':'bar';context.pgProductSet=type=>type==='merchants'?context.MER:context.BAR;context.pgDrafts=()=>({merchants:{id:'mer-draft'},bar:{id:'bar-draft'}});context.pgSession=()=>({merchants:{id:'mer-session'},bar:{id:'bar-session'}});context.pgEmailStatus=()=>({mer:{Merchants:{copiedAt:1}},bar:{Bellows:{copiedAt:2}}});context.lsSet=(key,value)=>{writes[key]=JSON.parse(JSON.stringify(value));};context.pgSaveSession=value=>{writes.session=JSON.parse(JSON.stringify(value));};context.schedulePush=value=>pushes.push(JSON.parse(JSON.stringify(value)));context.pushCounts=value=>pushes.push(JSON.parse(JSON.stringify(value)));context.render=()=>{};
+  const source=html.slice(html.indexOf('function pgPruneWorkflowDraftState'),html.indexOf('var pgClearOrderBusy'));vm.runInNewContext(source+';this.clear=pgClearWorkflowDraft;',context);
+  const historyBefore=JSON.stringify(context.S.history);context.clear('merchants');context.clear('merchants');
+  assert.deepEqual({...context.S.counts},{BarA:'9'});assert.deepEqual({...context.S.adjustments},{BarA:3});assert.equal(context.S.adjustmentMeta.BarA.reason,'bar');assert.equal(context.S.notes.mer,'');assert.equal(context.S.notes.bar,'bar note');
+  assert.equal(writes.drafts.merchants,undefined);assert.equal(writes.drafts.bar.id,'bar-draft');assert.equal(writes.session.merchants,undefined);assert.equal(writes.session.bar.id,'bar-session');assert.equal(writes['pourgrid-email-status'].mer,undefined);assert.equal(writes['pourgrid-email-status'].bar.Bellows.copiedAt,2);
+  assert.equal(context.S.tab,'merchants');assert.equal(context.S.mSub,'count');assert.equal(context.S.merchantView,'Mixer');assert.equal(context.S.mCat,null);assert.equal(JSON.stringify(context.S.history),historyBefore);assert.ok(pushes.length>=2);
 });
 
 test('workflow submission clears only its own draft and preserves draft identity in History',()=>{
@@ -425,5 +440,7 @@ test('destructive sheets lock background dismissal and restore focus',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
   const sheet=html.slice(html.indexOf('var pgSheetReturnFocus'),html.indexOf('function pgTodayKey'));
   assert.match(sheet,/options\.locked/);assert.match(sheet,/wrap\.dataset\.locked/);assert.match(sheet,/options\.returnFocus\|\|document\.activeElement/);
+  assert.match(sheet,/role","dialog/);assert.match(sheet,/aria-modal/);assert.match(sheet,/aria-labelledby/);assert.match(sheet,/event\.key==="Escape"/);assert.match(sheet,/canDismiss:function\(\)\{return wrap\.dataset\.locked!=="true"/);
+  assert.match(html,/\.s4-sheet\{[^}]*max-height:min\(88dvh,760px\)[^}]*overflow-y:auto[^}]*safe-area-inset-bottom/);
   assert.match(html,/window\.s4CloseSheet=function\(\)[\s\S]*pgSheetReturnFocus\.focus/);
 });
