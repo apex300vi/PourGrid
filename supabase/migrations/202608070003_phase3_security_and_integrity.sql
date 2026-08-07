@@ -92,7 +92,7 @@ revoke all on function public.guard_phase3_changes() from public,anon,authentica
 create trigger guard_submitted_order_lines before update or delete on public.order_lines for each row execute function public.guard_phase3_changes();
 create trigger guard_finalized_baseline_lines before update or delete on public.inventory_baseline_lines for each row execute function public.guard_phase3_changes();
 
-create function public.enforce_phase3_workflow() returns trigger language plpgsql set search_path=pg_catalog,public,pg_temp as $$
+create function public.enforce_phase3_workflow() returns trigger language plpgsql security definer set search_path=pg_catalog,public,pg_temp as $$
 declare expected_workflow public.workflow_kind;
 begin
  if tg_table_name='structured_orders' then select workflow into expected_workflow from public.vendors where id=new.vendor_id and organization_id=new.organization_id;
