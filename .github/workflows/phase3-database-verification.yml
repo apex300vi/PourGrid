@@ -1,0 +1,60 @@
+name: Phase 3 database verification
+on:
+  push:
+    branches: [agent/phase3-receiving-inventory-foundation]
+  pull_request:
+    branches: [agent/persistent-order-adjustments]
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: phase3test
+          POSTGRES_DB: pourgrid_phase3
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d pourgrid_phase3"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: pourgrid_phase3
+      PGUSER: postgres
+      PGPASSWORD: phase3test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bootstrap confirmed legacy shape
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/bootstrap.sql
+      - name: Run migration preflight
+        run: psql -v ON_ERROR_STOP=1 -f scripts/phase3-preflight.sql
+      - name: Apply Phase 3 migrations
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608070001_phase3_foundation.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608070002_phase3_operations.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608070003_phase3_security_and_integrity.sql
+      - name: Run executable database and RLS suite
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase3_executable.sql
+      - name: Verify anonymous direct access is denied
+        shell: bash
+        run: |
+          if psql -v ON_ERROR_STOP=1 -c "set role anon; select * from public.structured_orders"; then
+            echo "anonymous direct read unexpectedly succeeded" >&2
+            exit 1
+          fi
+      - name: Verify concurrent finalization is exactly once
+        shell: bash
+        run: |
+          call="set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false); select public.finalize_receiving('72000000-0000-0000-0000-000000000004');"
+          psql -v ON_ERROR_STOP=1 -c "$call" & a=$!
+          psql -v ON_ERROR_STOP=1 -c "$call" & b=$!
+          wait "$a"; wait "$b"
+          test "$(psql -Atc "select count(*) from public.inventory_movements where source_id='73000000-0000-0000-0000-000000000004'")" = "1"
+          test "$(psql -Atc "select received_units from public.order_lines where id='71000000-0000-0000-0000-000000000003'")" = "1"
+      - name: Run post-migration verification
+        run: psql -v ON_ERROR_STOP=1 -f scripts/phase3-verify.sql
+      - name: Run JavaScript regression suite
+        run: node --test test/*.test.js
