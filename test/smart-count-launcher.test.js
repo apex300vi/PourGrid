@@ -76,12 +76,12 @@ test('manual count clearly separates on-hand inventory from the order recommenda
   assert.doesNotMatch(commitSection,/location\.reload/);
 });
 
-test('packaged-item order stays blank until every physical-count field is entered',()=>{
+test('packaged-item order accepts any valid entered component and blocks invalid input',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
   const presenceSection=html.slice(html.indexOf('function pgHasPhysicalCount'),html.indexOf('function pgSavePart'));
-  assert.match(presenceSection,/entered\("cases"\)&&entered\("loose"\)/);
-  assert.match(presenceSection,/entered\("cases"\)&&entered\("inner"\)&&entered\("loose"\)/);
-  assert.match(presenceSection,/entered\("cases"\)&&entered\("halves"\)/);
+  assert.match(presenceSection,/pgPackParts\(S\.counts,p\)/);
+  assert.match(presenceSection,/normalized&&normalized\.valid&&normalized\.entered/);
+  assert.doesNotMatch(presenceSection,/entered\("cases"\)&&entered\("loose"\)/);
   const calculationSection=html.slice(html.indexOf('function cq'),html.indexOf('function finalOrderQty'));
   assert.match(calculationSection,/if\(!pgHasPhysicalCount\(p\)\)return null/);
   const cardSection=html.slice(html.indexOf('function rCatCount'),html.indexOf('function pgPlural'));
@@ -114,7 +114,7 @@ test('PourGrid Vision uses compact premium workspace classes without inline moda
 
 test('reliability UI never labels unfinished processing complete and gates confirmation',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),section=html.slice(html.indexOf('function showPhotoCountModal'),html.indexOf('// Calls the Supabase Edge Function'));
-  assert.doesNotMatch(section,/Vision Complete/);assert.match(section,/WORKFLOW_STATES\.REVIEW/);assert.match(section,/workflow\.canConfirm\(reviewed\)/);assert.match(section,/Some photos could not be analyzed/);assert.match(section,/Retry Failed Photos/);assert.match(section,/Add More Photos/);
+  assert.doesNotMatch(section,/Vision Complete/);assert.match(section,/WORKFLOW_STATES\.REVIEW/);assert.match(section,/workflow\.canConfirm\(reviewed\)/);assert.match(section,/Photos need another look/);assert.match(section,/Retry Failed Photos/);assert.match(section,/Add More Photos/);
 });
 
 test('zero recognized products shows clearer-photo guidance instead of a zero completion',()=>{
@@ -139,17 +139,20 @@ test('Bottle Intelligence remains wired for both Bar and Merchants product cards
   assert.match(section,/var top=d\("itop"\);top\.onclick=/);assert.doesNotMatch(section,/if\(!isG\).*top\.onclick/);assert.match(section,/Bottle Intelligence/);
 });
 
-test('vendor count filters are alternate views of one shared inventory draft',()=>{
+test('Bar and Merchants render separate workspaces while each keeps its shared draft views',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
-  assert.match(html,/countFilter:"all",countCat:null,counts:lsGet\("sbb-counts"\)/);
+  assert.match(html,/countFilter:"all",merchantView:"Mixer",countCat:null,counts:lsGet\("sbb-counts"\)/);
   const filters=html.slice(html.indexOf('function pgCountTypeForProduct'),html.indexOf('function rHome'));
-  assert.match(filters,/filter==="all"\?PRODUCTS:PRODUCTS\.filter/);
+  assert.match(filters,/filter==="all"\?BAR:BAR\.filter/);
   assert.match(filters,/pgHasPhysicalCount\(p\)/);
-  const workspace=html.slice(html.indexOf('function rUnifiedCount'),html.indexOf('function rCatGrid'));
-  ['all','Bellows/WI','CC1','Merchants'].forEach(v=>assert.match(workspace,new RegExp('"'+v.replace('/','\\/')+'"')));
-  assert.match(workspace,/rCatCount\(S\.countCat,products/);assert.match(workspace,/rCatGrid\(products/);
+  const bar=html.slice(html.indexOf('function rBarCountWorkspace'),html.indexOf('function rMerchantsCountWorkspace'));
+  ['all','Bellows/WI','CC1'].forEach(v=>assert.match(bar,new RegExp('"'+v.replace('/','\\/')+'"')));
+  assert.doesNotMatch(bar,/Merchants|Mixer|Fruit/);
+  const merchants=html.slice(html.indexOf('function rMerchantsCountWorkspace'),html.indexOf('function rCatGrid'));
+  assert.match(merchants,/\["Mixer","Fruit"\]/);assert.doesNotMatch(merchants,/Bellows\/WI|CC1|Full Count/);
   const routing=html.slice(html.indexOf('function rContent'),html.indexOf('function rTabs2'));
-  assert.equal((routing.match(/wrap\.appendChild\(rUnifiedCount\(\)\)/g)||[]).length,2);
+  assert.match(routing,/rBarCountWorkspace\(\)/);assert.match(routing,/rMerchantsCountWorkspace\(\)/);
+  assert.match(routing,/pgStartSession\("bar"\)/);assert.match(routing,/pgStartSession\("merchants"\)/);
 });
 
 test('home vendor orders enter filtered count while Dashboard retains Full Count',()=>{
@@ -157,7 +160,7 @@ test('home vendor orders enter filtered count while Dashboard retains Full Count
   const home=html.slice(html.indexOf('function rHome'),html.indexOf('function rStabs'));
   assert.match(home,/pg-full-count-launcher/);assert.match(home,/pgOpenFullCount/);
   const upcoming=html.slice(html.indexOf('function pgOpenUpcomingCycle'),html.indexOf('function pgCycleActionLabel'));
-  assert.match(upcoming,/countFilter:filter,countCat:null/);assert.match(upcoming,/mSub:"count"/);assert.match(upcoming,/bSub:"count"/);
+  assert.match(upcoming,/merchantView:"Mixer"/);assert.match(upcoming,/countFilter:filter,countCat:null/);assert.match(upcoming,/mSub:"count"/);assert.match(upcoming,/bSub:"count"/);
   assert.doesNotMatch(upcoming,/complete\?"order":"count"/);
 });
 
@@ -171,3 +174,81 @@ test('shared count preserves vendor assignment and previous-order Home navigatio
   assert.match(order,/p\.dist===dist/);
 });
 
+test('Dashboard navigation centrally maps every count destination without replacing draft data',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const routes=html.slice(html.indexOf('function pgRouteSnapshot'),html.indexOf('var pgSheetGestures'));
+  assert.match(routes,/destination==="bar"\|\|destination==="full"/);assert.match(routes,/countFilter:"all"/);
+  assert.match(routes,/destination==="merchants"/);assert.match(routes,/merchantView:"Mixer"/);
+  assert.match(routes,/destination==="fruit"/);assert.match(routes,/merchantView:"Fruit"/);
+  assert.match(routes,/destination==="bellows"/);assert.match(routes,/countFilter:"Bellows\/WI"/);
+  assert.match(routes,/destination==="cc1"/);assert.match(routes,/countFilter:"CC1"/);
+  assert.match(routes,/function pgSafeRouteState/);assert.match(routes,/next\.tab==="merchants"/);
+  assert.doesNotMatch(routes,/counts\s*:/);assert.doesNotMatch(routes,/adjustments\s*:/);assert.doesNotMatch(routes,/pgStartSession/);
+  const nav=html.slice(html.indexOf('function rNav'),html.indexOf('function rSplash'));
+  assert.match(nav,/pgApplyRoute\(tid\)/);
+});
+
+test('active shared-count screens expose a compact draft-preserving Home route',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const workspace=html.slice(html.indexOf('function rBarCountWorkspace'),html.indexOf('function rCatGrid'));
+  assert.match(workspace,/pg-count-home/);assert.match(workspace,/pgApplyRoute\("home"\)/);
+  assert.doesNotMatch(workspace,/counts\s*:/);assert.doesNotMatch(workspace,/adjustments\s*:/);
+});
+
+test('packaged quantities accept either field, normalize blanks, and reject unsafe values',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const source=html.slice(html.indexOf('function pgWholeQuantity'),html.indexOf('function pgPackParts'));
+  const vm=require('node:vm'),context={};vm.runInNewContext(source+';this.parse=pgQuantityPair;',context);
+  assert.deepEqual({...context.parse('2','',{unitsPerCase:12})},{valid:true,entered:true,cases:2,loose:0,total:24,message:''});
+  assert.equal(context.parse('','5',{unitsPerCase:12}).total,5);
+  assert.equal(context.parse('1','4',{unitsPerCase:12}).total,16);
+  assert.equal(context.parse('0','5',{unitsPerCase:12}).valid,true);
+  assert.equal(context.parse('2','0',{unitsPerCase:12}).valid,true);
+  assert.equal(context.parse('','',{unitsPerCase:12}).entered,false);
+  assert.equal(context.parse('0','0',{unitsPerCase:12}).total,0);
+  ['-1','1.5','nope','NaN','Infinity'].forEach(v=>assert.equal(context.parse(v,'',{unitsPerCase:12}).valid,false));
+  assert.equal(context.parse('2','',{unitsPerCase:12,allowLoose:false}).valid,true);
+  assert.equal(context.parse('2','1',{unitsPerCase:12,allowLoose:false}).valid,false);
+  assert.equal(context.parse('','4',{unitsPerCase:12,allowCases:false}).valid,true);
+  const field=html.slice(html.indexOf('function pgField'),html.indexOf('grid.appendChild(pgField'));
+  assert.match(field,/inputMode:"numeric"/);assert.match(field,/min:"0"/);assert.match(field,/step:"1"/);
+});
+
+test('one reusable sheet gesture enforces direction, distance, velocity, scroll, and listener cleanup',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const gesture=html.slice(html.indexOf('var pgSheetGestures'),html.indexOf('// DOM helpers'));
+  assert.match(gesture,/options\.direction==="up"\?-1:1/);assert.match(gesture,/distance>=72\|\|velocity>=\.55/);
+  assert.match(gesture,/Math\.abs\(dx\)>Math\.abs\(dy\)\*1\.15/);assert.match(gesture,/scroll\.scrollTop<=0/);
+  assert.match(gesture,/previous\)previous\.destroy\(\)/);assert.match(gesture,/removeEventListener\("pointerdown"/);
+  assert.match(gesture,/restoreFocus\.focus/);assert.match(gesture,/pointercancel/);
+});
+
+test('handled sheets use the reusable safe dismissal controller',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  assert.match(html,/sheet:overlay\.querySelector\("\.s71-sheet"\)[\s\S]*onDismiss:s71Close/);
+  assert.match(html,/sheet:wrap\.querySelector\("\.s4-sheet"\)[\s\S]*onDismiss:s4CloseSheet/);
+  assert.match(html,/sheet:modal,handle:visionHandle,direction:"down"[\s\S]*canDismiss:function\(\)\{var safe=/);
+});
+
+test('Vision has a reliable top-handle target, safe swipe close, and deterministic listener cleanup',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  assert.match(html,/\.pg-sheet-handle\{[^}]*width:100%[^}]*height:32px[^}]*touch-action:none/);
+  assert.match(html,/\.pg-sheet-handle:before\{[^}]*width:42px[^}]*height:5px/);
+  const vision=html.slice(html.indexOf('function showPhotoCountModal'),html.indexOf('// Calls the Supabase Edge Function'));
+  assert.match(vision,/visionGesture=pgAttachSheetGesture\(\{sheet:modal,handle:visionHandle,direction:"down"/);
+  assert.match(vision,/if\(visionGesture\)\{visionGesture\.destroy\(\);visionGesture=null;\}/);
+  assert.match(vision,/safe=!processing&&!session\.photos\(\)\.length&&!successfulPhotoIds\.length&&!accumulatedResults\.length&&!reviewed\.length/);
+  assert.match(vision,/Use Cancel to close without saving/);
+  assert.match(vision,/overlay\.onclick=function\(\)\{\}/);
+  assert.match(vision,/cancel\.onclick=function\(\)\{if\(processing\)return;cleanup\(\);onDone\(null\);\}/);
+  assert.doesNotMatch(vision,/pg-vision-close|aria-label="Close"/);
+});
+
+test('failed-photo sheet is compact, non-repetitive, and preserves successful work',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const failed=html.slice(html.indexOf('function showFailures'),html.indexOf('async function processPhotos'));
+  assert.match(failed,/pg-vision-failures/);assert.match(failed,/Retry Failed Photos/);assert.match(failed,/Add More Photos/);assert.match(failed,/Successful photos and results are preserved/);
+  assert.equal((failed.match(/couldn't analyze/g)||[]).length,1);assert.match(failed,/session\.failed\(failedPhotoIds\)/);
+  assert.match(html,/\.pg-vision-failure-actions\{display:grid;grid-template-columns:1fr/);
+  assert.match(html,/\.pg-vision-failure-actions button\{width:100%/);
+});
