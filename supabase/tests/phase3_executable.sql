@@ -12,12 +12,14 @@ select test.assert(not has_function_privilege('authenticated','public.apply_move
 select test.assert(not has_function_privilege('authenticated','public.block_immutable_change()','execute'),'immutability helper not executable');
 select test.assert(has_function_privilege('authenticated','public.finalize_receiving(uuid)','execute'),'finalize RPC narrowly granted');
 select test.assert((select proconfig @> array['search_path=pg_catalog, public, pg_temp'] or proconfig @> array['search_path=pg_catalog,public,pg_temp'] from pg_proc where oid='public.finalize_receiving(uuid)'::regprocedure),'safe finalize search_path');
+select test.assert(not exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('admin_upsert_membership','approve_receiving_exception','finalize_baseline','finalize_receiving','approve_reconciliation') and (not p.prosecdef or not (p.proconfig @> array['search_path=pg_catalog, public, pg_temp'] or p.proconfig @> array['search_path=pg_catalog,public,pg_temp']))),'all privileged RPCs are security definer with safe search_path');
+select test.assert(not has_function_privilege('authenticated','public.enforce_phase3_workflow()','execute'),'workflow trigger helper not executable');
 
 insert into auth.users(id) values
  ('00000000-0000-0000-0000-000000000001'),('00000000-0000-0000-0000-000000000002'),('00000000-0000-0000-0000-000000000003'),('00000000-0000-0000-0000-000000000004'),('00000000-0000-0000-0000-000000000005');
 insert into public.profiles(id,display_name) select id,'test' from auth.users;
 insert into public.organizations(id,name) values('10000000-0000-0000-0000-000000000001','Sapphire Beach Bar'),('10000000-0000-0000-0000-000000000002','Other Tenant');
-insert into public.locations(id,organization_id,name) values('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','Main'),('20000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000002','Other');
+insert into public.locations(id,organization_id,name) values('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','Main'),('20000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000002','Other'),('20000000-0000-0000-0000-000000000003','10000000-0000-0000-0000-000000000001','Private storage');
 insert into public.memberships(id,organization_id,user_id,role) values
  ('30000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','administrator'),
  ('30000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','manager'),
@@ -57,6 +59,9 @@ set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000
 select test.assert((select count(*)=1 from public.organizations),'staff sees own organization only');
 select test.assert((select count(*)=1 from public.locations),'staff sees own location only');
 do $$begin begin insert into public.structured_orders(id,organization_id,location_id,vendor_id,workflow,created_by) values(gen_random_uuid(),'10000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000002','40000000-0000-0000-0000-000000000002','bar',auth.uid()); raise exception 'cross tenant insert unexpectedly succeeded'; exception when insufficient_privilege then null; end; end$$;
+do $$begin begin insert into public.structured_orders(id,organization_id,location_id,vendor_id,workflow,created_by) values(gen_random_uuid(),'10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000003','40000000-0000-0000-0000-000000000001','bar',auth.uid()); raise exception 'cross location insert unexpectedly succeeded'; exception when insufficient_privilege then null; end; end$$;
+do $$begin begin insert into public.structured_orders(id,organization_id,location_id,vendor_id,workflow,created_by) values(gen_random_uuid(),'10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','40000000-0000-0000-0000-000000000001','merchants',auth.uid()); raise exception 'vendor workflow mismatch unexpectedly succeeded'; exception when raise_exception then if sqlerrm='vendor workflow mismatch unexpectedly succeeded' then raise; end if; end; end$$;
+do $$begin begin insert into public.inventory_movements(organization_id,location_id,item_id,workflow,kind,quantity_units,source_table,source_id,created_by) values('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','bar','receipt',1,'bypass',gen_random_uuid(),auth.uid()); raise exception 'direct movement insert unexpectedly succeeded'; exception when insufficient_privilege then null; end; begin insert into public.audit_events(organization_id,location_id,actor_id,event_type,entity_table) values('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',auth.uid(),'bypass','test'); raise exception 'direct audit insert unexpectedly succeeded'; exception when insufficient_privilege then null; end; end$$;
 reset role;
 
 set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000004',false);
@@ -75,6 +80,15 @@ reset role;
 set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false); select public.finalize_baseline('60000000-0000-0000-0000-000000000001'); reset role;
 select test.assert((select status='finalized' from public.inventory_baselines where id='60000000-0000-0000-0000-000000000001'),'manager finalized baseline');
 select test.assert((select quantity_units=0 from public.location_inventory_balances where item_id='50000000-0000-0000-0000-000000000001'),'zero baseline recorded');
+
+-- A replacement baseline must create a balance for a newly introduced item.
+set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);
+insert into public.inventory_baselines(id,organization_id,location_id,version,created_by) values('60000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',2,auth.uid());
+insert into public.inventory_baseline_lines(id,baseline_id,organization_id,location_id,item_id,counted_units) values('61000000-0000-0000-0000-000000000003','60000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000003',7);
+reset role;
+set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false); select public.finalize_baseline('60000000-0000-0000-0000-000000000002'); reset role;
+select test.assert((select quantity_units=7 from public.location_inventory_balances where location_id='20000000-0000-0000-0000-000000000001' and item_id='50000000-0000-0000-0000-000000000003'),'replacement baseline creates missing item balance');
+select test.assert((select kind='correction' and quantity_units=7 from public.inventory_movements where source_id='61000000-0000-0000-0000-000000000003'),'replacement baseline records compensating movement for new item');
 
 -- Partial then remaining receipt. 1 package is exactly 12 units.
 set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);

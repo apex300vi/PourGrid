@@ -4,7 +4,9 @@ These viewport captures cover every major Phase 3 workflow at the approved mobil
 
 - Orders
 - Receive
+- Partial receipt and remaining quantities
 - Approvals
+- Inventory-impact preview
 - Baseline
 - Reconcile
 - Inventory

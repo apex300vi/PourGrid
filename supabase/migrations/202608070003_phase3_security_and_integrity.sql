@@ -92,6 +92,27 @@ revoke all on function public.guard_phase3_changes() from public,anon,authentica
 create trigger guard_submitted_order_lines before update or delete on public.order_lines for each row execute function public.guard_phase3_changes();
 create trigger guard_finalized_baseline_lines before update or delete on public.inventory_baseline_lines for each row execute function public.guard_phase3_changes();
 
+create function public.enforce_phase3_workflow() returns trigger language plpgsql set search_path=pg_catalog,public,pg_temp as $$
+declare expected_workflow public.workflow_kind;
+begin
+ if tg_table_name='structured_orders' then select workflow into expected_workflow from public.vendors where id=new.vendor_id and organization_id=new.organization_id;
+ elsif tg_table_name='order_lines' then select o.workflow into expected_workflow from public.structured_orders o where o.id=new.order_id and o.organization_id=new.organization_id and o.location_id=new.location_id; if expected_workflow is distinct from (select i.workflow from public.inventory_items i where i.id=new.item_id and i.organization_id=new.organization_id) then raise exception 'Order item workflow mismatch'; end if; return new;
+ elsif tg_table_name='receiving_sessions' then select workflow into expected_workflow from public.structured_orders where id=new.order_id and organization_id=new.organization_id and location_id=new.location_id;
+ elsif tg_table_name='receiving_lines' and new.substitution_item_id is not null then select s.workflow into expected_workflow from public.receiving_sessions s where s.id=new.session_id and s.organization_id=new.organization_id and s.location_id=new.location_id; if expected_workflow is distinct from (select i.workflow from public.inventory_items i where i.id=new.substitution_item_id and i.organization_id=new.organization_id) then raise exception 'Substitution workflow mismatch'; end if; return new;
+ elsif tg_table_name in ('reconciliation_requests','inventory_movements') then select workflow into expected_workflow from public.inventory_items where id=new.item_id and organization_id=new.organization_id;
+ else return new;
+ end if;
+ if expected_workflow is null or expected_workflow is distinct from new.workflow then raise exception '% workflow mismatch',tg_table_name; end if;
+ return new;
+end$$;
+revoke all on function public.enforce_phase3_workflow() from public,anon,authenticated;
+create trigger structured_order_workflow before insert or update on public.structured_orders for each row execute function public.enforce_phase3_workflow();
+create trigger order_line_workflow before insert or update on public.order_lines for each row execute function public.enforce_phase3_workflow();
+create trigger receiving_session_workflow before insert or update on public.receiving_sessions for each row execute function public.enforce_phase3_workflow();
+create trigger receiving_line_workflow before insert or update on public.receiving_lines for each row execute function public.enforce_phase3_workflow();
+create trigger reconciliation_workflow before insert or update on public.reconciliation_requests for each row execute function public.enforce_phase3_workflow();
+create trigger inventory_movement_workflow before insert or update on public.inventory_movements for each row execute function public.enforce_phase3_workflow();
+
 grant insert,update on public.structured_orders,public.order_lines,public.receiving_sessions,public.receiving_lines,public.inventory_baselines,public.inventory_baseline_lines,public.approved_exceptions,public.reconciliation_requests to authenticated;
 grant update on public.organizations to authenticated;
 grant insert,update on public.locations,public.vendors,public.inventory_items to authenticated;
@@ -155,7 +176,7 @@ begin
  perform pg_advisory_xact_lock(hashtextextended(b.location_id::text,0));
  movement_kind:=case when exists(select 1 from public.inventory_baselines prior where prior.location_id=b.location_id and prior.status='finalized') then 'correction'::public.movement_kind else 'baseline'::public.movement_kind end;
  for l in select bl.*,i.workflow from public.inventory_baseline_lines bl join public.inventory_items i on i.id=bl.item_id where bl.baseline_id=b.id order by bl.id for update of bl loop
-   select coalesce(quantity_units,0) into current_units from public.location_inventory_balances where location_id=b.location_id and item_id=l.item_id for update;
+   select coalesce((select quantity_units from public.location_inventory_balances where location_id=b.location_id and item_id=l.item_id for update),0) into current_units;
    if movement_kind='baseline' or l.counted_units<>current_units then
      insert into public.inventory_movements(organization_id,location_id,item_id,workflow,kind,quantity_units,source_table,source_id,created_by) values(b.organization_id,b.location_id,l.item_id,l.workflow,movement_kind,case when movement_kind='baseline' then l.counted_units else l.counted_units-current_units end,'inventory_baseline_lines',l.id,auth.uid()) on conflict do nothing;
    end if;
