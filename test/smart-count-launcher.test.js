@@ -114,7 +114,7 @@ test('PourGrid Vision uses compact premium workspace classes without inline moda
 
 test('reliability UI never labels unfinished processing complete and gates confirmation',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),section=html.slice(html.indexOf('function showPhotoCountModal'),html.indexOf('// Calls the Supabase Edge Function'));
-  assert.doesNotMatch(section,/Vision Complete/);assert.match(section,/WORKFLOW_STATES\.REVIEW/);assert.match(section,/workflow\.canConfirm\(reviewed\)/);assert.match(section,/Some photos could not be analyzed/);assert.match(section,/Retry Failed Photos/);assert.match(section,/Add More Photos/);
+  assert.doesNotMatch(section,/Vision Complete/);assert.match(section,/WORKFLOW_STATES\.REVIEW/);assert.match(section,/workflow\.canConfirm\(reviewed\)/);assert.match(section,/Photos need another look/);assert.match(section,/Retry Failed Photos/);assert.match(section,/Add More Photos/);
 });
 
 test('zero recognized products shows clearer-photo guidance instead of a zero completion',()=>{
@@ -169,5 +169,49 @@ test('shared count preserves vendor assignment and previous-order Home navigatio
   assert.match(history,/← History/);assert.match(history,/"Home"/);assert.match(history,/screen:"home"/);
   const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function rEmailTab'));
   assert.match(order,/p\.dist===dist/);
+});
+
+test('Dashboard navigation centrally maps every count destination without replacing draft data',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const routes=html.slice(html.indexOf('function pgRouteSnapshot'),html.indexOf('var pgSheetGestures'));
+  assert.match(routes,/destination==="bar"\|\|destination==="full"/);assert.match(routes,/countFilter:"all"/);
+  assert.match(routes,/destination==="merchants"/);assert.match(routes,/countFilter:"Merchants"/);
+  assert.match(routes,/destination==="bellows"/);assert.match(routes,/countFilter:"Bellows\/WI"/);
+  assert.match(routes,/destination==="cc1"/);assert.match(routes,/countFilter:"CC1"/);
+  assert.doesNotMatch(routes,/counts\s*:/);assert.doesNotMatch(routes,/adjustments\s*:/);assert.doesNotMatch(routes,/pgStartSession/);
+  const nav=html.slice(html.indexOf('function rNav'),html.indexOf('function rSplash'));
+  assert.match(nav,/pgApplyRoute\(tid\)/);
+});
+
+test('active shared-count screens expose a compact draft-preserving Home route',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const workspace=html.slice(html.indexOf('function rUnifiedCount'),html.indexOf('function rCatGrid'));
+  assert.match(workspace,/pg-count-home/);assert.match(workspace,/pgApplyRoute\("home"\)/);
+  assert.doesNotMatch(workspace,/counts\s*:/);assert.doesNotMatch(workspace,/adjustments\s*:/);
+});
+
+test('one reusable sheet gesture enforces direction, distance, velocity, scroll, and listener cleanup',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const gesture=html.slice(html.indexOf('var pgSheetGestures'),html.indexOf('// DOM helpers'));
+  assert.match(gesture,/options\.direction==="up"\?-1:1/);assert.match(gesture,/distance>=72\|\|velocity>=\.55/);
+  assert.match(gesture,/Math\.abs\(dx\)>Math\.abs\(dy\)\*1\.15/);assert.match(gesture,/scroll\.scrollTop<=0/);
+  assert.match(gesture,/previous\)previous\.destroy\(\)/);assert.match(gesture,/removeEventListener\("pointerdown"/);
+  assert.match(gesture,/restoreFocus\.focus/);assert.match(gesture,/pointercancel/);
+});
+
+test('handled sheets use the reusable safe dismissal controller',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  assert.match(html,/sheet:overlay\.querySelector\("\.s71-sheet"\)[\s\S]*onDismiss:s71Close/);
+  assert.match(html,/sheet:wrap\.querySelector\("\.s4-sheet"\)[\s\S]*onDismiss:s4CloseSheet/);
+  assert.match(html,/sheet:modal,handle:visionHandle[\s\S]*canDismiss:function\(\)\{return !processing;\}/);
+});
+
+test('failed-photo sheet is compact, non-repetitive, and preserves successful work',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const failed=html.slice(html.indexOf('function showFailures'),html.indexOf('async function processPhotos'));
+  assert.match(failed,/pg-vision-failures/);assert.match(failed,/Retry Failed Photos/);assert.match(failed,/Add More Photos/);assert.match(failed,/Successful photos and results are preserved/);
+  assert.equal((failed.match(/couldn't analyze/g)||[]).length,1);assert.match(failed,/session\.failed\(failedPhotoIds\)/);
+  assert.match(html,/\.pg-vision-failure-actions\{display:grid;grid-template-columns:1fr/);
+  assert.match(html,/\.pg-vision-failure-actions button\{width:100%/);
 });
 
