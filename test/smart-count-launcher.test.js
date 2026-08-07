@@ -139,17 +139,20 @@ test('Bottle Intelligence remains wired for both Bar and Merchants product cards
   assert.match(section,/var top=d\("itop"\);top\.onclick=/);assert.doesNotMatch(section,/if\(!isG\).*top\.onclick/);assert.match(section,/Bottle Intelligence/);
 });
 
-test('vendor count filters are alternate views of one shared inventory draft',()=>{
+test('Bar and Merchants render separate workspaces while each keeps its shared draft views',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
-  assert.match(html,/countFilter:"all",countCat:null,counts:lsGet\("sbb-counts"\)/);
+  assert.match(html,/countFilter:"all",merchantView:"Mixer",countCat:null,counts:lsGet\("sbb-counts"\)/);
   const filters=html.slice(html.indexOf('function pgCountTypeForProduct'),html.indexOf('function rHome'));
-  assert.match(filters,/filter==="all"\?PRODUCTS:PRODUCTS\.filter/);
+  assert.match(filters,/filter==="all"\?BAR:BAR\.filter/);
   assert.match(filters,/pgHasPhysicalCount\(p\)/);
-  const workspace=html.slice(html.indexOf('function rUnifiedCount'),html.indexOf('function rCatGrid'));
-  ['all','Bellows/WI','CC1','Merchants'].forEach(v=>assert.match(workspace,new RegExp('"'+v.replace('/','\\/')+'"')));
-  assert.match(workspace,/rCatCount\(S\.countCat,products/);assert.match(workspace,/rCatGrid\(products/);
+  const bar=html.slice(html.indexOf('function rBarCountWorkspace'),html.indexOf('function rMerchantsCountWorkspace'));
+  ['all','Bellows/WI','CC1'].forEach(v=>assert.match(bar,new RegExp('"'+v.replace('/','\\/')+'"')));
+  assert.doesNotMatch(bar,/Merchants|Mixer|Fruit/);
+  const merchants=html.slice(html.indexOf('function rMerchantsCountWorkspace'),html.indexOf('function rCatGrid'));
+  assert.match(merchants,/\["Mixer","Fruit"\]/);assert.doesNotMatch(merchants,/Bellows\/WI|CC1|Full Count/);
   const routing=html.slice(html.indexOf('function rContent'),html.indexOf('function rTabs2'));
-  assert.equal((routing.match(/wrap\.appendChild\(rUnifiedCount\(\)\)/g)||[]).length,2);
+  assert.match(routing,/rBarCountWorkspace\(\)/);assert.match(routing,/rMerchantsCountWorkspace\(\)/);
+  assert.match(routing,/pgStartSession\("bar"\)/);assert.match(routing,/pgStartSession\("merchants"\)/);
 });
 
 test('home vendor orders enter filtered count while Dashboard retains Full Count',()=>{
@@ -157,7 +160,7 @@ test('home vendor orders enter filtered count while Dashboard retains Full Count
   const home=html.slice(html.indexOf('function rHome'),html.indexOf('function rStabs'));
   assert.match(home,/pg-full-count-launcher/);assert.match(home,/pgOpenFullCount/);
   const upcoming=html.slice(html.indexOf('function pgOpenUpcomingCycle'),html.indexOf('function pgCycleActionLabel'));
-  assert.match(upcoming,/countFilter:filter,countCat:null/);assert.match(upcoming,/mSub:"count"/);assert.match(upcoming,/bSub:"count"/);
+  assert.match(upcoming,/merchantView:"Mixer"/);assert.match(upcoming,/countFilter:filter,countCat:null/);assert.match(upcoming,/mSub:"count"/);assert.match(upcoming,/bSub:"count"/);
   assert.doesNotMatch(upcoming,/complete\?"order":"count"/);
 });
 
@@ -175,9 +178,11 @@ test('Dashboard navigation centrally maps every count destination without replac
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
   const routes=html.slice(html.indexOf('function pgRouteSnapshot'),html.indexOf('var pgSheetGestures'));
   assert.match(routes,/destination==="bar"\|\|destination==="full"/);assert.match(routes,/countFilter:"all"/);
-  assert.match(routes,/destination==="merchants"/);assert.match(routes,/countFilter:"Merchants"/);
+  assert.match(routes,/destination==="merchants"/);assert.match(routes,/merchantView:"Mixer"/);
+  assert.match(routes,/destination==="fruit"/);assert.match(routes,/merchantView:"Fruit"/);
   assert.match(routes,/destination==="bellows"/);assert.match(routes,/countFilter:"Bellows\/WI"/);
   assert.match(routes,/destination==="cc1"/);assert.match(routes,/countFilter:"CC1"/);
+  assert.match(routes,/function pgSafeRouteState/);assert.match(routes,/next\.tab==="merchants"/);
   assert.doesNotMatch(routes,/counts\s*:/);assert.doesNotMatch(routes,/adjustments\s*:/);assert.doesNotMatch(routes,/pgStartSession/);
   const nav=html.slice(html.indexOf('function rNav'),html.indexOf('function rSplash'));
   assert.match(nav,/pgApplyRoute\(tid\)/);
@@ -185,9 +190,28 @@ test('Dashboard navigation centrally maps every count destination without replac
 
 test('active shared-count screens expose a compact draft-preserving Home route',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
-  const workspace=html.slice(html.indexOf('function rUnifiedCount'),html.indexOf('function rCatGrid'));
+  const workspace=html.slice(html.indexOf('function rBarCountWorkspace'),html.indexOf('function rCatGrid'));
   assert.match(workspace,/pg-count-home/);assert.match(workspace,/pgApplyRoute\("home"\)/);
   assert.doesNotMatch(workspace,/counts\s*:/);assert.doesNotMatch(workspace,/adjustments\s*:/);
+});
+
+test('packaged quantities accept either field, normalize blanks, and reject unsafe values',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const source=html.slice(html.indexOf('function pgWholeQuantity'),html.indexOf('function pgPackParts'));
+  const vm=require('node:vm'),context={};vm.runInNewContext(source+';this.parse=pgQuantityPair;',context);
+  assert.deepEqual({...context.parse('2','',{unitsPerCase:12})},{valid:true,entered:true,cases:2,loose:0,total:24,message:''});
+  assert.equal(context.parse('','5',{unitsPerCase:12}).total,5);
+  assert.equal(context.parse('1','4',{unitsPerCase:12}).total,16);
+  assert.equal(context.parse('0','5',{unitsPerCase:12}).valid,true);
+  assert.equal(context.parse('2','0',{unitsPerCase:12}).valid,true);
+  assert.equal(context.parse('','',{unitsPerCase:12}).entered,false);
+  assert.equal(context.parse('0','0',{unitsPerCase:12}).total,0);
+  ['-1','1.5','nope','NaN','Infinity'].forEach(v=>assert.equal(context.parse(v,'',{unitsPerCase:12}).valid,false));
+  assert.equal(context.parse('2','',{unitsPerCase:12,allowLoose:false}).valid,true);
+  assert.equal(context.parse('2','1',{unitsPerCase:12,allowLoose:false}).valid,false);
+  assert.equal(context.parse('','4',{unitsPerCase:12,allowCases:false}).valid,true);
+  const field=html.slice(html.indexOf('function pgField'),html.indexOf('grid.appendChild(pgField'));
+  assert.match(field,/inputMode:"numeric"/);assert.match(field,/min:"0"/);assert.match(field,/step:"1"/);
 });
 
 test('one reusable sheet gesture enforces direction, distance, velocity, scroll, and listener cleanup',()=>{
@@ -214,4 +238,3 @@ test('failed-photo sheet is compact, non-repetitive, and preserves successful wo
   assert.match(html,/\.pg-vision-failure-actions\{display:grid;grid-template-columns:1fr/);
   assert.match(html,/\.pg-vision-failure-actions button\{width:100%/);
 });
-
