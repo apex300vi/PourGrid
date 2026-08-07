@@ -431,6 +431,18 @@ test('shared renderer produces an on-screen actionable Clear Order button for Ba
   assert.match(html,/\.pg-order-tools\{display:flex!important;visibility:visible!important/);assert.match(html,/\.pg-order-tools button\{display:block;visibility:visible;min-height:44px/);assert.match(html,/\.pg-count-order-tools \.pg-clear-order\{flex:1 1 100%\}/);
 });
 
+test('Clear Order buttons enable immediately as counts, notes, and email state are entered',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const refresh=html.slice(html.indexOf('function pgRefreshClearOrderButtons'),html.indexOf('function pgOpenManualAdjustment'));
+  assert.match(refresh,/querySelectorAll\('\.pg-clear-order\[data-workflow=/);assert.match(refresh,/button\.disabled=!hasWork/);assert.match(refresh,/data-clearable/);
+  const countWrites=html.slice(html.indexOf('function pgSavePart'),html.indexOf('function cq'));
+  assert.match(countWrites,/pgRefreshClearOrderButtons\(type\)/);assert.match(countWrites,/pgRefreshClearOrderButtons\("bar"\)/);
+  const countUi=html.slice(html.indexOf('function rCatCount'),html.indexOf('function pgOrderLine'));
+  assert.match(countUi,/pgRefreshClearOrderButtons\(type\)/);assert.match(countUi,/pgRefreshClearOrderButtons\("bar"\)/);
+  const email=html.slice(html.indexOf('function pgMarkEmailCopied'),html.indexOf('function pgCloseSession'));assert.match(email,/pgRefreshClearOrderButtons\(key==="mer"\?"merchants":"bar"\)/);
+  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));assert.match(order,/pgPersistDraft\(type\);pgRefreshClearOrderButtons\(type\)/);
+});
+
 test('Merchants clear executes across Mixers and Fruit while preserving Bar state',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm'),context={pgDraftNoteKey:type=>type==='merchants'?'mer':'bar'};
   const source=html.slice(html.indexOf('function pgPruneWorkflowDraftState'),html.indexOf('function pgClearWorkflowDraft'));

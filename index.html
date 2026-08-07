@@ -935,12 +935,12 @@ function pgHasPhysicalCount(p){
   var normalized=pgPackParts(S.counts,p);return !!(normalized&&normalized.valid&&normalized.entered);
 }
 function pgSavePart(name,suffix,val){
-  var product=PRODUCTS.find(function(x){return x.name===name;});
-  pgTouch(product&&product.dist==="Merchants"?"merchants":"bar",name);
+  var product=PRODUCTS.find(function(x){return x.name===name;}),type=product&&product.dist==="Merchants"?"merchants":"bar";
+  pgTouch(type,name);
   var nc=Object.assign({},S.counts);nc[pgCountKey(name,suffix)]=val;
   var p=PRODUCTS.find(function(x){return x.name===name;});
   if(p)nc[name]=String(pgPhysicalCountFrom(nc,p));
-  lsSet("sbb-counts",nc);schedulePush(nc);S.counts=nc;
+  lsSet("sbb-counts",nc);schedulePush(nc);S.counts=nc;pgRefreshClearOrderButtons(type);
 }
 function pgPhysicalCountFrom(counts,p){
   var cfg=pgPack(p),normalized=pgPackParts(counts,p);if(!cfg)return counts[p.name]||"";if(!normalized||!normalized.valid)return "";
@@ -989,7 +989,7 @@ function pgEffectiveCount(p){
 }
 function pgSetAlt(name,size,val){
   pgTouch("bar",name);
-  var nc=Object.assign({},S.counts);nc[pgAltKey(name,size)]=val;lsSet("sbb-counts",nc);schedulePush(nc);S.counts=nc;
+  var nc=Object.assign({},S.counts);nc[pgAltKey(name,size)]=val;lsSet("sbb-counts",nc);schedulePush(nc);S.counts=nc;pgRefreshClearOrderButtons("bar");
 }
 
 function cq(p,oh){
@@ -1725,6 +1725,10 @@ function pgClearOrderControls(type,includeAdjustment){
   if(includeAdjustment){var addProduct=mk("button","pg-add-order",{type:"button"});addProduct.textContent="Add or Adjust Product";addProduct.onclick=function(){pgOpenAdjustmentPicker(type,addProduct);};controls.appendChild(addProduct);}
   controls.appendChild(pgClearOrderButton(type));return controls;
 }
+function pgRefreshClearOrderButtons(type){
+  var hasWork=pgDraftHasMeaningfulWork(type),config=pgClearOrderConfig(type);
+  document.querySelectorAll('.pg-clear-order[data-workflow="'+type+'"]').forEach(function(button){button.disabled=!hasWork;button.setAttribute("data-clearable",hasWork?"true":"false");button.title=hasWork?"Clear the active "+config.name+" draft":config.name+" order is empty";});
+}
 
 function pgOpenManualAdjustment(name,trigger){
   var product=PRODUCTS.find(function(p){return p.name===name;});if(!product)return;
@@ -2010,7 +2014,7 @@ function rCatCount(cat,prods,isG,unified){
       ap(crow,sp("clbl","On hand:"));
       var cctls=d("cctls");
       var mb=mk("button","pmbtn",{type:"button",onclick:function(product){return function(){var pn=product.name;pgTouch(pgCountTypeForProduct(product),pn);var c=Number(S.counts[pn]||0);var next=Math.round((c-1)*100)/100;if(next>=0){var nc=Object.assign({},S.counts);nc[pn]=String(next);lsSet("sbb-counts",nc);schedulePush(nc);ss({counts:nc});}};}(p)});mb.textContent="−";
-      var inp=mk("input","cinput",{type:"number",inputMode:"numeric",value:S.counts[p.name]||"",placeholder:"0",oninput:function(product){return function(e){var pn=product.name;pgTouch(pgCountTypeForProduct(product),pn);S.counts[pn]=e.target.value;lsSet("sbb-counts",S.counts);schedulePush(S.counts);};}(p),onblur:function(){render();}});
+      var inp=mk("input","cinput",{type:"number",inputMode:"numeric",value:S.counts[p.name]||"",placeholder:"0",oninput:function(product){return function(e){var pn=product.name,type=pgCountTypeForProduct(product);pgTouch(type,pn);S.counts[pn]=e.target.value;lsSet("sbb-counts",S.counts);schedulePush(S.counts);pgRefreshClearOrderButtons(type);};}(p),onblur:function(){render();}});
       var pb2=mk("button","pmbtn",{type:"button",onclick:function(product){return function(){var pn=product.name;pgTouch(pgCountTypeForProduct(product),pn);var c=Number(S.counts[pn]||0);var next=Math.round((c+1)*100)/100;var nc=Object.assign({},S.counts);nc[pn]=String(next);lsSet("sbb-counts",nc);schedulePush(nc);ss({counts:nc});};}(p)});pb2.textContent="+";
       ap(cctls,mb,inp,pb2);crow.appendChild(cctls);card.appendChild(crow);
 
@@ -2021,7 +2025,7 @@ function rCatCount(cat,prods,isG,unified){
         ab.onclick=function(panel){return function(e){if(e&&e.stopPropagation)e.stopPropagation();panel.classList.toggle("open");};}(alt);
         alt.appendChild(d("pg-alt-title","Alternate-size inventory"));
         var ar=d("pg-alt-row");
-        var nf=d("pg-pack-field"),nl=mk("label","");nl.textContent="Standard "+normalMl+" mL";var ni=mk("input","",{type:"number",inputMode:"numeric",value:S.counts[p.name]||"",placeholder:"0",oninput:function(pn){return function(e){pgTouch("bar",pn);S.counts[pn]=e.target.value;lsSet("sbb-counts",S.counts);schedulePush(S.counts);};}(p.name),onblur:function(){render();}});ap(nf,nl,ni);
+        var nf=d("pg-pack-field"),nl=mk("label","");nl.textContent="Standard "+normalMl+" mL";var ni=mk("input","",{type:"number",inputMode:"numeric",value:S.counts[p.name]||"",placeholder:"0",oninput:function(pn){return function(e){pgTouch("bar",pn);S.counts[pn]=e.target.value;lsSet("sbb-counts",S.counts);schedulePush(S.counts);pgRefreshClearOrderButtons("bar");};}(p.name),onblur:function(){render();}});ap(nf,nl,ni);
         var af=d("pg-pack-field"),al=mk("label","");al.textContent=altMl+" mL bottles";var ai=mk("input","",{type:"number",inputMode:"numeric",value:S.counts[pgAltKey(p.name,altMl)]||"",placeholder:"0",oninput:function(pn,sz){return function(e){pgSetAlt(pn,sz,e.target.value);};}(p.name,altMl),onblur:function(){render();}});ap(af,al,ai);
         ap(ar,nf,af);alt.appendChild(ar);
         var eq=d("pg-equivalent");eq.innerHTML="Ordering inventory: <strong>"+Number(pgLiquorEquivalent(p)||0).toFixed(2)+" standard "+normalMl+" mL equivalents</strong>";alt.appendChild(eq);
@@ -2112,7 +2116,7 @@ function pgEmailStatus(){
   return lsGet("pourgrid-email-status")||{};
 }
 function pgMarkEmailCopied(key,dist){
-  var all=pgEmailStatus(),row=all[key]||{};row[dist]={copiedAt:Date.now()};all[key]=row;lsSet("pourgrid-email-status",all);
+  var all=pgEmailStatus(),row=all[key]||{};row[dist]={copiedAt:Date.now()};all[key]=row;lsSet("pourgrid-email-status",all);pgRefreshClearOrderButtons(key==="mer"?"merchants":"bar");
 }
 function pgCloseSession(type){
   var s=pgSession(),today=pgTodayKey();
@@ -2903,7 +2907,7 @@ function rOrderTab(prods,dists,dk,isG){
   }
 
   // ── Notes + Save ──────────────────────────────────────────────────────────
-  var notesField=rOrderNotes(S.notes[dk],function(v){var n=Object.assign({},S.notes);n[dk]=v;S.notes=n;pgPersistDraft(isG?"merchants":"bar");});
+  var notesField=rOrderNotes(S.notes[dk],function(v){var type=isG?"merchants":"bar",n=Object.assign({},S.notes);n[dk]=v;S.notes=n;pgPersistDraft(type);pgRefreshClearOrderButtons(type);});
   wrap.appendChild(notesField);
 
   var btnWrap=mk("div","s6-savebar");
