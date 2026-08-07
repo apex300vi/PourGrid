@@ -3,6 +3,15 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const Launcher=require('../smart-count-launcher.js');
+const vm=require('node:vm');
+
+function cycleStateHarness(){
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  const source=html.slice(html.indexOf('function pgLocalCalendarOffset'),html.indexOf('function pgFmtAgo'));
+  const context={Date};vm.createContext(context);vm.runInContext(source,context);return context.pgCycleState;
+}
+function localDate(year,month,day,hour,minute=0){return new Date(year,month-1,day,hour,minute,0,0);}
+function deadline(at,overdue=false){return {deadline:at,fmt:{done:false,overdue}};}
 
 function button(){
   const handlers={};return {dataset:{},type:'',addEventListener(type,fn){(handlers[type]||(handlers[type]=[])).push(fn);},fire(type){const event={type,prevented:false,preventDefault(){this.prevented=true;}};(handlers[type]||[]).forEach(fn=>fn(event));return event;}};
@@ -266,6 +275,23 @@ test('manual adjustment parser supports cases, bottles, conversion, direction, a
   assert.equal(context.adjust({dist:'Merchants',unit:'Bottle',pack:12},'1','4','reduce').orderUnits,-16);
   ['-1','1.5','nope','NaN','Infinity'].forEach(value=>assert.equal(context.adjust({dist:'Merchants',unit:'Bottle',pack:12},value,'','add').valid,false));
   const zero=context.adjust({dist:'Merchants',unit:'Bottle',pack:12},'0','0','add');assert.equal(zero.valid,true);assert.equal(zero.zero,true);assert.equal(zero.orderUnits,0);
+});
+
+test('cycle labels use the device calendar day while urgency uses remaining time',()=>{
+  const state=cycleStateHarness(),bellows=localDate(2026,8,8,15);
+  assert.deepEqual({...state(deadline(bellows),localDate(2026,8,7,14))},{key:'watch',label:'Due tomorrow',tone:'watch'});
+  assert.deepEqual({...state(deadline(bellows),localDate(2026,8,7,16))},{key:'soon',label:'Due tomorrow',tone:'soon'});
+  assert.deepEqual({...state(deadline(bellows),localDate(2026,8,8,8))},{key:'soon',label:'Due today',tone:'soon'});
+  assert.deepEqual({...state(deadline(bellows),localDate(2026,8,8,10))},{key:'urgent',label:'Due very soon',tone:'urgent'});
+  assert.deepEqual({...state(deadline(bellows,true),localDate(2026,8,8,16))},{key:'urgent',label:'Overdue',tone:'urgent'});
+});
+
+test('cycle labels remain correct across week rollover and every vendor deadline',()=>{
+  const state=cycleStateHarness();
+  assert.equal(state(deadline(localDate(2026,8,15,15)),localDate(2026,8,8,16)).label,'Plenty of time');
+  assert.equal(state(deadline(localDate(2026,8,9,23,59)),localDate(2026,8,8,23)).label,'Due tomorrow','CC1 Sunday deadline');
+  assert.equal(state(deadline(localDate(2026,8,12,20)),localDate(2026,8,11,21)).label,'Due tomorrow','Merchants Wednesday deadline');
+  assert.equal(state(deadline(localDate(2026,8,9,20)),localDate(2026,8,8,21)).label,'Due tomorrow','Merchants Sunday deadline');
 });
 
 test('Bar workflow permits cases and loose units for every valid-pack product while Merchants retains configured rules',()=>{
