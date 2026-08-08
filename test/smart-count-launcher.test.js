@@ -277,6 +277,11 @@ test('manual adjustment parser supports cases, bottles, conversion, direction, a
   const zero=context.adjust({dist:'Merchants',unit:'Bottle',pack:12},'0','0','add');assert.equal(zero.valid,true);assert.equal(zero.zero,true);assert.equal(zero.orderUnits,0);
 });
 
+test('every injected search has explicit execute and reset controls',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),search=html.slice(html.indexOf('function s4AttachSearch'),html.indexOf('</script><div id="s5Offline"'));
+  assert.match(search,/role','search/);assert.match(search,/type="submit">Search/);assert.match(search,/type="reset">Reset/);assert.match(search,/addEventListener\('submit'/);assert.match(search,/addEventListener\('reset'/);
+});
+
 test('cycle labels use the device calendar day while urgency uses remaining time',()=>{
   const state=cycleStateHarness(),bellows=localDate(2026,8,8,15);
   assert.deepEqual({...state(deadline(bellows),localDate(2026,8,7,14))},{key:'watch',label:'Due tomorrow',tone:'watch'});
