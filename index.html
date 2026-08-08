@@ -618,7 +618,7 @@ body:not(.pg-booting) > *{visibility:visible}
 .pg-visual-source{font-size:8.5px;color:#587584;text-align:center;margin-top:6px}
 
 /* PourGrid 9.6 — bottom navigation safe area */
-:root{--pg-bottom-nav-clearance:132px}
+:root{--pg-nav-height:92px;--pg-action-height:84px;--pg-keyboard-offset:0px;--pg-bottom-nav-clearance:calc(var(--pg-nav-height) + var(--pg-action-height) + 20px)}
 .app-shell,.screen,.home-body,.osec,.content,.main-content{
   scroll-padding-bottom:var(--pg-bottom-nav-clearance);
 }
@@ -626,8 +626,18 @@ body:not(.pg-booting) > *{visibility:visible}
   padding-bottom:max(var(--pg-bottom-nav-clearance), calc(96px + env(safe-area-inset-bottom)))!important;
 }
 .s6-savebar,.s6-count-footer{
-  bottom:calc(96px + env(safe-area-inset-bottom))!important;
+  bottom:calc(var(--pg-nav-height) + env(safe-area-inset-bottom))!important;
 }
+body.pg-keyboard-open .nav{transform:translate(-50%,120%)!important;pointer-events:none}
+body.pg-keyboard-open{--pg-nav-height:8px}
+.ilist.pg-count-list{padding-bottom:calc(var(--pg-nav-height) + var(--pg-action-height) + env(safe-area-inset-bottom) + 20px)!important}
+.pg-count-card{scroll-margin-block:18px calc(var(--pg-action-height) + 24px)}
+.pg-order-step{width:44px;height:44px;border-radius:11px;border:1.5px solid currentColor;background:linear-gradient(155deg,var(--panel2),var(--panel-lo));font-size:20px;cursor:pointer;font-weight:800;display:grid;place-items:center;flex:0 0 44px}
+.pg-order-step:disabled{opacity:.32;cursor:not-allowed}
+.pg-order-quantity{display:flex;align-items:center;gap:5px;flex-shrink:0}
+@media(max-width:360px){.orow{align-items:stretch!important;flex-direction:column}.pg-order-quantity{width:100%;justify-content:flex-end;flex-wrap:wrap}.pg-adjust-btn{min-height:44px}.pg-smart-note{max-width:none!important}}
+.pg-edit-validation{display:none;margin:12px 0 0;padding:10px 12px;border-radius:11px;background:rgba(235,104,110,.11);color:#ffb2b6;font-size:12px;font-weight:750;line-height:1.45}
+.pg-edit-validation.show{display:block}
 @media(min-width:700px){
   :root{--pg-bottom-nav-clearance:118px}
 }
@@ -874,14 +884,26 @@ function pgCatalogPackagingEdits(){
   return pgCatalogEdits();
 }
 
+var PG_BULK_FRUIT={"Limes":true,"Lemons":true,"Oranges":true,"Grapefruits":true};
+function pgIsBulkFruit(product){
+  var edit=PourGridProductPersistence.resolve(pgCatalogPackagingEdits(),product);
+  if(edit&&typeof edit.bulkFruit==="boolean")return edit.bulkFruit;
+  return !!(product&&product.cat==="Fruit"&&PG_BULK_FRUIT[product.name]);
+}
+
 function pgPack(p){
   var userEdit=PourGridProductPersistence.resolve(pgCatalogPackagingEdits(),p),userPack=userEdit&&userEdit.packaging;if(userPack)return userPack;
   if(PG_PACKAGING[p.name])return PG_PACKAGING[p.name];
   if(p&&p.unit==="Case"&&p.cat==="Non-Alc"){
     return {mode:"nestedCase",innerPacksPerCase:2,unitsPerInner:12,innerLabel:"12-can packs",unitLabel:"cans"};
   }
-  if(p&&p.unit==="Case"&&["Beer","Mixer","Fruit"].indexOf(p.cat)>=0){
+  if(p&&p.unit==="Case"&&pgIsBulkFruit(p)){
     return {mode:"halfCase",unitLabel:"half cases"};
+  }
+  if(p&&p.dist==="Merchants"){
+    var per=Number(p.pack);
+    if(!Number.isFinite(per)||per<=0||Math.floor(per)!==per)return {mode:"invalid",validationMessage:"A valid whole-number pack size is required before counting this product."};
+    return {mode:"caseLoose",unitsPerCase:per,largeUnit:"Case",largeUnitLabel:"cases",looseUnit:per===1?"Case":"Bottle",unitLabel:per===1?"cases":"bottles",countBasis:"units",buildToBasis:"units"};
   }
   return null;
 }
@@ -931,6 +953,7 @@ function pgPhysicalCount(p){
 }
 function pgHasPhysicalCount(p){
   var cfg=pgPack(p);
+  if(cfg&&cfg.mode==="invalid")return false;
   if(!cfg)return S.counts[p.name]!==undefined&&S.counts[p.name]!=="";
   var normalized=pgPackParts(S.counts,p);return !!(normalized&&normalized.valid&&normalized.entered);
 }
@@ -995,8 +1018,10 @@ function pgSetAlt(name,size,val){
 function cq(p,oh){
   if(!pgHasPhysicalCount(p))return null;
   if(oh===""||oh===null||oh===undefined)return null;
-  var onHand=Number(oh),cfg=pgPack(p);
-  var vp=pgVisionProducts([p])[0];return PourGridVision.orderQuantity(vp,onHand,cfg||{});
+  var onHand=Number(oh),cfg=pgPack(p),vp=pgVisionProducts([p])[0];
+  if(!Number.isFinite(onHand)||onHand<0||!vp||!Number.isFinite(Number(vp.buildTo))||Number(vp.buildTo)<0||cfg&&cfg.mode==="invalid")return null;
+  var quantity=PourGridVision.orderQuantity(vp,onHand,cfg||{});
+  return Number.isFinite(Number(quantity))&&Number(quantity)>=0?Number(quantity):null;
 }
 
 // Computes the FINAL order quantity (base + manual adjustment) for a single
@@ -1049,11 +1074,17 @@ function pgMigrateMerchantPackaging(){
     var cfg=pgPack(product);
     if(!cfg)return;
     var caseKey=pgCountKey(product.name,"cases");
+    var halfKey=pgCountKey(product.name,"halves"),compatKey=pgCountKey(product.name,"compatibility");
     var hasStructured=nc[caseKey]!==undefined||
       nc[pgCountKey(product.name,"loose")]!==undefined||
       nc[pgCountKey(product.name,"inner")]!==undefined||
       nc[pgCountKey(product.name,"halves")]!==undefined;
-    if(!hasStructured&&nc[product.name]!==undefined&&nc[product.name]!==""){
+    if(cfg.mode==="caseLoose"&&nc[halfKey]!==undefined&&nc[halfKey]!==""){
+      var per=Math.max(1,Number(cfg.unitsPerCase)||1),legacyCases=pgNum(nc[caseKey]),legacyHalves=pgNum(nc[halfKey]),exactUnits=legacyCases*per+legacyHalves*per/2;
+      if(Number.isInteger(exactUnits)){nc[caseKey]=String(Math.floor(exactUnits/per));nc[pgCountKey(product.name,"loose")]=String(exactUnits%per);delete nc[halfKey];delete nc[compatKey];}
+      else nc[compatKey]="This saved half-case estimate cannot be converted to exact units. Confirm the physical count before ordering.";
+      changed=true;
+    }else if(!hasStructured&&nc[product.name]!==undefined&&nc[product.name]!==""){
       if(cfg.mode==="caseLoose"&&cfg.countBasis==="units"){
         var totalUnits=pgNum(nc[product.name]),unitsPerCase=Math.max(1,Number(cfg.unitsPerCase)||1);
         nc[caseKey]=String(Math.floor(totalUnits/unitsPerCase));
@@ -1242,7 +1273,7 @@ var SPECIALTY_RECIPES=[{"name":"Bushwacker","recipe":".75oz Stoli, .75oz Sabroso
 var COCKTAIL_PRICES={"Bushwacker": 14, "BBC": 14, "Miami Vice": 14, "Mango Tango": 14, "Pina Colada": 14, "Guava Freeze": 14, "Daiquiri": 14, "Love on da Beach": 13, "Sapphire Lemonade": 13, "Beach Confusion": 13, "Painkiller": 14, "Rum Punch": 13, "Passionfruit Margarita": 14, "Tropical Sunrise": 13};
 
 function s71Norm(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();}
-function s71SellPrice(name){if(SELL_PRICES[name]!=null)return Number(SELL_PRICES[name]);var n=s71Norm(name),k=Object.keys(SELL_PRICES).find(function(x){return s71Norm(x)===n;});return k?Number(SELL_PRICES[k]):null;}
+function s71SellPrice(name){var product=PRODUCTS.find(function(item){return item.name===name;});if(product&&product.sellPrice!=null)return Number(product.sellPrice);if(SELL_PRICES[name]!=null)return Number(SELL_PRICES[name]);var n=s71Norm(name),k=Object.keys(SELL_PRICES).find(function(x){return s71Norm(x)===n;});return k?Number(SELL_PRICES[k]):null;}
 var PG_RECIPE_ALIASES={
   "Stoli Vodka":{include:["stoli vodka","stoli"],exclude:["stoli blu","stoli blueberry","stoli raz","stoli raspberry","stoli oranj","stoli orange"]},
   "Stoli Blu":{include:["stoli blu","stoli blueberry"],exclude:[]},
@@ -1444,6 +1475,8 @@ function pgOpenProductEditor(name){
       '<div class="pg-edit-field"><label>Units per case / pack</label><input id="pge-pack" type="number" step="1" min="1" value="'+Number(product.pack||1)+'"></div>'+
       '<div class="pg-edit-field"><label>Order unit label</label><select id="pge-unit">'+["Case","Bottle","BIB","Tank","Pack","Carton"].map(function(v){return '<option '+(product.unit===v?'selected':'')+'>'+v+'</option>';}).join("")+'</select></div>'+
       '<div class="pg-edit-field"><label>Primary bottle size (mL)</label><input id="pge-ml" type="number" step="1" value="'+Number(product.bottleMl||pgNormalMl(product)||0)+'"></div>'+
+      '<div class="pg-edit-field"><label>Case / package cost</label><input id="pge-cost" type="number" step="0.01" min="0" value="'+(product.caseCost!=null?Number(product.caseCost):(PRICES[product.name]&&PRICES[product.name].case!=null?Number(PRICES[product.name].case):''))+'" placeholder="Optional"></div>'+
+      '<div class="pg-edit-field"><label>Menu / selling price</label><input id="pge-price" type="number" step="0.01" min="0" value="'+(product.sellPrice!=null?Number(product.sellPrice):(SELL_PRICES[product.name]!=null?Number(SELL_PRICES[product.name]):''))+'" placeholder="Optional"></div>'+
       '<div class="pg-edit-field"><label>Large inventory unit</label><select id="pge-large">'+
         ['Case','Tank','BIB','Pack'].map(function(v){return '<option value="'+v+'">'+(v==='Case'?'Cases':v==='Tank'?'Tanks':v==='Pack'?'Packs':'BIB')+'</option>';}).join("")+
       '</select></div>'+
@@ -1452,6 +1485,7 @@ function pgOpenProductEditor(name){
       '</select></div>'+
       '<div class="pg-edit-field"><label>Loose units per large unit</label><input id="pge-upc" type="number" step="1" min="1" value="'+Number(cfg.unitsPerCase||(cfg.innerPacksPerCase&&cfg.unitsPerInner?cfg.innerPacksPerCase*cfg.unitsPerInner:product.pack)||1)+'"></div>'+
       '<div class="pg-edit-field"><label>Packaging mode</label><select id="pge-mode">'+['standard','caseLoose','nestedCase','halfCase'].map(function(v){return '<option value="'+v+'" '+(mode===v?'selected':'')+'>'+v+'</option>';}).join('')+'</select></div>'+
+      '<div class="pg-edit-field"><label>Bulk fruit estimation</label><select id="pge-bulk-fruit"><option value="false" '+(!pgIsBulkFruit(product)?'selected':'')+'>No — exact physical units</option><option value="true" '+(pgIsBulkFruit(product)?'selected':'')+'>Yes — half-case estimates</option></select></div>'+
       '<div class="pg-edit-field"><label>Count basis</label><select id="pge-count-basis"><option value="units" '+((cfg.countBasis||(mode==='standard'?'units':'cases'))==='units'?'selected':'')+'>Units</option><option value="cases" '+((cfg.countBasis||(mode==='standard'?'units':'cases'))==='cases'?'selected':'')+'>Cases</option></select></div>'+
       '<div class="pg-edit-field"><label>Build-to basis</label><select id="pge-build-basis"><option value="units" '+((cfg.buildToBasis||'units')==='units'?'selected':'')+'>Units</option><option value="cases" '+((cfg.buildToBasis||'units')==='cases'?'selected':'')+'>Cases</option></select></div>'+
       '<div class="pg-edit-field"><label>Inner packs</label><input id="pge-inner" type="number" step="1" min="0" value="'+Number(cfg.innerPacksPerCase||0)+'"></div>'+
@@ -1460,7 +1494,7 @@ function pgOpenProductEditor(name){
       '<div class="pg-edit-field"><label>Count preview</label><div id="pge-preview" class="s71-card" style="margin:0;padding:12px;font-weight:800"></div></div>'+
     '</div>'+
     '<div class="pg-edit-section">Recognition & notes</div><div class="pg-edit-grid"><div class="pg-edit-field full"><label>Notes</label><textarea id="pge-note">'+pgEsc(product.note||"")+'</textarea></div><div class="pg-edit-field full"><label>Alternate packaging</label><textarea id="pge-alternate">'+pgEsc(cfg.alternatePackaging||"")+'</textarea></div><div class="pg-edit-field full"><label>Recognition settings</label><textarea id="pge-recognition">'+pgEsc(cfg.recognitionSettings||"")+'</textarea></div><div class="pg-edit-field full"><label>Recognition images (one reference per line)</label><textarea id="pge-recognition-images">'+pgEsc((cfg.recognitionImages||[]).join("\n"))+'</textarea></div></div>'+
-    '<div class="pg-edit-actions"><button class="pg-edit-reset" id="pgResetProductButton">Reset to v12</button><button class="pg-edit-save" id="pgSaveProductButton">Save changes</button></div>'+
+    '<div id="pgProductEditError" class="pg-edit-validation" role="alert"></div><div class="pg-edit-actions"><button class="pg-edit-reset" id="pgResetProductButton">Reset to v12</button><button class="pg-edit-save" id="pgSaveProductButton">Save changes</button></div>'+
   '</div>';
   sheet.classList.add("open");document.body.style.overflow="hidden";
   var saveBtn=document.getElementById("pgSaveProductButton");
@@ -1488,11 +1522,25 @@ function pgRenameProductData(oldName,newName){
 function pgCommitProductEdit(originalName){
   var product=PRODUCTS.find(function(x){return x.name===originalName;});if(!product)return;
   function v(id){var e=document.getElementById(id);return e?e.value:"";}
-  var newName=v("pge-name").trim()||originalName,largeUnit=v("pge-large"),looseUnit=v("pge-loose"),upc=Math.max(1,Number(v("pge-upc"))||1);
-  var edit={name:newName,dist:v("pge-dist"),supplier:v("pge-supplier").trim(),cat:v("pge-cat").trim()||product.cat,buildTo:Number(v("pge-build"))||0,pack:Math.max(1,Number(v("pge-pack"))||1),unit:v("pge-unit")||"Case",bottleMl:Math.max(0,Number(v("pge-ml"))||0),note:v("pge-note")};
+  function fail(message,id){var box=document.getElementById("pgProductEditError");if(box){box.textContent=message;box.classList.add("show");}var field=id&&document.getElementById(id);if(field){field.setAttribute("aria-invalid","true");field.focus();}return false;}
+  var newName=v("pge-name").trim(),largeUnit=v("pge-large"),looseUnit=v("pge-loose"),build=Number(v("pge-build")),pack=Number(v("pge-pack")),upc=Number(v("pge-upc")),inner=Number(v("pge-inner")),ml=Number(v("pge-ml")),costText=v("pge-cost").trim(),priceText=v("pge-price").trim(),cost=Number(costText),price=Number(priceText),mode=v("pge-mode")||"standard",bulkFruit=v("pge-bulk-fruit")==="true";
+  if(!newName)return fail("Product name is required.","pge-name");
+  if(!Number.isFinite(build)||build<0)return fail("Build-to quantity must be zero or greater.","pge-build");
+  if(!Number.isFinite(pack)||pack<=0||Math.floor(pack)!==pack)return fail("Pack or case size must be a positive whole number.","pge-pack");
+  if(!Number.isFinite(upc)||upc<=0||Math.floor(upc)!==upc)return fail("Loose units per large unit must be a positive whole number.","pge-upc");
+  if(!Number.isFinite(inner)||inner<0||Math.floor(inner)!==inner)return fail("Inner packs must be a nonnegative whole number.","pge-inner");
+  if(mode==="nestedCase"&&inner<1)return fail("Nested-case counting requires at least one inner pack per case.","pge-inner");
+  if(mode==="halfCase"&&!bulkFruit)return fail("Half-case estimation is available only for products explicitly marked as bulk fruit.","pge-bulk-fruit");
+  if(bulkFruit&&(v("pge-cat")||product.cat)!=="Fruit")return fail("Bulk-fruit estimation requires the Fruit category.","pge-cat");
+  if(looseUnit==="None"&&v("pge-count-basis")==="units")return fail("Unit-based counting requires a loose inventory unit.","pge-loose");
+  if(costText&&(!Number.isFinite(cost)||cost<0))return fail("Case or package cost must be zero or greater.","pge-cost");
+  if(priceText&&(!Number.isFinite(price)||price<0))return fail("Menu or selling price must be zero or greater.","pge-price");
+  if(!Number.isFinite(ml)||ml<0)return fail("Bottle size must be zero or greater.","pge-ml");
+  var edit={name:newName,dist:v("pge-dist"),supplier:v("pge-supplier").trim(),cat:v("pge-cat").trim()||product.cat,buildTo:build,pack:pack,unit:v("pge-unit")||"Case",bottleMl:ml,note:v("pge-note"),bulkFruit:bulkFruit};
+  if(costText)edit.caseCost=cost;if(priceText)edit.sellPrice=price;
   if(!edit.supplier)delete edit.supplier;
-  var mode=v("pge-mode")||"standard",unitLabel=v("pge-loose-label").trim()||(looseUnit==="None"?"units":pgUnitPlural(looseUnit,2));
-  edit.packaging={mode:mode,largeUnit:largeUnit,largeUnitLabel:v("pge-large-label").trim()||pgUnitPlural(largeUnit,2),looseUnit:looseUnit,unitsPerCase:upc,unitLabel:unitLabel,countBasis:v("pge-count-basis")||"units",buildToBasis:v("pge-build-basis")||"units",innerPacksPerCase:Math.max(0,Number(v("pge-inner"))||0),alternatePackaging:v("pge-alternate"),recognitionSettings:v("pge-recognition"),recognitionImages:v("pge-recognition-images").split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean)};
+  var unitLabel=v("pge-loose-label").trim()||(looseUnit==="None"?"units":pgUnitPlural(looseUnit,2));
+  edit.packaging={mode:bulkFruit?"halfCase":mode,largeUnit:largeUnit,largeUnitLabel:v("pge-large-label").trim()||pgUnitPlural(largeUnit,2),looseUnit:looseUnit,unitsPerCase:upc,unitLabel:unitLabel,countBasis:v("pge-count-basis")||"units",buildToBasis:v("pge-build-basis")||"units",innerPacksPerCase:inner,alternatePackaging:v("pge-alternate"),recognitionSettings:v("pge-recognition"),recognitionImages:v("pge-recognition-images").split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean)};
   var all=pgCatalogEdits(),next=PourGridProductPersistence.withEdit(all,product,edit),saved=pgSaveCatalogEdits(next),stableId=PourGridProductPersistence.stableId(product),verified=saved.ok&&saved.value&&PourGridProductPersistence.same(saved.value[stableId],next[stableId]);
   pgSaveScanDiagnostics({id:"persistence-"+Date.now(),createdAt:new Date().toISOString(),type:"product-persistence",productId:stableId,productName:newName,persistenceVerificationResult:verified?"verified":"failed",storageWriteDurationMs:saved.writeMs,storageReadDurationMs:saved.readMs,exceptionMessage:saved.error});
   if(!verified){
@@ -1501,6 +1549,7 @@ function pgCommitProductEdit(originalName){
   }
   pgRenameProductData(originalName,newName);
   PourGridProductPersistence.apply(product,edit);
+  pgPersistDraft(pgDraftTypeForProduct(product));
   pgCloseProductEditor();s71Close();toast("Bottle Intelligence saved and verified");
   render();
 }
@@ -1607,18 +1656,18 @@ function pgAdjustmentCapability(product){
   var cfg=pgPack(product)||{},rawPer=cfg.unitsPerCase!==undefined?cfg.unitsPerCase:product.pack,per=Number(rawPer),validPack=Number.isFinite(per)&&per>0&&Math.floor(per)===per,unit=product.unit||"Case";
   if(product.dist!=="Merchants"){
     var looseNoun=Number(product.bottleMl)>0?"bottles":"loose units";
-    if(!validPack)return {rule:"barLooseOnlyMissingPack",allowCases:false,allowLoose:true,missingCaseConfig:true,unitsPerCase:null,largeLabel:"Cases (package quantity required)",looseLabel:"Individual "+looseNoun,orderUnit:unit,canonicalUnit:"loose"};
-    return {rule:"barCaseAndLoose",allowCases:true,allowLoose:true,missingCaseConfig:false,unitsPerCase:per,largeLabel:"Cases (preferred)",looseLabel:"Individual "+looseNoun,orderUnit:unit,canonicalUnit:unit==="Case"?"case":"loose"};
+    if(!validPack)return {rule:"barLooseOnlyMissingPack",allowCases:false,allowLoose:true,missingCaseConfig:true,unitsPerCase:null,largeLabel:"Cases (package quantity required)",looseLabel:looseNoun.charAt(0).toUpperCase()+looseNoun.slice(1),orderUnit:unit,canonicalUnit:"loose"};
+    return {rule:"barCaseAndLoose",allowCases:true,allowLoose:true,missingCaseConfig:false,unitsPerCase:per,largeLabel:"Cases (preferred)",looseLabel:looseNoun.charAt(0).toUpperCase()+looseNoun.slice(1),orderUnit:unit,canonicalUnit:unit==="Case"?"case":"loose"};
   }
   per=validPack?per:1;
   var rule=product.purchaseRule||(unit==="Case"?"caseOnly":["Bottle","Can","Carton"].indexOf(unit)>=0?"caseOrBottle":"caseOnly");
-  if(unit==="Case")return {rule:rule,allowCases:true,allowLoose:rule==="casePreferred"||rule==="caseOrBottle",unitsPerCase:per,largeLabel:"Cases",looseLabel:"Individual bottles",orderUnit:"Case",canonicalUnit:"case"};
-  if(["Bottle","Can","Carton"].indexOf(unit)>=0)return {rule:rule,allowCases:rule!=="bottleOnly"&&per>1,allowLoose:true,unitsPerCase:per,largeLabel:"Cases",looseLabel:"Individual "+unit.toLowerCase()+"s",orderUnit:unit,canonicalUnit:"loose"};
+  if(unit==="Case")return {rule:rule,allowCases:true,allowLoose:rule==="casePreferred"||rule==="caseOrBottle",unitsPerCase:per,largeLabel:"Cases",looseLabel:"Bottles",orderUnit:"Case",canonicalUnit:"case"};
+  if(["Bottle","Can","Carton"].indexOf(unit)>=0)return {rule:rule,allowCases:rule!=="bottleOnly"&&per>1,allowLoose:true,unitsPerCase:per,largeLabel:"Cases",looseLabel:unit+"s",orderUnit:unit,canonicalUnit:"loose"};
   return {rule:rule,allowCases:true,allowLoose:false,unitsPerCase:1,largeLabel:unit+(unit==="BIB"?"":"s"),looseLabel:"Loose units",orderUnit:unit,canonicalUnit:"large"};
 }
 function pgPurchaseRuleLabel(product){
   var capability=pgAdjustmentCapability(product),rule=capability.rule;
-  return rule==="barCaseAndLoose"?"Bar workflow · cases preferred · loose units allowed":rule==="barLooseOnlyMissingPack"?"Bar workflow · loose units only · case package quantity missing":rule==="casePreferred"?"Case preferred · individual bottles allowed":rule==="caseOrBottle"?"Case or bottle":rule==="caseOnly"?"Case only":"Bottle only";
+  return rule==="barCaseAndLoose"?"Bar workflow · cases preferred · loose units allowed":rule==="barLooseOnlyMissingPack"?"Bar workflow · loose units only · case package quantity missing":rule==="casePreferred"?"Case preferred · bottles allowed":rule==="caseOrBottle"?"Case or bottle":rule==="caseOnly"?"Case only":"Bottle only";
 }
 function pgManualAdjustment(product,casesRaw,looseRaw,direction){
   var capability=pgAdjustmentCapability(product),parsed=pgQuantityPair(casesRaw,looseRaw,capability);
@@ -1628,9 +1677,9 @@ function pgManualAdjustment(product,casesRaw,looseRaw,direction){
   return {valid:true,zero:parsed.total===0,orderUnits:(direction==="reduce"?-1:1)*units,cases:parsed.cases,loose:parsed.loose,capability:capability};
 }
 function pgPurchasePartsText(product,cases,loose,sign){
-  cases=Math.max(0,Number(cases)||0);loose=Math.max(0,Number(loose)||0);var parts=[],looseUnit=product.dist!=="Merchants"&&Number(product.bottleMl)>0?"bottle":product.unit==="Case"?"unit":String(product.unit||"unit").toLowerCase();
-  if(cases)parts.push(cases+" "+pgPlural(cases,"case","cases"));
-  if(loose)parts.push(loose+" individual "+pgPlural(loose,looseUnit,looseUnit+"s"));
+  cases=Math.max(0,Number(cases)||0);loose=Math.max(0,Number(loose)||0);var parts=[],cfg=pgPack(product)||{},looseUnit=cfg.looseUnit&&cfg.looseUnit!=="None"?cfg.looseUnit:(Number(product.bottleMl)>0||product.unit==="Case"?"Bottle":product.unit||"Unit");
+  if(cases)parts.push(cases+" "+pgPlural(cases,"Case","Cases"));
+  if(loose)parts.push(loose+" "+pgPlural(loose,looseUnit,looseUnit==="BIB"?"BIB":looseUnit+"s"));
   if(!parts.length)return "0";
   return (sign||"")+parts.join(" + ");
 }
@@ -1734,9 +1783,10 @@ function pgOpenManualAdjustment(name,trigger){
 }
 
 function pgOpenAdjustmentPicker(type,trigger){
-  var products=pgProductSet(type),content='<div class="pg-adjust-field"><label>Product</label><select id="pgAdjProduct">'+products.map(function(product){return '<option value="'+pgEsc(product.name)+'">'+pgEsc(product.name)+'</option>';}).join("")+'</select></div><div class="s6-sheet-actions"><button class="s6-sheet-btn primary" id="pgAdjContinue">Continue</button><button class="s6-sheet-btn" id="pgAdjPickerCancel">Cancel</button></div>';
-  s4Sheet("Add or adjust product","Choose any product, including one with no calculated demand.",content,{locked:true,returnFocus:trigger});
-  setTimeout(function(){var select=document.getElementById("pgAdjProduct"),next=document.getElementById("pgAdjContinue"),cancel=document.getElementById("pgAdjPickerCancel");cancel.onclick=function(){s4CloseSheet();};next.onclick=function(){var name=select.value;s4CloseSheet();setTimeout(function(){pgOpenManualAdjustment(name,trigger);},0);};},0);
+  var products=pgProductSet(type).filter(function(product){return !pgOrderItemVisible(pgOrderItem(product));});
+  var content=products.length?'<div class="pg-adjust-field"><label>Missing product</label><select id="pgAdjProduct">'+products.map(function(product){return '<option value="'+pgEsc(product.name)+'">'+pgEsc(product.name)+'</option>';}).join("")+'</select></div><div class="s6-sheet-actions"><button class="s6-sheet-btn primary" id="pgAdjContinue">Continue</button><button class="s6-sheet-btn" id="pgAdjPickerCancel">Cancel</button></div>':'<div class="pg-form-error show">Every product is already in this order. Use the − and + controls on an existing line.</div><div class="s6-sheet-actions"><button class="s6-sheet-btn" id="pgAdjPickerCancel">Close</button></div>';
+  s4Sheet("Add missing product","Choose a product that has no calculated order quantity.",content,{locked:true,returnFocus:trigger});
+  setTimeout(function(){var select=document.getElementById("pgAdjProduct"),next=document.getElementById("pgAdjContinue"),cancel=document.getElementById("pgAdjPickerCancel");cancel.onclick=function(){s4CloseSheet();};if(next)next.onclick=function(){var name=select.value;s4CloseSheet();setTimeout(function(){pgOpenManualAdjustment(name,trigger);},0);};},0);
 }
 
 function pgCountTypeForProduct(product){return product&&product.dist==="Merchants"?"merchants":"bar";}
@@ -1910,10 +1960,10 @@ function rCatCount(cat,prods,isG,unified){
   wrap.appendChild(pb);
   wrap.appendChild(d("pg-smart-note","PourGrid Vision counts this entire category from one multi-photo session. Manual Count remains available below."));
   if(isG&&cat==="Mixer")wrap.appendChild(d("pg-category-note","Smart packaging · Island Oasis uses cases + loose cartons; grapefruit uses cases + loose cans. PourGrid converts each product using its real case size."));
-  if(isG&&cat==="Fruit")wrap.appendChild(d("pg-category-note","Fruit inventory · Count full cases and half cases. Orders remain whole cases."));
+  if(isG&&cat==="Fruit")wrap.appendChild(d("pg-category-note","Bulk citrus uses half-case estimates. Packaged fruit uses exact cases and loose units."));
   if(!isG&&cat==="Non-Alc")wrap.appendChild(d("pg-category-note","Bubly packaging · Count full 24-can bundles, 8-can inner packs, and loose cans. Orders remain whole 24-can bundles."));
   wrap.appendChild(d("pg-edit-section","Manual Count"));
-  var list=d("ilist");
+  var list=d("ilist pg-count-list");
   items.forEach(function(p){
     var getName=function(){return p.name;};
     var getVal=function(){var v=pgEffectiveCount(p);return v===undefined?"":v;};
@@ -1921,7 +1971,7 @@ function rCatCount(cat,prods,isG,unified){
     var qty=cq(p,val);
     var has=pgHasPhysicalCount(p);
     var col=DC[p.dist];
-    var card=d("icard");
+    var card=d("icard pg-count-card");
     if(has)card.style.border="1.5px solid "+(qty===0?"#3DDC84":accent);
     var top=d("itop");top.onclick=function(pn){return function(e){if(e&&e.target&&e.target.tagName==="INPUT")return;s71Open(pn);};}(p.name);
     var info=mk("div","");info.style.cssText="flex:1;padding-right:8px;";
@@ -1949,7 +1999,7 @@ function rCatCount(cat,prods,isG,unified){
     var pxInfo=PRICES[p.name];
     if(pxInfo){var pxLine=mk("div","");pxLine.style.cssText="font-size:11px;color:var(--text-faint);margin-top:4px;";pxLine.textContent="$"+pxInfo.bottle.toFixed(2)+"/btl · $"+pxInfo.case.toFixed(2)+"/case";info.appendChild(pxLine);}
     top.appendChild(info);
-    if(has){
+    if(has&&qty!==null){
       var qb=d("qbadge");
       qb.style.background=qty===0?"rgba(0,184,147,0.16)":"rgba(79,168,255,0.16)";
       qb.style.color=qty===0?"#3DDC84":accent;
@@ -1960,6 +2010,11 @@ function rCatCount(cat,prods,isG,unified){
     var cfg=pgPack(p);
     if(cfg){
       var pc=d("pg-pack-card");
+      var compatibility=S.counts[pgCountKey(p.name,"compatibility")];if(compatibility)pc.appendChild(d("pg-form-error show",compatibility));
+      if(cfg.mode==="invalid"){
+        pc.appendChild(d("pg-form-error show",cfg.validationMessage||"Complete Bottle Intelligence before counting this product."));
+        var fix=mk("button","pg-edit-product-btn",{type:"button",onclick:function(name){return function(e){if(e&&e.stopPropagation)e.stopPropagation();pgOpenProductEditor(name);};}(p.name)});fix.textContent="Fix product configuration";pc.appendChild(fix);card.appendChild(pc);list.appendChild(card);return;
+      }
       pc.appendChild(d("pg-pack-title",cfg.mode==="nestedCase"?"Physical count · bundled case":cfg.mode==="halfCase"?"Physical count · full + half cases":"Physical count · case + loose"));
       var grid=d(cfg.mode==="nestedCase"?"pg-pack-grid three":"pg-pack-grid");
       function pgField(label,suffix,placeholder){
@@ -2155,7 +2210,7 @@ function rOrderList(prods,dists){
       }
       ap(info,nm2,metaDiv,explanation);
       if(isAdj){var adjMeta=S.adjustmentMeta[p.name]||{},adjSummary=d("pg-adjust-summary");adjSummary.textContent="Calculated "+Number(p.orderQty||0)+" "+pgPlural(p.orderQty,p.unit,p.unit+"s")+" · Manual "+pgManualPurchaseText(p,adjMeta,p.adj)+" · Final "+pgFinalPurchaseText(p,p.adjQty,p.finalPurchaseBreakdown)+(adjMeta.reason?" · "+adjMeta.reason:"");info.appendChild(adjSummary);}
-      var qtyWrap=mk("div","");qtyWrap.style.cssText="display:flex;align-items:center;gap:5px;flex-shrink:0;";
+      var qtyWrap=mk("div","pg-order-quantity");
       var qm=mk("button","");qm.style.cssText="width:26px;height:26px;border-radius:7px;border:1.5px solid "+col.dot+";background:#fff;font-size:15px;color:"+col.dot+";cursor:pointer;font-weight:700;display:flex;align-items:center;justify-content:center;";
       qm.textContent="-";
       qm.onclick=function(pn){return function(e){if(e&&e.stopPropagation)e.stopPropagation();
@@ -2673,7 +2728,7 @@ function rOrderTab(prods,dists,dk,isG){
   var items=prods.map(pgOrderItem).filter(pgOrderItemVisible);
 
   var wrap=mk("div","");
-  var activeType=isG?"merchants":"bar",orderTools=d("pg-order-tools"),addProduct=mk("button","pg-add-order",{type:"button"});addProduct.textContent="Add or Adjust Product";addProduct.onclick=function(){pgOpenAdjustmentPicker(activeType,addProduct);};orderTools.appendChild(addProduct);wrap.appendChild(orderTools);
+  var activeType=isG?"merchants":"bar",orderTools=d("pg-order-tools"),addProduct=mk("button","pg-add-order",{type:"button"});addProduct.textContent="Add missing product";addProduct.onclick=function(){pgOpenAdjustmentPicker(activeType,addProduct);};orderTools.appendChild(addProduct);wrap.appendChild(orderTools);
 
   var adjustedItems=items.filter(function(p){return p.adj!==0;});
   if(adjustedItems.length){
@@ -2751,8 +2806,8 @@ function rOrderTab(prods,dists,dk,isG){
       ap(info,nm2,metaDiv,explanation);
       info.appendChild(d("pg-vendor-label","Assigned vendor: "+p.dist+(p.dist==="Bellows/WI"?" · routed within Bellows/West Indies output":"")));
       if(isAdj){var adjMeta=S.adjustmentMeta[p.name]||{},adjSummary=d("pg-adjust-summary");adjSummary.textContent="Calculated "+Number(p.orderQty||0)+" "+pgPlural(p.orderQty,p.unit,p.unit+"s")+" · Manual "+pgManualPurchaseText(p,adjMeta,p.adj)+" · Final "+pgFinalPurchaseText(p,p.adjQty,p.finalPurchaseBreakdown)+(adjMeta.reason?" · "+adjMeta.reason:"");info.appendChild(adjSummary);}
-      var qtyWrap=mk("div","");qtyWrap.style.cssText="display:flex;align-items:center;gap:5px;flex-shrink:0;";
-      var qm=mk("button","");qm.style.cssText="width:26px;height:26px;border-radius:7px;border:1.5px solid "+col.dot+";background:linear-gradient(155deg,var(--panel2),var(--panel-lo));font-size:15px;color:"+col.dot+";cursor:pointer;font-weight:700;display:flex;align-items:center;justify-content:center;";
+      var qtyWrap=mk("div","pg-order-quantity");
+      var qm=mk("button","pg-order-step",{type:"button"});qm.style.color=col.dot;qm.setAttribute("aria-label","Decrease "+p.name+" by one "+pgPlural(1,p.unit,p.unit+"s"));qm.title="−1 "+p.unit;qm.disabled=Number(p.adjQty)<=0;
       qm.textContent="-";
       qm.onclick=function(pname){return function(){
         var pr=prods.find(function(x){return x.name===pname;});
@@ -2760,13 +2815,13 @@ function rOrderTab(prods,dists,dk,isG){
       };}(p.name);
       var qb=mk("div","");qb.style.cssText="background:"+col.bg+";color:"+col.text+";border-radius:10px;padding:4px 8px;font-size:13px;font-weight:800;white-space:nowrap;min-width:52px;text-align:center;";
       qb.textContent=pgFinalPurchaseText(p,p.adjQty,p.finalPurchaseBreakdown);
-      var qp=mk("button","");qp.style.cssText="width:26px;height:26px;border-radius:7px;border:1.5px solid "+col.dot+";background:linear-gradient(155deg,var(--panel2),var(--panel-lo));font-size:15px;color:"+col.dot+";cursor:pointer;font-weight:700;display:flex;align-items:center;justify-content:center;";
+      var qp=mk("button","pg-order-step",{type:"button"});qp.style.color=col.dot;qp.setAttribute("aria-label","Increase "+p.name+" by one "+pgPlural(1,p.unit,p.unit+"s"));qp.title="+1 "+p.unit;
       qp.textContent="+";
       qp.onclick=function(pname){return function(){
         var pr=prods.find(function(x){return x.name===pname;});pgStepManualAdjustment(pr,1);
       };}(p.name);
       var adjust=mk("button","pg-adjust-btn",{type:"button"});adjust.textContent=isAdj?"Edit":"Adjust";adjust.onclick=function(pname,button){return function(){pgOpenManualAdjustment(pname,button);};}(p.name,adjust);
-      ap(qtyWrap,qb,adjust);
+      ap(qtyWrap,qm,qb,qp,adjust);
       ap(row,info,qtyWrap);
       ol.appendChild(row);
     });
@@ -3293,6 +3348,8 @@ function rFrequency(history){
 
 var PRICES={"Stoli Vodka":{"case":143.4,"pack":12,"bottle":11.950000000000001},"Tito's Handmade Vodka":{"case":260.0,"pack":12,"bottle":21.666666666666668},"Stoli Oranj":{"case":143.4,"pack":12,"bottle":11.950000000000001},"Stoli Raz":{"case":143.4,"pack":12,"bottle":11.950000000000001},"Stoli Blu":{"case":143.4,"pack":12,"bottle":11.950000000000001},"Deep Eddy Grapefruit":{"case":213.6,"pack":12,"bottle":17.8},"Deep Eddy Lemon":{"case":213.6,"pack":12,"bottle":17.8},"Ketel One":{"case":309.0,"pack":12,"bottle":25.75},"Bacardi Gold":{"case":134.0,"pack":12,"bottle":11.166666666666666},"Bacardi Superior":{"case":134.0,"pack":12,"bottle":11.166666666666666},"Bacardi Pineapple":{"case":140.4,"pack":12,"bottle":11.700000000000001},"Myers's Dark Rum":{"case":158.2,"pack":12,"bottle":13.183333333333332},"Captain Morgan Spiced Rum":{"case":121.56,"pack":12,"bottle":10.13},"Goslings Black Seal Rum":{"case":187.0,"pack":12,"bottle":15.583333333333334},"Cruzan Hurricane Proof":{"case":103.0,"pack":12,"bottle":8.583333333333334},"Cruzan Light":{"case":109.0,"pack":12,"bottle":9.083333333333334},"Cruzan Dark":{"case":109.0,"pack":12,"bottle":9.083333333333334},"Cruzan Coconut":{"case":129.0,"pack":12,"bottle":10.75},"Cruzan Banana":{"case":129.0,"pack":12,"bottle":10.75},"Cruzan Raspberry":{"case":129.0,"pack":12,"bottle":10.75},"Cruzan Passion Fruit":{"case":129.0,"pack":12,"bottle":10.75},"Cruzan Mango":{"case":129.0,"pack":12,"bottle":10.75},"Cruzan Vanilla":{"case":129.0,"pack":12,"bottle":10.75},"Milagro Silver":{"case":120.15,"pack":6,"bottle":20.025000000000002},"Lunazul Blanco":{"case":197.16,"pack":12,"bottle":16.43},"Lunazul Reposado":{"case":197.16,"pack":12,"bottle":16.43},"Ghost Tequila":{"case":176.4,"pack":6,"bottle":29.400000000000002},"Clase Azul Reposado":{"case":870.0,"pack":6,"bottle":145.0},"Don Julio Reposado":{"case":330.0,"pack":6,"bottle":55.0},"Don Julio Blanco":{"case":288.0,"pack":6,"bottle":48.0},"Don Julio Anejo":{"case":330.0,"pack":6,"bottle":55.0},"Tanqueray Gin":{"case":234.0,"pack":12,"bottle":19.5},"Bombay Sapphire Gin":{"case":205.4,"pack":12,"bottle":17.116666666666667},"Hendrick's Gin":{"case":175.0,"pack":12,"bottle":14.583333333333334},"Jack Daniel's Old No. 7":{"case":300.0,"pack":12,"bottle":25.0},"Crown Royal":{"case":252.0,"pack":12,"bottle":21.0},"Crown Apple":{"case":252.0,"pack":12,"bottle":21.0},"Fireball Cinnamon Whisky":{"case":180.4,"pack":12,"bottle":15.033333333333333},"Skrewball":{"case":180.0,"pack":6,"bottle":30.0},"Jameson Irish Whiskey":{"case":294.0,"pack":12,"bottle":24.5},"Bulleit Bourbon":{"case":307.8,"pack":12,"bottle":25.650000000000002},"Maker's Mark Bourbon":{"case":370.0,"pack":12,"bottle":30.833333333333332},"Dewars White Label":{"case":239.4,"pack":12,"bottle":19.95},"Johnnie Walker Black Label":{"case":528.0,"pack":12,"bottle":44.0},"Hennessy VS":{"case":515.0,"pack":12,"bottle":42.916666666666664},"Irish Cream":{"case":256.2,"pack":12,"bottle":21.349999999999998},"Sabroso Coffee Liqueur":{"case":105.0,"pack":12,"bottle":8.75},"Peach Schnapps":{"case":74.4,"pack":12,"bottle":6.2},"Triple Sec":{"case":74.4,"pack":12,"bottle":6.2},"Grand Marnier":{"case":345.6,"pack":6,"bottle":57.6},"Cointreau":{"case":355.0,"pack":12,"bottle":29.583333333333332},"Amaretto":{"case":74.4,"pack":12,"bottle":6.2},"Blue Curacao":{"case":85.0,"pack":12,"bottle":7.083333333333333},"Frangelico":{"case":362.0,"pack":6,"bottle":60.333333333333336},"Sambuca":{"case":188.4,"pack":12,"bottle":15.700000000000001},"Aperol":{"case":115.0,"pack":6,"bottle":19.166666666666668},"Campari":{"case":175.0,"pack":6,"bottle":29.166666666666668},"Manon Rose":{"case":146.3,"pack":12,"bottle":12.191666666666668},"Lunetta Prosecco":{"case":145.8,"pack":12,"bottle":12.15},"Joel Gott Chardonnay":{"case":168.0,"pack":12,"bottle":14.0},"Sokol Blosser Red Blend":{"case":168.59,"pack":12,"bottle":14.049166666666666},"Kim Crawford Sauv Blanc":{"case":211.0,"pack":12,"bottle":17.583333333333332},"Corona cans":{"case":39.5,"pack":1,"bottle":39.5},"Bud Light":{"case":30.0,"pack":1,"bottle":30.0},"Mich Ultra cans":{"case":34.5,"pack":1,"bottle":34.5},"Surfside Lemonade":{"case":54.0,"pack":1,"bottle":54.0},"Carib cans":{"case":33.0,"pack":1,"bottle":33.0},"Heineken cans":{"case":40.95,"pack":1,"bottle":40.95},"Heineken 0.0 cans":{"case":34.95,"pack":1,"bottle":34.95},"Miller Lite cans":{"case":27.95,"pack":1,"bottle":27.95},"Coors Light cans":{"case":27.95,"pack":1,"bottle":27.95},"Soca cans":{"case":41.0,"pack":1,"bottle":41.0},"Reef Life cans":{"case":45.0,"pack":1,"bottle":45.0},"Beach Life cans":{"case":41.0,"pack":1,"bottle":41.0},"White Claw - Black Cherry":{"case":48.0,"pack":1,"bottle":48.0},"Twisted Tea cans":{"case":32.3,"pack":1,"bottle":32.3},"Aquafina 16.9oz":{"case":12.5,"pack":1,"bottle":12.5},"Ginger Beer 12oz can":{"case":25.65,"pack":1,"bottle":25.65},"Green Ting":{"case":33.95,"pack":1,"bottle":33.95},"Red Bull":{"case":39.6,"pack":1,"bottle":39.6},"Coke can":{"case":16.5,"pack":1,"bottle":16.5},"Diet Coke can":{"case":16.5,"pack":1,"bottle":16.5},"Coke Zero can":{"case":16.5,"pack":1,"bottle":16.5},"Sprite can":{"case":16.5,"pack":1,"bottle":16.5},"Coke 20oz Btl":{"case":29.0,"pack":1,"bottle":29.0},"Diet Coke 20oz Btl":{"case":29.0,"pack":1,"bottle":29.0},"Sprite 20oz Btl":{"case":29.0,"pack":1,"bottle":29.0},"Mountain Dew 20oz Btl":{"case":27.0,"pack":1,"bottle":27.0},"Pepsi 20oz Btl":{"case":27.0,"pack":1,"bottle":27.0},"Diet Pepsi 20oz Btl":{"case":27.0,"pack":1,"bottle":27.0},"Cherry Pepsi 20oz Btl":{"case":27.0,"pack":1,"bottle":27.0},"Gatorade Fruit Punch 20oz":{"case":24.95,"pack":1,"bottle":24.95},"Gatorade Glacier Freeze":{"case":24.95,"pack":1,"bottle":24.95},"Gatorade Fierce Grape":{"case":24.95,"pack":1,"bottle":24.95},"Gatorade Lemon Lime":{"case":24.95,"pack":1,"bottle":24.95},"Gatorade Orange 20oz":{"case":24.95,"pack":1,"bottle":24.95},"Brisk Ice Tea 20oz":{"case":27.0,"pack":1,"bottle":27.0},"Bubly Blackberry":{"case":16.0,"pack":1,"bottle":16.0},"Bubly Strawberry":{"case":16.0,"pack":1,"bottle":16.0},"Bubly Lime":{"case":16.0,"pack":1,"bottle":16.0},"A&W Root Beer can":{"case":17.95,"pack":1,"bottle":17.95},"Canada Dry Tonic Water":{"case":18.95,"pack":1,"bottle":18.95},"Canada Dry Club Soda":{"case":18.95,"pack":1,"bottle":18.95},"Canada Dry Ginger Ale":{"case":18.95,"pack":1,"bottle":18.95},"Dr. Pepper can":{"case":22.5,"pack":1,"bottle":22.5},"Diet Dr. Pepper can":{"case":22.5,"pack":1,"bottle":22.5},"Sunkist Orange can":{"case":17.95,"pack":1,"bottle":17.95},"BIB Coke":{"case":77.4,"pack":1,"bottle":77.4},"BIB Cranberry":{"case":57.8,"pack":1,"bottle":57.8},"BIB Diet Coke":{"case":77.4,"pack":1,"bottle":77.4},"BIB Lemonade":{"case":77.4,"pack":1,"bottle":77.4},"BIB Sprite":{"case":77.4,"pack":1,"bottle":77.4},"CO2":{"case":125.0,"pack":1,"bottle":125.0},"Finest Call Grenadine":{"case":66.5,"pack":12,"bottle":5.541666666666667},"Finest Call Margarita Mix":{"case":66.5,"pack":12,"bottle":5.541666666666667},"Finest Call Sweet & Sour":{"case":66.5,"pack":12,"bottle":5.541666666666667},"Zing Zang":{"case":90.0,"pack":12,"bottle":7.5},"Florida's Natural OJ":{"case":21.75,"pack":1,"bottle":21.75},"Florida's Natural Fruit Splash":{"case":21.75,"pack":1,"bottle":21.75},"Florida's Natural Cranberry":{"case":21.75,"pack":1,"bottle":21.75},"Florida's Natural Kiwi":{"case":21.75,"pack":1,"bottle":21.75}};
 function getBottleCost(productName){
+  var product=PRODUCTS.find(function(item){return item.name===productName;});
+  if(product&&product.caseCost!=null){var pack=Math.max(1,Number(product.pack)||1);return Number(product.caseCost)/pack;}
   var p=PRICES[productName];
   return p?p.bottle:null;
 }
@@ -4103,6 +4160,26 @@ function render(){
 
 // Sapphire 3.0 interaction polish: lightweight, non-invasive affordances.
 (function(){
+  function pgSyncViewportClearance(){
+    var root=document.documentElement,nav=document.querySelector(".nav"),action=document.querySelector(".s6-count-footer"),vv=window.visualViewport;
+    var keyboard=!!(vv&&window.innerHeight-vv.height>120);
+    document.body.classList.toggle("pg-keyboard-open",keyboard);
+    root.style.setProperty("--pg-nav-height",(keyboard?8:Math.ceil(nav&&nav.getBoundingClientRect().height||92))+"px");
+    root.style.setProperty("--pg-action-height",Math.ceil(action&&action.getBoundingClientRect().height||84)+"px");
+    if(keyboard&&document.activeElement&&document.activeElement.matches("input[inputmode],input[type=number]")){
+      var activeCard=document.activeElement.closest(".pg-count-card");if(activeCard)requestAnimationFrame(function(){activeCard.scrollIntoView({block:"start",behavior:"smooth"});});
+    }
+  }
+  window.pgSyncViewportClearance=pgSyncViewportClearance;
+  window.addEventListener("resize",pgSyncViewportClearance,{passive:true});
+  if(window.visualViewport){visualViewport.addEventListener("resize",pgSyncViewportClearance,{passive:true});visualViewport.addEventListener("scroll",pgSyncViewportClearance,{passive:true});}
+  document.addEventListener("focusin",function(event){
+    if(!event.target.matches("input[inputmode],input[type=number]"))return;
+    pgSyncViewportClearance();var card=event.target.closest(".pg-count-card");
+    setTimeout(function(){if(card&&card.scrollIntoView)card.scrollIntoView({block:"start",behavior:"smooth"});},80);
+  });
+  document.addEventListener("focusout",function(){setTimeout(pgSyncViewportClearance,120);});
+  if(typeof ResizeObserver!=="undefined")new ResizeObserver(pgSyncViewportClearance).observe(document.body);
   document.addEventListener("keydown",function(e){
     if(e.key!=="Escape")return;
     if(S.histDet){ss({histDet:null});return;}

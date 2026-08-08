@@ -310,12 +310,12 @@ test('Bar workflow permits cases and loose units for every valid-pack product wh
   const tito={name:"Tito's Handmade Vodka",dist:'CC1',cat:'Vodka',pack:12,unit:'Case',bottleMl:1000};
   [stoli,deep,tito].forEach(product=>{assert.equal(context.capability(product).rule,'barCaseAndLoose');assert.equal(context.capability(product).allowCases,true);assert.equal(context.capability(product).allowLoose,true);});
   const twoCases=context.adjust(stoli,'2','','add');assert.equal(twoCases.orderUnits,2);assert.equal(twoCases.cases,2);assert.equal(twoCases.loose,0);
-  const bottles=context.adjust(stoli,'0','3','add');assert.equal(bottles.orderUnits,.25);assert.equal(context.manualText(stoli,{cases:0,loose:3,direction:'add'},.25),'+3 individual bottles');
-  const combined=context.adjust(stoli,'1','2','add');assert.equal(combined.orderUnits,14/12);assert.equal(context.manualText(stoli,{cases:1,loose:2,direction:'add'},14/12),'+1 case + 2 individual bottles');
+  const bottles=context.adjust(stoli,'0','3','add');assert.equal(bottles.orderUnits,.25);assert.equal(context.manualText(stoli,{cases:0,loose:3,direction:'add'},.25),'+3 Bottles');
+  const combined=context.adjust(stoli,'1','2','add');assert.equal(combined.orderUnits,14/12);assert.equal(context.manualText(stoli,{cases:1,loose:2,direction:'add'},14/12),'+1 Case + 2 Bottles');
   assert.equal(context.adjust(stoli,'','','add').valid,false);
   const enteredZero=context.adjust(stoli,'0','0','add');assert.equal(enteredZero.valid,true);assert.equal(enteredZero.zero,true);assert.equal(enteredZero.orderUnits,0);
-  const finalBottles=context.breakdown(stoli,0,{cases:0,loose:3,direction:'add'});assert.deepEqual({...finalBottles},{cases:0,loose:3,totalBottles:3,unitsPerCase:12,rule:'barCaseAndLoose'});assert.equal(context.finalText(stoli,.25,finalBottles),'3 individual bottles');
-  const finalCombined=context.breakdown(stoli,0,{cases:1,loose:2,direction:'add'});assert.equal(context.finalText(stoli,14/12,finalCombined),'1 case + 2 individual bottles');
+  const finalBottles=context.breakdown(stoli,0,{cases:0,loose:3,direction:'add'});assert.deepEqual({...finalBottles},{cases:0,loose:3,totalBottles:3,unitsPerCase:12,rule:'barCaseAndLoose'});assert.equal(context.finalText(stoli,.25,finalBottles),'3 Bottles');
+  const finalCombined=context.breakdown(stoli,0,{cases:1,loose:2,direction:'add'});assert.equal(context.finalText(stoli,14/12,finalCombined),'1 Case + 2 Bottles');
   const reduced=context.adjust(stoli,'0','1','reduce');assert.ok(0+reduced.orderUnits<0);assert.equal(1+reduced.orderUnits,11/12);
   ['-1','1.5','nope','NaN','Infinity'].forEach(value=>{assert.equal(context.adjust(stoli,value,'','add').valid,false);assert.equal(context.adjust(stoli,'',value,'add').valid,false);});
   const future={name:'Future Bar Product',dist:'New Bar Vendor',unit:'Case',pack:6};assert.equal(context.adjust(future,'1','2','add').orderUnits,8/6);assert.equal(context.capability(future).rule,'barCaseAndLoose');
@@ -364,7 +364,7 @@ test('manual additions with zero calculated demand reach vendor output and submi
   const generic=context.build({name:'Any Adjusted Product',dist:'CC1',cat:'Other',pack:1,unit:'Case',buildTo:0});
   assert.equal(generic.adjQty,3);assert.equal(context.visible(generic),true);
   const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));
-  assert.match(order,/prods\.map\(pgOrderItem\)\.filter\(pgOrderItemVisible\)/);assert.match(order,/Add or Adjust Product/);assert.match(order,/pgOpenAdjustmentPicker/);
+  assert.match(order,/prods\.map\(pgOrderItem\)\.filter\(pgOrderItemVisible\)/);assert.match(order,/Add missing product/);assert.match(order,/pgOpenAdjustmentPicker/);
   assert.match(order,/calculatedOrderQty:base===null\?0:base/);assert.match(order,/manualAdjustment:adj/);assert.match(order,/manualAdjustmentDetails:manual/);assert.match(order,/finalOrderQty:final/);
   assert.match(order,/items\.filter\(function\(p\)\{return p\.dist===dist&&p\.adjQty>0;/);
   assert.match(order,/Saved manual adjustments/);assert.match(order,/Assigned vendor:/);assert.match(order,/Use the vendor tabs above to review them/);
