@@ -78,7 +78,7 @@ test('Lime Juice ships with the required persisted-compatible defaults',()=>{
 test('manual count clearly separates on-hand inventory from the order recommendation',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
   assert.match(html,/function pgInventorySummary/);
-  assert.match(html,/\+total\+" "\+cfg\.unitLabel\+" on hand"/);
+  assert.match(html,/\+total\+" "\+pgPlural\(total,one,many\)\+" on hand"/);
   assert.match(html,/"Order "\+String\(qty\)/);
   assert.match(html,/Bottle Intelligence saved and verified/);
   const commitSection=html.slice(html.indexOf('function pgCommitProductEdit'),html.indexOf('function pgResetProductEdit'));
@@ -299,13 +299,13 @@ test('cycle labels remain correct across week rollover and every vendor deadline
   assert.equal(state(deadline(localDate(2026,8,9,20)),localDate(2026,8,8,21)).label,'Due tomorrow','Merchants Sunday deadline');
 });
 
-test('Bar workflow permits cases and loose units for every valid-pack product while Merchants retains configured rules',()=>{
+test('Bar workflow permits cases and loose units except explicitly case-only products while Merchants retains configured rules',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm');
   const quantities=html.slice(html.indexOf('function pgWholeQuantity'),html.indexOf('function pgPackParts'));
   const purchasing=html.slice(html.indexOf('function pgAdjustmentCapability'),html.indexOf('function pgSetManualAdjustment'));
   const context={pgPack:()=>null,pgPlural:(n,one,many)=>Number(n)===1?one:many};
   vm.runInNewContext(quantities+purchasing+';this.adjust=pgManualAdjustment;this.capability=pgAdjustmentCapability;this.breakdown=pgFinalPurchaseBreakdown;this.manualText=pgManualPurchaseText;this.finalText=pgFinalPurchaseText;',context);
-  const stoli={name:'Stoli Raz',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',purchaseRule:'caseOnly',bottleMl:1000,buildTo:12};
+  const stoli={name:'Stoli Raz',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',bottleMl:1000,buildTo:12};
   const deep={name:'Deep Eddy Grapefruit',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',bottleMl:1000,buildTo:6};
   const tito={name:"Tito's Handmade Vodka",dist:'CC1',cat:'Vodka',pack:12,unit:'Case',bottleMl:1000};
   [stoli,deep,tito].forEach(product=>{assert.equal(context.capability(product).rule,'barCaseAndLoose');assert.equal(context.capability(product).allowCases,true);assert.equal(context.capability(product).allowLoose,true);});
@@ -322,7 +322,7 @@ test('Bar workflow permits cases and loose units for every valid-pack product wh
   const missing={name:'Future Missing Pack',dist:'New Bar Vendor',unit:'Case',pack:null};assert.equal(context.capability(missing).allowCases,false);assert.equal(context.capability(missing).allowLoose,true);assert.equal(context.capability(missing).missingCaseConfig,true);assert.equal(context.adjust(missing,'1','0','add').valid,false);assert.equal(context.adjust(missing,'0','3','add').orderUnits,3);
   const lime={name:'Lime Juice',dist:'Merchants',unit:'Case',pack:12};assert.equal(context.adjust(lime,'0','3','add').valid,false);assert.equal(context.capability(lime).rule,'caseOnly');
   const merchantBottle={name:'Configured Merchant Bottle',dist:'Merchants',unit:'Bottle',pack:12,purchaseRule:'bottleOnly'};assert.equal(context.capability(merchantBottle).allowCases,false);assert.equal(context.adjust(merchantBottle,'1','0','add').valid,false);
-  const catalog=JSON.parse(html.match(/var PG_V12_PRODUCTS=(\[.*?\]);\r?\nvar PRODUCTS/s)[1]),bar=catalog.filter(product=>product.dist!=='Merchants');assert.ok(bar.length>0);assert.equal(bar.filter(product=>!Number.isInteger(Number(product.pack))||Number(product.pack)<=0).length,0);bar.forEach(product=>{const capability=context.capability(product);assert.equal(capability.rule,'barCaseAndLoose',product.name);assert.equal(capability.allowCases,true,product.name);assert.equal(capability.allowLoose,true,product.name);});
+  const catalog=JSON.parse(html.match(/var PG_V12_PRODUCTS=(\[.*?\]);\r?\nvar PRODUCTS/s)[1]),bar=catalog.filter(product=>product.dist!=='Merchants');assert.ok(bar.length>0);assert.equal(bar.filter(product=>!Number.isInteger(Number(product.pack))||Number(product.pack)<=0).length,0);bar.forEach(product=>{const capability=context.capability(product);assert.equal(capability.rule,product.purchaseRule==='caseOnly'?'caseOnly':'barCaseAndLoose',product.name);assert.equal(capability.allowCases,true,product.name);assert.equal(capability.allowLoose,product.purchaseRule!=='caseOnly',product.name);});
   assert.doesNotMatch(html,/PG_PURCHASE_RULES/);
   assert.match(html,/"Deep Eddy Grapefruit"[\s\S]*?"pack":12[\s\S]*?"unit":"Case"[\s\S]*?"bottleMl":1000/);
   assert.match(html,/"Stoli Raz"[\s\S]*?"pack":12[\s\S]*?"unit":"Case"[\s\S]*?"bottleMl":1000/);
