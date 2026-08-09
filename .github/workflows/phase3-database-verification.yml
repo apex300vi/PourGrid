@@ -3,7 +3,7 @@ on:
   push:
     branches: [agent/phase3-receiving-inventory-foundation]
   pull_request:
-    branches: [agent/persistent-order-adjustments]
+    branches: [main]
 permissions:
   contents: read
 jobs:
@@ -27,6 +27,12 @@ jobs:
       PGPASSWORD: phase3test
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install and build client
+        run: npm ci && npm run build
       - name: Bootstrap confirmed legacy shape
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/bootstrap.sql
       - name: Run migration preflight

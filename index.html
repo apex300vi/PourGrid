@@ -8,7 +8,8 @@
 <meta name="apple-mobile-web-app-title" content="Sapphire Bar">
 <meta name="theme-color" content="#04111F">
 <meta name="pourgrid-release" content="PourGrid V1 RC1.7.1 STAGING"><title>Sapphire Beach Bar · Inventory & Ordering</title>
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/auth.css">
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
@@ -776,13 +777,13 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 .pg-adjust-route{margin:0 16px 12px;padding:12px 13px;border:1px solid rgba(237,201,120,.25);border-radius:14px;background:linear-gradient(145deg,rgba(79,61,27,.42),rgba(12,36,50,.88));color:#e9d49d;font-size:11px;line-height:1.5}.pg-adjust-route strong{display:block;color:#f4dc9a;font-size:12px}.pg-adjust-route button{width:100%;min-height:40px;margin-top:9px;border:1px solid rgba(237,201,120,.3);border-radius:11px;background:rgba(237,201,120,.1);color:#f1d58d;font-weight:850}.pg-count-adjusted{margin-top:8px;padding:8px 10px;border:1px solid rgba(237,201,120,.24);border-radius:10px;background:rgba(237,201,120,.08);color:#efd083;font-size:10px;font-weight:800;line-height:1.45}.pg-count-adjusted button{margin-left:6px;border:0;background:transparent;color:#8ee2f2;font:inherit;text-decoration:underline}.pg-vendor-label{display:block;margin-top:5px;color:#8bb7c7;font-size:10px;font-weight:750}
 </style>
 </head>
-<body class="pg-booting"><div class="pg-rc-marker">V1 RC1.7.1 STAGING</div><div id="pgSplash" class="pg-splash"><div class="pg-splash-inner"><div class="pg-splash-icon pg-inline-mark" aria-label="PourGrid"><span></span><span></span><span></span><span></span></div><div class="pg-splash-word"><span>POUR</span><span>GRID</span></div><div class="pg-splash-tag">Count what you see. Order what you need.</div></div></div>
-<div class="app" id="app"></div>
-<script src="bottle-intelligence.js?v=1.7.1.1"></script>
-<script src="smart-count-launcher.js?v=1.7.1.1"></script>
-<script src="pourgrid-vision.js?v=1.7.1.1"></script>
-<script src="product-persistence.js?v=1.7.1.1"></script>
-<script>
+<body class="pg-booting pg-auth-pending"><div id="pgAuthRoot"><main class="pg-auth"><section class="pg-auth-card"><div class="pg-auth-kicker">POURGRID</div><h1>Getting PourGrid ready</h1><p class="pg-auth-copy" role="status">Checking your secure session…</p><div class="pg-auth-loader" aria-hidden="true"></div></section></main></div><div class="app" id="app" hidden><div class="pg-rc-marker">V1 RC1.7.1 STAGING</div><div id="pgSplash" class="pg-splash"><div class="pg-splash-inner"><div class="pg-splash-icon pg-inline-mark" aria-label="PourGrid"><span></span><span></span><span></span><span></span></div><div class="pg-splash-word"><span>POUR</span><span>GRID</span></div><div class="pg-splash-tag">Count what you see. Order what you need.</div></div></div></div>
+<script src="/runtime-config.js"></script><script src="/auth-gate.js" defer></script><!-- data-pg-auth-boundary -->
+<script type="text/pourgrid-protected" data-pg-protected src="bottle-intelligence.js?v=1.7.1.1"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="smart-count-launcher.js?v=1.7.1.1"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="pourgrid-vision.js?v=1.7.1.1"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="product-persistence.js?v=1.7.1.1"></script>
+<script type="text/pourgrid-protected" data-pg-protected>
 
 
 
@@ -791,8 +792,8 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 
 
 
-var SB_URL="https://xnkoddmpraelmwhykfdk.supabase.co";
-var SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhua29kZG1wcmFlbG13aHlrZmRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NzYyNzksImV4cCI6MjA5NTQ1MjI3OX0.QBr0kxeP9Z7VuiyoJYXZjpiJDVKxFf2_fSwIBPjEun4";
+var SB_URL=window.POURGRID_CONFIG.supabaseUrl;
+var SB_KEY=window.POURGRID_CONFIG.supabaseAnonKey;
 
 async function dbFetch(path,opts){
   opts=opts||{};
@@ -4302,7 +4303,7 @@ setInterval(function(){
 
 </script>
 <!-- Sapphire 2.0 visual redesign · business logic preserved -->
-<div id="s4SheetWrap" class="s4-sheet-backdrop" onclick="if(event.target===this)s4CloseSheet()"><div class="s4-sheet"><div class="s4-grabber"></div><div id="s4SheetBody"></div></div></div><div id="s4Undo" class="s4-undo"><span id="s4UndoText">Updated</span><button onclick="s4RunUndo()">Undo</button></div><script>let s4UndoFn=null,s4UndoTimer=null;function s4CloseSheet(){const w=document.getElementById('s4SheetWrap');if(w)w.classList.remove('open');document.body.style.overflow=''}function s4Undo(message,fn){s4UndoFn=fn;const el=document.getElementById('s4Undo');document.getElementById('s4UndoText').textContent=message;el.classList.add('show');clearTimeout(s4UndoTimer);s4UndoTimer=setTimeout(()=>el.classList.remove('show'),5000)}function s4RunUndo(){if(s4UndoFn)try{s4UndoFn()}catch(e){};document.getElementById('s4Undo').classList.remove('show');s4UndoFn=null}function s4Haptic(){if(navigator.vibrate)navigator.vibrate(8)}document.addEventListener('click',e=>{if(e.target.closest('button,.ctile,.crow,.orow'))s4Haptic()},{passive:true});function s4AttachSearch(){document.querySelectorAll('.screen').forEach(screen=>{if(screen.dataset.s4search)return;const rows=screen.querySelectorAll('.crow,.orow,.photo-item-row,.icard');if(rows.length<8)return;screen.dataset.s4search='1';const anchor=screen.querySelector('.stabs')||screen.querySelector('.hdr');if(!anchor)return;const box=document.createElement('form');box.className='s4-search';box.setAttribute('role','search');box.innerHTML='<span class="mag">⌕</span><input aria-label="Search items" placeholder="Search items"><button class="search-go" type="submit">Search</button><button class="search-reset" type="reset">Reset</button>';anchor.insertAdjacentElement('afterend',box);const input=box.querySelector('input');function apply(){const q=input.value.trim().toLowerCase();screen.querySelectorAll('.crow,.orow,.photo-item-row,.icard').forEach(r=>r.style.display=!q||r.textContent.toLowerCase().includes(q)?'':'none')}box.addEventListener('submit',e=>{e.preventDefault();apply()});box.addEventListener('reset',()=>{setTimeout(()=>{apply();input.focus()},0)});input.addEventListener('input',apply)})}const s4Obs=new MutationObserver(()=>requestAnimationFrame(s4AttachSearch));s4Obs.observe(document.body,{subtree:true,childList:true});window.addEventListener('load',()=>setTimeout(s4AttachSearch,700));</script><div id="s5Offline" class="s5-offline">Offline · changes stay on this device</div><div id="s5Success" class="s5-success" onclick="if(event.target===this)s5HideSuccess()"><div class="s5-success-card"><div class="s5-check">✓</div><h3 id="s5SuccessTitle">Saved</h3><p id="s5SuccessText">Your changes are saved.</p><div class="s6-success-note">Sapphire keeps the team state in sync automatically.</div><button onclick="s5HideSuccess()">Done</button></div></div><script>
+<div id="s4SheetWrap" class="s4-sheet-backdrop" onclick="if(event.target===this)s4CloseSheet()"><div class="s4-sheet"><div class="s4-grabber"></div><div id="s4SheetBody"></div></div></div><div id="s4Undo" class="s4-undo"><span id="s4UndoText">Updated</span><button onclick="s4RunUndo()">Undo</button></div><script type="text/pourgrid-protected" data-pg-protected>let s4UndoFn=null,s4UndoTimer=null;function s4CloseSheet(){const w=document.getElementById('s4SheetWrap');if(w)w.classList.remove('open');document.body.style.overflow=''}function s4Undo(message,fn){s4UndoFn=fn;const el=document.getElementById('s4Undo');document.getElementById('s4UndoText').textContent=message;el.classList.add('show');clearTimeout(s4UndoTimer);s4UndoTimer=setTimeout(()=>el.classList.remove('show'),5000)}function s4RunUndo(){if(s4UndoFn)try{s4UndoFn()}catch(e){};document.getElementById('s4Undo').classList.remove('show');s4UndoFn=null}function s4Haptic(){if(navigator.vibrate)navigator.vibrate(8)}document.addEventListener('click',e=>{if(e.target.closest('button,.ctile,.crow,.orow'))s4Haptic()},{passive:true});function s4AttachSearch(){document.querySelectorAll('.screen').forEach(screen=>{if(screen.dataset.s4search)return;const rows=screen.querySelectorAll('.crow,.orow,.photo-item-row,.icard');if(rows.length<8)return;screen.dataset.s4search='1';const anchor=screen.querySelector('.stabs')||screen.querySelector('.hdr');if(!anchor)return;const box=document.createElement('form');box.className='s4-search';box.setAttribute('role','search');box.innerHTML='<span class="mag">⌕</span><input aria-label="Search items" placeholder="Search items"><button class="search-go" type="submit">Search</button><button class="search-reset" type="reset">Reset</button>';anchor.insertAdjacentElement('afterend',box);const input=box.querySelector('input');function apply(){const q=input.value.trim().toLowerCase();screen.querySelectorAll('.crow,.orow,.photo-item-row,.icard').forEach(r=>r.style.display=!q||r.textContent.toLowerCase().includes(q)?'':'none')}box.addEventListener('submit',e=>{e.preventDefault();apply()});box.addEventListener('reset',()=>{setTimeout(()=>{apply();input.focus()},0)});input.addEventListener('input',apply)})}const s4Obs=new MutationObserver(()=>requestAnimationFrame(s4AttachSearch));s4Obs.observe(document.body,{subtree:true,childList:true});window.addEventListener('load',()=>setTimeout(s4AttachSearch,700));</script><div id="s5Offline" class="s5-offline">Offline · changes stay on this device</div><div id="s5Success" class="s5-success" onclick="if(event.target===this)s5HideSuccess()"><div class="s5-success-card"><div class="s5-check">✓</div><h3 id="s5SuccessTitle">Saved</h3><p id="s5SuccessText">Your changes are saved.</p><div class="s6-success-note">Sapphire keeps the team state in sync automatically.</div><button onclick="s5HideSuccess()">Done</button></div></div><script type="text/pourgrid-protected" data-pg-protected>
 // Sapphire 5 native-app shell
 if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){})});}
 function s5SetOffline(){var e=document.getElementById('s5Offline');if(e)e.classList.toggle('show',!navigator.onLine)}
@@ -4316,7 +4317,7 @@ function s5HideSuccess(){var w=document.getElementById('s5Success');if(w)w.class
 // Escape closes transient layers, like a desktop/native app.
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(typeof s4CloseSheet==='function')s4CloseSheet();s5HideSuccess()}});
 </script>
-<script>
+<script type="text/pourgrid-protected" data-pg-protected>
 (function(){
   try{
     var a=new URLSearchParams(location.search).get("action");
@@ -4333,7 +4334,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(typeof s
 </script>
 
 <div id="s71Overlay" class="s71-overlay" onclick="if(event.target===this)s71Close()"><div class="s71-sheet"><div class="s71-grab"></div><div id="s71Body"></div></div></div>
-<script>
+<script type="text/pourgrid-protected" data-pg-protected>
 window.addEventListener("load",function(){
   setTimeout(function(){
     var s=document.getElementById("pgSplash");
@@ -4342,8 +4343,8 @@ window.addEventListener("load",function(){
   },900);
 });
 </script>
-<script>
+<script type="text/pourgrid-protected" data-pg-protected>
 window.s4CloseSheet=function(){var w=document.getElementById("s4SheetWrap");if(w){w.classList.remove("open");w.dataset.locked="false";}document.body.style.overflow="";if(window.pgSheetReturnFocus&&window.pgSheetReturnFocus.focus)setTimeout(function(){window.pgSheetReturnFocus.focus();},0);};
 </script>
-</body>
+<script src="/pwa-register.js"></script></body>
 </html>
