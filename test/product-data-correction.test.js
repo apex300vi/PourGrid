@@ -30,6 +30,8 @@ test('authoritative V12 catalog explicitly configures every corrected product fa
   assert.equal([...florida,...finest].filter(p=>p.pack===1).length,0);
   assert.equal(finest.some(p=>/12\s*fl?\s*oz/i.test(p.bottleSizeLabel)),false);
   assert.equal(florida.some(p=>/^1\s*l$/i.test(p.bottleSizeLabel)),false);
+  const unrelated=catalog.find(p=>p.name==='Zing Zang');
+  assert.deepEqual({...unrelated},{name:'Zing Zang',dist:'Bellows/WI',cat:'Mixer',buildTo:10,pack:12,unit:'Case',note:''});
 });
 
 test('Florida price metadata preserves case cost and derives the correct bottle value',()=>{
@@ -48,6 +50,7 @@ test('case-only shortage rounding produces whole cases and never loose-bottle re
   for(const original of [...florida,...finest])for(const [shortage,expected] of [[0,0],[1,1],[11,1],[12,1],[13,2],[24,2]]){
     const p={...original,buildTo:30};const onHand=30-shortage;
     assert.equal(Vision.orderQuantity(p,onHand,p.packaging),expected,`${p.name}: shortage ${shortage}`);
+    assert.equal(Object.is(Vision.orderQuantity(p,onHand,p.packaging),-0),false,`${p.name}: no negative zero`);
   }
   const context={pgPack:p=>p.packaging,Number,Math};
   vm.runInNewContext(functionSource('pgAdjustmentCapability')+';this.capability=pgAdjustmentCapability;',context);
@@ -61,6 +64,8 @@ test('legacy exact Finest Call counts convert without loss while ambiguous Flori
   assert.equal(result[finest[0].name],'17');assert.equal(result[finest[0].name+'::cases'],'1');assert.equal(result[finest[0].name+'::loose'],'5');
   assert.equal(result[florida[0].name],'2');assert.match(result[florida[0].name+'::compatibility'],/preserved.*ambiguous/i);
   const restored=context.convert(result).counts;assert.deepEqual({...restored},{...result});
+  const excess={[finest[0].name]:'27',[finest[0].name+'::cases']:'1',[finest[0].name+'::loose']:'15'};
+  const excessRestored=context.convert(excess).counts;assert.deepEqual({...excessRestored},excess);assert.equal(Number(excessRestored[finest[0].name+'::cases'])*12+Number(excessRestored[finest[0].name+'::loose']),27);
 });
 
 test('Bottle Intelligence exposes size, count method, and locked case-only purchasing',()=>{
@@ -70,6 +75,7 @@ test('Bottle Intelligence exposes size, count method, and locked case-only purch
 
 test('Bud Light Cans keeps the stable catalog identity and current live-state associations',()=>{
   const bud=catalog.filter(p=>p.id==='catalog:bud-light');assert.equal(bud.length,1);assert.equal(bud[0].name,'Bud Light Cans');assert.equal(catalog.filter(p=>p.name==='Bud Light').length,0);
+  assert.equal(bud[0].dist,'CC1');assert.equal(bud[0].cat,'Beer');assert.equal(bud[0].pack,1);assert.equal(bud[0].buildTo,2);
   assert.equal(Persistence.stableId({_catalogName:'Bud Light',name:'Bud Light'}),Persistence.stableId(bud[0]));
   const context={Object};vm.runInNewContext(functionSource('pgRenameSavedProductKeys')+';this.rename=pgRenameSavedProductKeys;',context);
   const migrated=context.rename({'Bud Light':'4','Bud Light::cases':'1','Bud Light::loose':'2','Other':'9'},'Bud Light','Bud Light Cans').value;
