@@ -6,4 +6,3 @@ for(const file of files){try{await copyFile(file,`${out}/${file}`)}catch(error){
 await build({entryPoints:['auth-gate.js'],bundle:true,format:'iife',platform:'browser',target:['es2020'],outfile:`${out}/auth-gate.js`,minify:true,sourcemap:false});
 const template=await readFile('runtime-config.template.js','utf8'),url=process.env.POURGRID_SUPABASE_URL||'',key=process.env.POURGRID_SUPABASE_ANON_KEY||'';await writeFile(`${out}/runtime-config.js`,template.replace('__POURGRID_SUPABASE_URL__',url.replaceAll('"','\\"')).replace('__POURGRID_SUPABASE_ANON_KEY__',key.replaceAll('"','\\"')));
 await cp('icons',`${out}/icons`,{recursive:true});
-
