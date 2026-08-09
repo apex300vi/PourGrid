@@ -89,5 +89,7 @@ test('current output and search are safe from invalid quantities and obsolete pr
   assert.doesNotMatch(html,/Order null CASE|Order undefined|Order NaN/);
   assert.doesNotMatch(html,/"Bud Light"\s*:/);
   assert.match(html,/textContent\.toLowerCase\(\)\.includes\(q\)/);
+  assert.match(html,/querySelectorAll\('\.crow,\.orow,\.photo-item-row,\.icard'\)/);
+  assert.ok('Bud Light Cans'.toLowerCase().includes('Bud Light'.toLowerCase()));
   for(const p of [...florida,...finest])assert.equal(p.unit,'Case');
 });
