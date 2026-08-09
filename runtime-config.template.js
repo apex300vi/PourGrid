@@ -1,0 +1,1 @@
+window.POURGRID_CONFIG={supabaseUrl:"__POURGRID_SUPABASE_URL__",supabaseAnonKey:"__POURGRID_SUPABASE_ANON_KEY__"};

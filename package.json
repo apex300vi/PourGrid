@@ -1,0 +1,1 @@
+{"name":"pourgrid","private":true,"version":"1.0.0","scripts":{"icons":"node scripts/generate-icons.mjs","build":"npm run icons && node scripts/build-static.mjs","test":"node --test test/*.test.js"},"dependencies":{"@supabase/supabase-js":"2.57.4"},"devDependencies":{"esbuild":"0.25.9","sharp":"0.34.3"}}
