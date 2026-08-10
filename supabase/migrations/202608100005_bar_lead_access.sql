@@ -72,7 +72,7 @@ language plpgsql security definer set search_path=pg_catalog,public,pg_temp as $
 declare normalized text:=lower(btrim(p_email)); result public.access_invitations; existing_user uuid;
 begin
  if not public.has_org_role(p_organization,array['administrator']::public.app_role[]) then raise exception 'Administrator access required'; end if;
- if not exists(select 1 from public.locations where id=p_location and organization_id=p_organization) then raise exception 'Location is outside organization'; end if;
+ if not exists(select 1 from public.locations l where l.id=p_location and l.organization_id=p_organization) then raise exception 'Location is outside organization'; end if;
  if p_role not in ('bar_lead','inventory_staff','read_only_viewer') then raise exception 'Role is not invitational'; end if;
  if normalized !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' then raise exception 'Valid email required'; end if;
  select id into existing_user from auth.users where lower(email)=normalized;
@@ -86,7 +86,7 @@ end$$;
 create function public.admin_list_invitations(p_organization uuid,p_location uuid) returns table(id uuid,email text,role public.app_role,state text,sent_at timestamptz,expires_at timestamptz,resend_count integer,accepted_by uuid)
 language plpgsql security definer stable set search_path=pg_catalog,public,pg_temp as $$begin
  if not public.has_org_role(p_organization,array['administrator']::public.app_role[]) then raise exception 'Administrator access required'; end if;
- if not exists(select 1 from public.locations where id=p_location and organization_id=p_organization) then raise exception 'Location is outside organization'; end if;
+ if not exists(select 1 from public.locations l where l.id=p_location and l.organization_id=p_organization) then raise exception 'Location is outside organization'; end if;
  return query select i.id,i.email,i.role,case when i.status='pending' and i.expires_at<=now() then 'expired' else i.status::text end,i.sent_at,i.expires_at,i.resend_count,i.accepted_by from public.access_invitations i where i.organization_id=p_organization and i.location_id=p_location order by i.created_at desc;
 end$$;
 
