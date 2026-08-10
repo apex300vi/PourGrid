@@ -11,7 +11,7 @@
 <link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/auth.css"></head>
 <body class="pg-auth-pending"><div id="pgAuthRoot"><main class="pg-auth"><section class="pg-auth-card"><div class="pg-auth-kicker">POURGRID</div><h1>Getting PourGrid ready</h1><p class="pg-auth-copy" role="status">Checking your secure session…</p><div class="pg-auth-loader" aria-hidden="true"></div></section></main></div><div id="app" hidden><script src="/runtime-config.js"></script><script src="/auth-gate.js" defer></script><!-- data-pg-auth-boundary -->
 <main class="app">
-  <header><div class="eyebrow">Sapphire Beach Bar · Main location</div><div class="row"><h1 id="page-title">Receiving</h1><span class="pill">Local checkpoint</span></div></header>
+  <header><div id="pg-location-context" class="eyebrow" aria-live="polite"></div><div class="row"><h1 id="page-title">Receiving</h1><span class="pill">Local checkpoint</span></div></header>
 
   <section id="orders" data-title="Receiving">
     <div class="tabs"><button class="active" onclick="openView('orders')">Ready (2)</button><button onclick="openView('receive')">In progress (1)</button><button onclick="openView('partial')">Partial</button><button onclick="openView('approvals')">Approvals (2)</button></div>
@@ -69,6 +69,7 @@
 <script type="text/pourgrid-protected" data-pg-protected src="phase3-domain.js"></script>
 <script type="text/pourgrid-protected" data-pg-protected>
 var VIEWS=['orders','receive','partial','approvals','impact','baseline','reconcile','inventory','audit'];
+var authorizedLocationLabel=window.PourGridPhase3.locationLabel(window.POURGRID_AUTH_CONTEXT),authorizedLocationNode=document.getElementById('pg-location-context');if(!authorizedLocationLabel||!authorizedLocationNode)throw new Error('Authorized location context unavailable');authorizedLocationNode.textContent=authorizedLocationLabel;
 function openView(id){if(VIEWS.indexOf(id)<0)id='orders';VIEWS.forEach(function(view){document.getElementById(view).classList.toggle('hidden',view!==id)});document.getElementById('page-title').textContent=document.getElementById(id).getAttribute('data-title');document.querySelectorAll('.nav button').forEach(function(button){button.classList.toggle('active',button.getAttribute('data-view')===id||(['receive','partial','impact'].indexOf(id)>=0&&button.getAttribute('data-view')==='orders'))});if(location.hash!=='#'+id)history.replaceState(null,'','#'+id);window.scrollTo(0,0)}
 function showCheckpoint(button){button.textContent='Checkpoint only · database connection pending';button.disabled=true}
 window.addEventListener('hashchange',function(){openView(location.hash.slice(1))});openView(location.hash.slice(1)||'orders');
