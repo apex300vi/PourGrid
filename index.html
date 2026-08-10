@@ -693,6 +693,7 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 /* PourGrid photo-counting foundation */
 .pg-smart-note{margin:0 16px 10px;padding:12px 13px;border-radius:16px;background:linear-gradient(145deg,rgba(98,217,242,.065),rgba(104,221,187,.035));border:1px solid rgba(98,217,242,.13);font-size:10.5px;color:#83A0AD;line-height:1.45}
 .pg-smart-note strong{color:#D9F4F7}
+.pg-order-disclosure{margin-top:7px}.pg-order-disclosure-toggle{display:flex;align-items:center;gap:7px;min-height:44px;padding:7px 2px;border:0;background:transparent;color:#8dcddd;font-size:10.5px;font-weight:800;text-align:left}.pg-order-disclosure-toggle:focus-visible{outline:2px solid #79d5f2;outline-offset:3px;border-radius:8px}.pg-order-disclosure-chevron{display:inline-block;color:#e9c67e;font-size:13px;transition:transform .2s var(--spring)}.pg-order-disclosure-toggle[aria-expanded="true"] .pg-order-disclosure-chevron{transform:rotate(90deg)}.pg-order-disclosure-panel{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .22s var(--spring),opacity .16s ease}.pg-order-disclosure-panel.open{grid-template-rows:1fr;opacity:1}.pg-order-disclosure-inner{min-height:0;overflow:hidden}.pg-order-calculation{margin:2px 0 7px;padding:11px 12px;border-radius:13px;background:linear-gradient(145deg,rgba(98,217,242,.06),rgba(104,221,187,.03));border:1px solid rgba(98,217,242,.13);color:#9ab1bc;font-size:10.5px;line-height:1.45}.pg-order-calculation dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 12px;margin:0}.pg-order-calculation dt{color:#8199a5}.pg-order-calculation dd{margin:0;color:#e4edf0;font-weight:800;text-align:right}.pg-order-calculation .pg-order-logic{margin:9px 0 0;padding-top:8px;border-top:1px solid rgba(141,205,226,.12);color:#9bb9c4}.pg-order-calculation .pg-order-final{color:#efd083}
 .pg-photo-result{margin-top:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.06);font-size:10px;color:#829BA8}
 .pg-photo-result strong{color:#EAF2F3}
 .pg-smart-progress{height:4px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden;margin-top:8px}.pg-smart-progress>span{display:block;height:100%;width:0;background:linear-gradient(90deg,#5BD4EE,#65DDB8);transition:width .24s ease}
@@ -2835,13 +2836,27 @@ function rOrderTab(prods,dists,dk,isG){
       var nm2=d("onm",p.name);
       var metaDiv=mk("div","ometa");
       metaDiv.textContent="On hand: "+p.onHand+" \u00b7 Build to: "+p.buildTo;
-      var explanation=mk("div","pg-smart-note");explanation.style.marginTop="6px";explanation.textContent=PourGridVision.orderExplanation(pgVisionProducts([p])[0],Number(p.onHand)||0,(pgPack(p)||{}),0).text;
+      var packConfig=pgPack(p)||{},visionProduct=pgVisionProducts([p])[0],calculation=PourGridVision.orderExplanation(visionProduct,Number(p.onHand)||0,packConfig,0);
+      var disclosure=mk("div","pg-order-disclosure"),disclosureId="pg-order-why-"+(isG?"mer":"bar")+"-"+dist.replace(/[^a-z0-9]+/gi,"-").toLowerCase()+"-"+i;
+      var disclosureToggle=mk("button","pg-order-disclosure-toggle",{type:"button"});
+      disclosureToggle.setAttribute("aria-expanded","false");disclosureToggle.setAttribute("aria-controls",disclosureId);disclosureToggle.setAttribute("aria-label","Show order calculation for "+p.name);
+      var disclosureLabel=isAdj?"How this was calculated":"Why "+pgFinalPurchaseText(p,p.orderQty,pgFinalPurchaseBreakdown(p,p.orderQty,null)).toLowerCase()+"?";
+      ap(disclosureToggle,sp("pg-order-disclosure-chevron","›"),sp("",disclosureLabel));
+      var disclosurePanel=mk("div","pg-order-disclosure-panel",{id:disclosureId});disclosurePanel.setAttribute("aria-hidden","true");
+      var disclosureInner=d("pg-order-disclosure-inner"),calculationBox=d("pg-order-calculation"),facts=mk("dl","");
+      function fact(label,value,extraClass){var dt=mk("dt","");dt.textContent=label;var dd=mk("dd",extraClass||"");dd.textContent=value;facts.appendChild(dt);facts.appendChild(dd);}
+      var itemLabel=(packConfig.unitLabel||p.unit||"units").toLowerCase();
+      fact("On hand",calculation.counted+" "+itemLabel);fact("Build-to target",calculation.target+" "+itemLabel);fact("Shortfall",calculation.shortage+" "+itemLabel);
+      if(p.unit==="Case"&&calculation.unitsPerCase>1)fact("Bottles per case",String(calculation.unitsPerCase));
+      fact("Final calculated recommendation",pgFinalPurchaseText(p,calculation.baseSuggestedOrder,pgFinalPurchaseBreakdown(p,calculation.baseSuggestedOrder,null)),"pg-order-final");
+      var rounding=d("pg-order-logic");rounding.textContent=calculation.text;ap(calculationBox,facts,rounding);disclosureInner.appendChild(calculationBox);disclosurePanel.appendChild(disclosureInner);ap(disclosure,disclosureToggle,disclosurePanel);
+      disclosureToggle.onclick=function(){var expanded=disclosureToggle.getAttribute("aria-expanded")==="true";disclosureToggle.setAttribute("aria-expanded",String(!expanded));disclosureToggle.setAttribute("aria-label",(expanded?"Show":"Hide")+" order calculation for "+p.name);disclosurePanel.setAttribute("aria-hidden",String(expanded));disclosurePanel.classList.toggle("open",!expanded);};
       if(isAdj){
         var adjTag=mk("span","");adjTag.style.cssText="font-size:10px;background:#E8A93C;color:#0E0E10;border-radius:4px;padding:1px 5px;margin-left:6px;font-weight:800;";
         adjTag.textContent=pgManualPurchaseText(p,S.adjustmentMeta[p.name]||{},p.adj);
         metaDiv.appendChild(adjTag);
       }
-      ap(info,nm2,metaDiv,explanation);
+      ap(info,nm2,metaDiv,disclosure);
       info.appendChild(d("pg-vendor-label","Assigned vendor: "+p.dist+(p.dist==="Bellows/WI"?" · routed within Bellows/West Indies output":"")));
       if(isAdj){var adjMeta=S.adjustmentMeta[p.name]||{},adjSummary=d("pg-adjust-summary");adjSummary.textContent="Calculated "+Number(p.orderQty||0)+" "+pgPlural(p.orderQty,p.unit,p.unit+"s")+" · Manual "+pgManualPurchaseText(p,adjMeta,p.adj)+" · Final "+pgFinalPurchaseText(p,p.adjQty,p.finalPurchaseBreakdown)+(adjMeta.reason?" · "+adjMeta.reason:"");info.appendChild(adjSummary);}
       var qtyWrap=mk("div","pg-order-quantity");
