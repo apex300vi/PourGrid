@@ -20,7 +20,7 @@ test('ordering explanations are collapsed by default behind contextual disclosur
 
 test('disclosure exposes complete calculation content while warnings and routing stay visible',()=>{
   for(const label of ['On hand','Build-to target','Shortfall','Bottles per case','Final calculated recommendation'])assert.match(orderRenderer,new RegExp(label));
-  assert.match(orderRenderer,/packConfig\.bottlesPerCase\?"bottles"/);
+  assert.match(orderRenderer,/packConfig\.unitLabel\|\|\(p\.unit==="Case"&&calculation\.unitsPerCase>1\?"bottles"/);
   assert.match(orderRenderer,/rounding\.textContent=calculation\.text/);
   assert.match(orderRenderer,/Assigned vendor:/);
   assert.match(orderRenderer,/pg-adjust-summary/);
