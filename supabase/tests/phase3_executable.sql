@@ -15,8 +15,8 @@ select test.assert((select proconfig @> array['search_path=pg_catalog, public, p
 select test.assert(not exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('admin_upsert_membership','approve_receiving_exception','finalize_baseline','finalize_receiving','approve_reconciliation') and (not p.prosecdef or not (p.proconfig @> array['search_path=pg_catalog, public, pg_temp'] or p.proconfig @> array['search_path=pg_catalog,public,pg_temp']))),'all privileged RPCs are security definer with safe search_path');
 select test.assert(not has_function_privilege('authenticated','public.enforce_phase3_workflow()','execute'),'workflow trigger helper not executable');
 
-insert into auth.users(id) values
- ('00000000-0000-0000-0000-000000000001'),('00000000-0000-0000-0000-000000000002'),('00000000-0000-0000-0000-000000000003'),('00000000-0000-0000-0000-000000000004'),('00000000-0000-0000-0000-000000000005');
+insert into auth.users(id,email) values
+ ('00000000-0000-0000-0000-000000000001','admin@example.com'),('00000000-0000-0000-0000-000000000002','manager@example.com'),('00000000-0000-0000-0000-000000000003','staff@example.com'),('00000000-0000-0000-0000-000000000004','viewer@example.com'),('00000000-0000-0000-0000-000000000005','other@example.com');
 insert into public.profiles(id,display_name) select id,'test' from auth.users;
 insert into public.organizations(id,name) values('10000000-0000-0000-0000-000000000001','Sapphire Beach Bar'),('10000000-0000-0000-0000-000000000002','Other Tenant');
 insert into public.locations(id,organization_id,name) values('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','Main'),('20000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000002','Other'),('20000000-0000-0000-0000-000000000003','10000000-0000-0000-0000-000000000001','Private storage');
@@ -53,6 +53,25 @@ select test.assert((select name='Bellows Verified' from public.vendors where id=
 reset role;
 set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);
 do $$begin begin perform public.admin_upsert_membership('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','read_only_viewer','20000000-0000-0000-0000-000000000001'); raise exception 'staff administration unexpectedly succeeded'; exception when raise_exception then if sqlerrm='staff administration unexpectedly succeeded' then raise; end if; end; end$$;
+reset role;
+
+-- Invitations are admin-only, idempotent, location-scoped, and accepted from a
+-- fresh authenticated identity into exactly one membership and location link.
+insert into auth.users(id,email) values('00000000-0000-0000-0000-000000000006','lead@example.com');
+set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+select set_config('request.jwt.claims',jsonb_build_object('email','admin@example.com','iat',extract(epoch from now())::bigint)::text,false);
+select public.admin_create_invitation('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','Lead@Example.com','bar_lead');
+select public.admin_create_invitation('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','lead@example.com','bar_lead');
+select test.assert((select count(*)=1 from public.admin_list_invitations('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001') where email='lead@example.com'),'duplicate invitation is idempotent');
+reset role;
+set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000006',false);
+select set_config('request.jwt.claims',jsonb_build_object('email','lead@example.com','iat',extract(epoch from now()+interval '1 minute')::bigint)::text,false);
+select test.assert(public.accept_access_invitation(),'new user accepts current invitation');
+select test.assert(not public.accept_access_invitation(),'accepted invitation cannot be reused');
+select test.assert((select count(*)=1 from public.memberships where user_id=auth.uid() and organization_id='10000000-0000-0000-0000-000000000001' and role='bar_lead'),'Bar Lead membership is unique and least privilege');
+select test.assert((select count(*)=1 from public.location_memberships lm join public.memberships m on m.id=lm.membership_id where m.user_id=auth.uid() and lm.location_id='20000000-0000-0000-0000-000000000001'),'Bar Lead location membership is unique');
+insert into public.structured_orders(organization_id,location_id,vendor_id,workflow,created_by) values('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','40000000-0000-0000-0000-000000000001','bar',auth.uid());
+do $$begin begin insert into public.inventory_baselines(organization_id,location_id,version,created_by) values('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',99,auth.uid()); raise exception 'Bar Lead baseline insert unexpectedly succeeded'; exception when insufficient_privilege then null; end; begin perform public.admin_create_invitation('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','blocked@example.com','bar_lead'); raise exception 'Bar Lead administration unexpectedly succeeded'; exception when raise_exception then if sqlerrm='Bar Lead administration unexpectedly succeeded' then raise; end if; end; end$$;
 reset role;
 
 set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);
