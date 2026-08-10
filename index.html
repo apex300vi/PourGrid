@@ -1086,7 +1086,7 @@ function pgMigrateCurrentProductName(oldName,newName){
 }
 pgMigrateCurrentProductName("Bud Light","Bud Light Cans");
 var PG_BOOT_DRAFTS=pgHydrateDrafts();
-var S={screen:"splash",tab:"bar",bSub:"count",mSub:"count",bCat:null,mCat:null,countFilter:"all",merchantView:"Mixer",countCat:null,counts:lsGet("sbb-counts")||{},history:[],histDet:null,toast:null,tt:null,sync:"loading",eDist:{bar:"Bellows/WI",mer:"Merchants"},notes:PG_BOOT_DRAFTS.notes,ordered:lsGet("sbb-ordered")||{},adjustments:PG_BOOT_DRAFTS.adjustments,adjustmentMeta:PG_BOOT_DRAFTS.adjustmentMeta};
+var S={screen:"splash",tab:"bar",bSub:"count",mSub:"count",bCat:null,mCat:null,countFilter:"all",merchantView:"Mixer",countCat:null,counts:lsGet("sbb-counts")||{},history:[],histDet:null,toast:null,tt:null,sync:"loading",connectivity:"checking",eDist:{bar:"Bellows/WI",mer:"Merchants"},notes:PG_BOOT_DRAFTS.notes,ordered:lsGet("sbb-ordered")||{},adjustments:PG_BOOT_DRAFTS.adjustments,adjustmentMeta:PG_BOOT_DRAFTS.adjustmentMeta};
 
 function pgCorrectedPackagingCounts(counts){
   var nc=Object.assign({},counts||{}),changed=false;
@@ -1138,6 +1138,26 @@ function pgMigrateMerchantPackaging(){
 pgMigrateMerchantPackaging();
 
 function ss(p){Object.assign(S,p);render();}
+var PG_CONNECTIVITY_PROBE="/runtime-config.js",pgConnectivityInFlight=null;
+function pgPaintConnectivity(){
+  var state=S.connectivity,colour=state==="online"?"#34C759":state==="offline"?"#FF3B30":"#F5A623",label=state==="online"?"Online":state==="offline"?"Offline":"Checking";
+  document.querySelectorAll(".sync-pill").forEach(function(pill){var dot=pill.querySelector(".sdot"),text=pill.querySelector(".sync-lbl");if(dot)dot.style.cssText="background:"+colour+";color:"+colour+";";if(text)text.textContent=label;});
+  if(typeof s5SetOffline==="function")s5SetOffline();
+}
+function pgSetConnectivity(state){
+  var previous=S.connectivity;S.connectivity=state;pgPaintConnectivity();
+  if(previous==="offline"&&state==="online"&&typeof pushCounts==="function")try{pushCounts(S.counts)}catch(e){}
+}
+function pgProbeConnectivity(){
+  if(pgConnectivityInFlight)return pgConnectivityInFlight;
+  if(S.connectivity!=="online")pgSetConnectivity("checking");
+  var controller=typeof AbortController!=="undefined"?new AbortController():null,timeout=setTimeout(function(){if(controller)controller.abort();},5000);
+  pgConnectivityInFlight=fetch(PG_CONNECTIVITY_PROBE+"?connectivity="+Date.now(),{method:"HEAD",cache:"no-store",credentials:"omit",signal:controller?controller.signal:undefined})
+    .then(function(response){if(!response.ok&&response.status!==304)throw new Error("Connectivity probe failed");pgSetConnectivity("online");return true;})
+    .catch(function(){pgSetConnectivity("offline");return false;})
+    .finally(function(){clearTimeout(timeout);pgConnectivityInFlight=null;});
+  return pgConnectivityInFlight;
+}
 function toast(m){if(S.tt)clearTimeout(S.tt);var t=setTimeout(function(){ss({toast:null,tt:null});},2400);ss({toast:m,tt:t});}
 
 function pgRouteSnapshot(){return {screen:S.screen,tab:S.tab,bSub:S.bSub,mSub:S.mSub,countFilter:S.countFilter,merchantView:S.merchantView,countCat:S.countCat,histDet:S.histDet||null};}
@@ -1253,8 +1273,8 @@ function rHdr(){
   if(S.tab==="bar"&&sub==="count"&&S.countFilter)title=pgCountFilterLabel(S.countFilter);
   if(S.tab==="merchants"&&sub==="count")title="Merchants · "+(S.merchantView==="Fruit"?"Fruit":"Mixers");
   var hcls="hdr "+(S.tab==="merchants"?"green":S.tab==="history"?"purple":"blue");
-  var sc=S.sync==="loading"?"#F5A623":S.sync==="ok"?"#34C759":"#FF3B30";
-  var sl=S.sync==="loading"?"Syncing":S.sync==="ok"?"Synced":"Offline";
+  var sc=S.connectivity==="checking"?"#F5A623":S.connectivity==="online"?"#34C759":"#FF3B30";
+  var sl=S.connectivity==="checking"?"Checking":S.connectivity==="online"?"Online":"Offline";
   var dot=mk("div","sdot");dot.style.cssText="background:"+sc+";color:"+sc+";";
   var pill=d("sync-pill");ap(pill,dot,sp("sync-lbl",sl));
   var mark=d("brand-mark");
@@ -1843,7 +1863,7 @@ function pgOpenFullCount(){
 
 function rHome(){
   var wrap=mk("div",""),hdr=d("pg-home-hero");
-  var sc=S.sync==="loading"?"#E2AD4A":S.sync==="ok"?"#4AD3B0":"#FF6259",sl=S.sync==="loading"?"Syncing":S.sync==="ok"?"Synced":"Offline";
+  var sc=S.connectivity==="checking"?"#E2AD4A":S.connectivity==="online"?"#4AD3B0":"#FF6259",sl=S.connectivity==="checking"?"Checking":S.connectivity==="online"?"Online":"Offline";
   var pillRow=mk("div","pg-home-top");pillRow.appendChild(d("pg-home-brand","POURGRID"));
   var dot=mk("div","sdot");dot.style.cssText="background:"+sc+";color:"+sc+";";
   var pill=d("sync-pill");ap(pill,dot,sp("sync-lbl",sl));ap(pillRow,pill);
@@ -4252,6 +4272,15 @@ function render(){
 
 render();
 
+window.addEventListener("online",pgProbeConnectivity);
+window.addEventListener("offline",pgProbeConnectivity);
+window.addEventListener("pageshow",pgProbeConnectivity);
+window.addEventListener("focus",pgProbeConnectivity);
+document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")pgProbeConnectivity();});
+if("serviceWorker" in navigator){navigator.serviceWorker.addEventListener("controllerchange",pgProbeConnectivity);navigator.serviceWorker.ready.then(pgProbeConnectivity).catch(function(){});}
+setInterval(pgProbeConnectivity,30000);
+pgProbeConnectivity();
+
 // Splash auto-advances to the Home dashboard once, shortly after boot.
 // Runs independently of the data-loading Promise below so a slow network
 // never leaves the splash screen stuck.
@@ -4321,9 +4350,7 @@ setInterval(function(){
 <div id="s4SheetWrap" class="s4-sheet-backdrop" onclick="if(event.target===this)s4CloseSheet()"><div class="s4-sheet"><div class="s4-grabber"></div><div id="s4SheetBody"></div></div></div><div id="s4Undo" class="s4-undo"><span id="s4UndoText">Updated</span><button onclick="s4RunUndo()">Undo</button></div><script type="text/pourgrid-protected" data-pg-protected>let s4UndoFn=null,s4UndoTimer=null;function s4CloseSheet(){const w=document.getElementById('s4SheetWrap');if(w)w.classList.remove('open');document.body.style.overflow=''}function s4Undo(message,fn){s4UndoFn=fn;const el=document.getElementById('s4Undo');document.getElementById('s4UndoText').textContent=message;el.classList.add('show');clearTimeout(s4UndoTimer);s4UndoTimer=setTimeout(()=>el.classList.remove('show'),5000)}function s4RunUndo(){if(s4UndoFn)try{s4UndoFn()}catch(e){};document.getElementById('s4Undo').classList.remove('show');s4UndoFn=null}function s4Haptic(){if(navigator.vibrate)navigator.vibrate(8)}document.addEventListener('click',e=>{if(e.target.closest('button,.ctile,.crow,.orow'))s4Haptic()},{passive:true});function s4AttachSearch(){document.querySelectorAll('.screen').forEach(screen=>{if(screen.dataset.s4search)return;const rows=screen.querySelectorAll('.crow,.orow,.photo-item-row,.icard');if(rows.length<8)return;screen.dataset.s4search='1';const anchor=screen.querySelector('.stabs')||screen.querySelector('.hdr');if(!anchor)return;const box=document.createElement('form');box.className='s4-search';box.setAttribute('role','search');box.innerHTML='<span class="mag">⌕</span><input aria-label="Search items" placeholder="Search items"><button class="search-go" type="submit">Search</button><button class="search-reset" type="reset">Reset</button>';anchor.insertAdjacentElement('afterend',box);const input=box.querySelector('input');function apply(){const q=input.value.trim().toLowerCase();screen.querySelectorAll('.crow,.orow,.photo-item-row,.icard').forEach(r=>r.style.display=!q||r.textContent.toLowerCase().includes(q)?'':'none')}box.addEventListener('submit',e=>{e.preventDefault();apply()});box.addEventListener('reset',()=>{setTimeout(()=>{apply();input.focus()},0)});input.addEventListener('input',apply)})}const s4Obs=new MutationObserver(()=>requestAnimationFrame(s4AttachSearch));s4Obs.observe(document.body,{subtree:true,childList:true});window.addEventListener('load',()=>setTimeout(s4AttachSearch,700));</script><div id="s5Offline" class="s5-offline">Offline · changes stay on this device</div><div id="s5Success" class="s5-success" onclick="if(event.target===this)s5HideSuccess()"><div class="s5-success-card"><div class="s5-check">✓</div><h3 id="s5SuccessTitle">Saved</h3><p id="s5SuccessText">Your changes are saved.</p><div class="s6-success-note">Sapphire keeps the team state in sync automatically.</div><button onclick="s5HideSuccess()">Done</button></div></div><script type="text/pourgrid-protected" data-pg-protected>
 // Sapphire 5 native-app shell
 if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){})});}
-function s5SetOffline(){var e=document.getElementById('s5Offline');if(e)e.classList.toggle('show',!navigator.onLine)}
-window.addEventListener('online',function(){s5SetOffline();if(typeof toast==='function')toast('Back online · syncing');if(typeof pushCounts==='function')try{pushCounts(S.counts)}catch(e){}});
-window.addEventListener('offline',function(){s5SetOffline();if(typeof toast==='function')toast('Offline · counts stay on this device')});
+function s5SetOffline(){var e=document.getElementById('s5Offline');if(e)e.classList.toggle('show',S.connectivity==='offline')}
 window.addEventListener('load',s5SetOffline);
 function s5IsStandalone(){return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true}
 function s5UpdateInstallHint(){var e=document.getElementById('s5InstallNote');if(!e)return;e.classList.toggle('show',!s5IsStandalone())}
