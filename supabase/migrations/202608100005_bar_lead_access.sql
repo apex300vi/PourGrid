@@ -119,7 +119,7 @@ begin
  insert into public.profiles(id,display_name) values(auth.uid(),coalesce(nullif(auth.jwt()->>'user_name',''),split_part(normalized,'@',1))) on conflict(id) do nothing;
  insert into public.memberships(organization_id,user_id,role) values(invitation.organization_id,auth.uid(),invitation.role) on conflict(organization_id,user_id) do nothing returning id into member_id;
  if member_id is null then select id into member_id from public.memberships where organization_id=invitation.organization_id and user_id=auth.uid(); end if;
- insert into public.location_memberships(membership_id,location_id) values(member_id,invitation.location_id) on conflict do nothing;
+ insert into public.location_memberships(membership_id,location_id,organization_id) values(member_id,invitation.location_id,invitation.organization_id) on conflict do nothing;
  update public.access_invitations set status='accepted',accepted_by=auth.uid(),accepted_at=now() where id=invitation.id;
  return true;
 end$$;
