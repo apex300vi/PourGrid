@@ -2845,7 +2845,7 @@ function rOrderTab(prods,dists,dk,isG){
       var disclosurePanel=mk("div","pg-order-disclosure-panel",{id:disclosureId});disclosurePanel.setAttribute("aria-hidden","true");
       var disclosureInner=d("pg-order-disclosure-inner"),calculationBox=d("pg-order-calculation"),facts=mk("dl","");
       function fact(label,value,extraClass){var dt=mk("dt","");dt.textContent=label;var dd=mk("dd",extraClass||"");dd.textContent=value;facts.appendChild(dt);facts.appendChild(dd);}
-      var itemLabel=(packConfig.unitLabel||p.unit||"units").toLowerCase();
+      var itemLabel=packConfig.bottlesPerCase?"bottles":(packConfig.unitLabel||p.unit||"units").toLowerCase();
       fact("On hand",calculation.counted+" "+itemLabel);fact("Build-to target",calculation.target+" "+itemLabel);fact("Shortfall",calculation.shortage+" "+itemLabel);
       if(p.unit==="Case"&&calculation.unitsPerCase>1)fact("Bottles per case",String(calculation.unitsPerCase));
       fact("Final calculated recommendation",pgFinalPurchaseText(p,calculation.baseSuggestedOrder,pgFinalPurchaseBreakdown(p,calculation.baseSuggestedOrder,null)),"pg-order-final");
