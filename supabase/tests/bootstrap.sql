@@ -1,6 +1,8 @@
 \set ON_ERROR_STOP on
 create role anon nologin;
 create role authenticated nologin;
+create schema extensions;
+create extension pgcrypto with schema extensions;
 create schema auth;
 create table auth.users(id uuid primary key,email text unique,encrypted_password text,updated_at timestamptz not null default now());
 create table auth.sessions(id uuid primary key,user_id uuid not null references auth.users(id) on delete cascade);
