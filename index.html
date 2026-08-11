@@ -805,7 +805,8 @@ async function dbFetch(path,opts){
 }
 async function loadHist(){
   try{
-    var r=await dbFetch("orders?select=id,created_at,data&order=created_at.desc&limit=60");
+    if(!window.POURGRID_HISTORY_API||typeof window.POURGRID_HISTORY_API.list!=="function")throw new Error("Authorized history API unavailable");
+    var r=await window.POURGRID_HISTORY_API.list(60);
     // Filter out internal records (counts, deadlines) - only keep actual orders
     var orders=(r||[]).filter(function(x){return !x.data||!x.data.type;});
     return orders.slice(0,52).map(function(x){return Object.assign({},x.data,{_dbId:x.id});});
@@ -2381,7 +2382,8 @@ function rHistory(){
     S.histDet=null;
   }
   if(S.sync==="loading")return ap(d("empty"),d("eico","🔄"),d("etit","Loading history..."));
-  if(!S.history.length)return rEmpty("📅","No history yet","Save an order and it will appear here on both phones.");
+  if(S.sync==="error"&&!S.history.length){var unavailable=rEmpty("↻","History unavailable","PourGrid could not load this location's order history.");unavailable.appendChild(btn("rfbtn","Retry",function(){ss({sync:"loading"});loadHist().then(function(r){if(r!==null)ss({history:r,sync:"ok"});else ss({sync:"error"});});}));return unavailable;}
+  if(!S.history.length)return rEmpty("📅","No history yet","Completed and submitted orders for this location will appear here.");
 
   var wrap=mk("div","");
 

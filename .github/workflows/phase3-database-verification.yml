@@ -44,6 +44,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608070003_phase3_security_and_integrity.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608100004_bar_lead_role.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608100005_bar_lead_access.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608110001_bar_lead_history.sql
       - name: Run executable database and RLS suite
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase3_executable.sql
       - name: Verify anonymous direct access is denied
