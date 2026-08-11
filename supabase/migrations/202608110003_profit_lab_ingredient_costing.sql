@@ -36,6 +36,20 @@ from public.locations l cross join (values
 ) p(key,name,product,packages,units,prep,label,note)
 on conflict(location_id,key) do nothing;
 
+create function public.seed_profit_lab_garnishes_for_location()
+returns trigger language plpgsql security definer set search_path=pg_catalog,public,pg_temp as $$
+begin
+ insert into public.profit_lab_ingredients(organization_id,location_id,key,name,source,catalog_product_name,packages_per_case,estimated_units_per_package,preparation_yield,waste_percent,result_kind,serving_label,assumption_note) values
+  (new.organization_id,new.id,'lime-wedge','Lime wedge','preset','Limes',1,200,8,0,'estimated','wedge','Starting estimate: 200 limes per case; verify against the supplier case label or invoice.'),
+  (new.organization_id,new.id,'lemon-wedge','Lemon wedge','preset','Lemons',1,200,8,0,'estimated','wedge','Starting estimate: 200 lemons per case; verify against the supplier case label or invoice.'),
+  (new.organization_id,new.id,'maraschino-cherry','Maraschino cherry','preset','Maraschino Cherries',4,400,1,0,'estimated','cherry','Verified packaging: four 1-gallon containers per case. Starting estimate: 400 cherries per gallon; verify the container label.')
+ on conflict(location_id,key) do nothing;
+ return new;
+end$$;
+
+create trigger seed_profit_lab_garnishes after insert on public.locations
+for each row execute function public.seed_profit_lab_garnishes_for_location();
+
 create function public.list_profit_lab_ingredients(p_organization uuid,p_location uuid)
 returns table(id uuid,key text,name text,source text,catalog_product_name text,package_case_price numeric,packages_per_case numeric,estimated_units_per_package numeric,preparation_yield numeric,waste_percent numeric,result_kind text,serving_label text,assumption_note text,cost_per_serving numeric,can_edit boolean)
 language plpgsql security definer stable set search_path=pg_catalog,public,pg_temp as $$
