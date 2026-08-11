@@ -51,6 +51,6 @@ test('Bar Leads receive read-only History controls while managers retain operati
 test('mobile History and refreshed auth shell ship together',()=>{
   assert.match(css,/@media\(max-width:390px\)/);
   assert.match(html,/@media\(max-width:350px\)/);
-  assert.match(worker,/pourgrid-shell-v7/);
+  assert.match(worker,/pourgrid-shell-v8/);
   assert.doesNotMatch(worker,/orders|inventory|receiving|authorization data/i);
 });
