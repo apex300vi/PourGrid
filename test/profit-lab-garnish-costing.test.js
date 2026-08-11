@@ -9,6 +9,7 @@ test('garnish presets preserve verified packaging and label unverified yields',(
   assert.match(sql,/Starting estimate: 200 lemons per case/);
   assert.match(sql,/Starting estimate: 400 cherries per gallon/);
   assert.match(sql,/package_case_price[^\n]+null/);
+  assert.match(sql,/create trigger seed_profit_lab_garnishes after insert on public\.locations/);
 });
 
 test('flexible costing stores separate package yield preparation waste and confidence fields',()=>{
