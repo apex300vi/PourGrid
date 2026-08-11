@@ -37,6 +37,8 @@ begin
 end$$;
 
 drop function public.list_profit_lab_recipes(uuid,uuid);
+drop function if exists public.archive_profit_lab_recipe(uuid,uuid,uuid,boolean);
+drop function if exists public.list_profit_lab_recipe_revisions(uuid,uuid,uuid);
 create function public.list_profit_lab_recipes(p_organization uuid,p_location uuid)
 returns table(id uuid,name text,target_cost_percent numeric,menu_price numeric,ingredients jsonb,version integer,created_by uuid,updated_by uuid,created_at timestamptz,updated_at timestamptz,can_delete boolean,status text,outlet text,preparation text,notes text,target_volume_oz numeric,archived_at timestamptz)
 language plpgsql security definer stable set search_path=pg_catalog,public,pg_temp as $$begin
