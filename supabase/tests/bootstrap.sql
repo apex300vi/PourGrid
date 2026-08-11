@@ -1,6 +1,7 @@
 \set ON_ERROR_STOP on
 create role anon nologin;
 create role authenticated nologin;
+create role service_role nologin;
 create schema extensions;
 create extension pgcrypto with schema extensions;
 create schema auth;
