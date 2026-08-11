@@ -15,7 +15,8 @@ test('Profit Lab combines catalog and custom ingredients at their proportions',(
   assert.match(source,/source:name\?'catalog':'custom'/);
   assert.match(source,/PourGrid catalog/);
   assert.match(source,/Custom ingredient/);
-  assert.match(source,/total\+=amount\*unit/);
+  assert.match(source,/var line=amount\*unitCost/);
+  assert.match(source,/total\+=line/);
   assert.match(source,/total\/\(target\/100\)/);
   assert.match(source,/total\/menu\*100/);
   assert.match(source,/option value="oz"/);
