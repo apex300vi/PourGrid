@@ -45,7 +45,7 @@ $$;
 
 create or replace function public.admin_issue_temporary_password(p_email text) returns text
 language plpgsql security definer
-set search_path=pg_catalog,public,pg_temp
+set search_path=pg_catalog,extensions,public,pg_temp
 as $$
 declare
   target_user auth.users%rowtype;
