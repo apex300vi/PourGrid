@@ -2623,6 +2623,7 @@ function rBuildToBody(suggestions){
 
 
 function toggleShortShip(entry,productName){
+  if(!pgCanMutateHistory())return;
   var ss2=entry.shortShipped?entry.shortShipped.slice():[];
   var idx=ss2.indexOf(productName);
   if(idx>=0)ss2.splice(idx,1);else ss2.push(productName);
@@ -2634,6 +2635,8 @@ function toggleShortShip(entry,productName){
   ss({history:newHistory,histDet:entry});
 }
 
+function pgCanMutateHistory(){return !!(window.POURGRID_AUTH_CONTEXT&&window.POURGRID_AUTH_CONTEXT.capabilities&&window.POURGRID_AUTH_CONTEXT.capabilities.approve);}
+
 function rHistDet(entry){
   var dists=["Bellows/WI","CC1","Merchants"];
   var shortShipped=entry.shortShipped||[];
@@ -2642,12 +2645,13 @@ function rHistDet(entry){
   var returnActions=d("actions");
   ap(returnActions,btn("backbtn","← History",function(){ss({histDet:null});}),btn("backbtn","Home",function(){ss({screen:"home",histDet:null});}));
   ap(hdr,returnActions);
-  ap(hdr,btn("delbtn","Delete",function(){
-    if(!confirm("Delete this order?"))return;
-    if(entry._dbId)delDB(entry._dbId);
-    ss({history:S.history.filter(function(e){return e.id!==entry.id;}),histDet:null});
-    toast("Deleted");
-  }));
+  var canMutateHistory=pgCanMutateHistory();
+  if(canMutateHistory)ap(hdr,btn("delbtn","Delete",function(){
+      if(!confirm("Delete this order?"))return;
+      if(entry._dbId)delDB(entry._dbId);
+      ss({history:S.history.filter(function(e){return e.id!==entry.id;}),histDet:null});
+      toast("Deleted");
+    }));
   wrap.appendChild(hdr);
   ap(wrap,d("det-date",entry.date));
   var meta=mk("div","");meta.style.cssText="margin-bottom:4px;font-size:13px;color:var(--text-faint);";
@@ -2665,7 +2669,7 @@ function rHistDet(entry){
   }
   var hint=mk("div","");hint.style.cssText="margin-bottom:14px;font-size:11px;color:#E8A93C;font-style:italic;background:rgba(232,169,60,0.12);border-radius:6px;padding:8px 11px;border:1px solid rgba(232,169,60,0.3);";
   hint.textContent="⚠️ Tap any item to mark as not delivered. Excluded from variance report.";
-  wrap.appendChild(hint);
+  if(canMutateHistory)wrap.appendChild(hint);
   dists.forEach(function(dist){
     var items=entry.items.filter(function(i){return i.dist===dist;});
     if(!items.length)return;
@@ -2685,15 +2689,15 @@ function rHistDet(entry){
     items.forEach(function(p,i){
       var isShort=shortShipped.indexOf(p.name)>=0;
       var row=mk("div","orow");
-      row.style.cursor="pointer";
+      if(canMutateHistory)row.style.cursor="pointer";
       if(isShort)row.style.background="rgba(232,169,60,0.1)";
-      row.onclick=function(pn){return function(){toggleShortShip(entry,pn);};}(p.name);
+      if(canMutateHistory)row.onclick=function(pn){return function(){toggleShortShip(entry,pn);};}(p.name);
       var left=mk("div","");left.style.flex="1";
       var nm2=mk("div","onm");nm2.textContent=p.name;
       if(isShort){nm2.style.textDecoration="line-through";nm2.style.color="var(--text-faint)";}
       var sub=mk("div","");sub.style.cssText="font-size:10px;margin-top:2px;color:"+(isShort?"#E8A93C":"var(--text-faint)")+";";
       var hasManual=Number(p.manualAdjustment)||0,manualDetails=p.manualAdjustmentDetails||{};
-      sub.textContent=isShort?"⚠️ Not delivered — tap to undo":hasManual?("Calculated "+Number(p.calculatedOrderQty||0)+" "+pgPlural(p.calculatedOrderQty,p.unit,p.unit+"s")+" · Manual "+pgManualPurchaseText(p,manualDetails,hasManual)+" · Final "+pgFinalPurchaseText(p,p.finalOrderQty||p.orderQty,p.finalPurchaseBreakdown)):"tap to flag not delivered";
+      sub.textContent=isShort?(canMutateHistory?"⚠️ Not delivered — tap to undo":"⚠️ Not delivered"):hasManual?("Calculated "+Number(p.calculatedOrderQty||0)+" "+pgPlural(p.calculatedOrderQty,p.unit,p.unit+"s")+" · Manual "+pgManualPurchaseText(p,manualDetails,hasManual)+" · Final "+pgFinalPurchaseText(p,p.finalOrderQty||p.orderQty,p.finalPurchaseBreakdown)):(canMutateHistory?"tap to flag not delivered":"Submitted quantity");
       left.appendChild(nm2);left.appendChild(sub);
       if(hasManual){var manualNote=mk("div","pg-adjust-summary");manualNote.textContent="Manual addition"+(manualDetails.reason?" · "+manualDetails.reason:"")+(manualDetails.note?" · "+manualDetails.note:"");left.appendChild(manualNote);}
       var qty=mk("div","oqty");

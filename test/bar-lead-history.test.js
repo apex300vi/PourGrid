@@ -40,6 +40,14 @@ test('History navigation, detail content, filters, loading, empty, and retry sta
   assert.match(html,/← History/);
 });
 
+test('Bar Leads receive read-only History controls while managers retain operational corrections',()=>{
+  assert.match(html,/function pgCanMutateHistory\(\)[\s\S]*capabilities\.approve/);
+  assert.match(html,/if\(canMutateHistory\)ap\(hdr,btn\("delbtn","Delete"/);
+  assert.match(html,/if\(canMutateHistory\)row\.onclick/);
+  assert.match(html,/if\(!pgCanMutateHistory\(\)\)return/);
+  assert.match(html,/canMutateHistory\?"tap to flag not delivered":"Submitted quantity"/);
+});
+
 test('mobile History and refreshed auth shell ship together',()=>{
   assert.match(css,/@media\(max-width:390px\)/);
   assert.match(html,/@media\(max-width:350px\)/);
