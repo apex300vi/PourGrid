@@ -36,7 +36,8 @@ begin
  if exists(select 1 from jsonb_array_elements(p_ingredients) i where length(btrim(coalesce(i->>'name',''))) not between 1 and 120 or coalesce((i->>'amount')::numeric,0)<=0 or coalesce(i->>'unit','') not in ('oz','ml','tsp','tbsp','each','piece','flat') or (nullif(i->>'ingredientId','') is null and coalesce((i->>'unitCost')::numeric,-1)<0)) then raise exception 'Every ingredient needs a valid name, amount, unit, and cost definition'; end if;
 end$$;
 
-create or replace function public.list_profit_lab_recipes(p_organization uuid,p_location uuid)
+drop function public.list_profit_lab_recipes(uuid,uuid);
+create function public.list_profit_lab_recipes(p_organization uuid,p_location uuid)
 returns table(id uuid,name text,target_cost_percent numeric,menu_price numeric,ingredients jsonb,version integer,created_by uuid,updated_by uuid,created_at timestamptz,updated_at timestamptz,can_delete boolean,status text,outlet text,preparation text,notes text,target_volume_oz numeric,archived_at timestamptz)
 language plpgsql security definer stable set search_path=pg_catalog,public,pg_temp as $$begin
  if auth.uid() is null or not public.has_location_role(p_organization,p_location,array['administrator','manager','bar_lead','inventory_staff','read_only_viewer']::public.app_role[]) then raise exception 'Profit Lab access required'; end if;
