@@ -87,17 +87,17 @@ do $$declare before_count bigint; begin
     perform public.import_profit_lab_current_menu('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',jsonb_build_array(
       jsonb_build_object('sourceKey','fixture-valid','name','Fixture Valid','menuPrice',12,'ingredients',jsonb_build_array(jsonb_build_object('name','Vodka','amount',1,'unit','oz','unitCost',0.5))),
       jsonb_build_object('sourceKey','fixture-invalid','name','Fixture Invalid','menuPrice',12,'ingredients','[]'::jsonb)
-    ),'fixture.xlsx','v-test');
+    ),'Sapphire Beach Bar Order Guide v12.xlsx','v12');
   exception when others then null; end;
   perform test.assert((select count(*)=before_count from public.list_profit_lab_recipes('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001')),'Current Menu import is atomic');
 end$$;
-select test.assert((select added=1 and ignored=0 and collided=1 from public.import_profit_lab_current_menu('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',jsonb_build_array(
+select test.assert((select imported=1 and skipped=0 and conflicts=1 from public.import_profit_lab_current_menu('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',jsonb_build_array(
   jsonb_build_object('sourceKey','fixture-menu','name','Fixture Menu','menuPrice',12,'ingredients',jsonb_build_array(jsonb_build_object('name','Vodka','amount',1,'unit','oz','unitCost',0.5))),
   jsonb_build_object('sourceKey','fixture-conflict','name','Manual Conflict','menuPrice',12,'ingredients',jsonb_build_array(jsonb_build_object('name','Vodka','amount',1,'unit','oz','unitCost',0.5)))
-),'fixture.xlsx','v-test')),'Current Menu first import reports add and manual collision');
-select test.assert((select added=0 and ignored=1 and collided=0 from public.import_profit_lab_current_menu('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',jsonb_build_array(
+),'Sapphire Beach Bar Order Guide v12.xlsx','v12')),'Current Menu first import reports add and manual collision');
+select test.assert((select imported=0 and skipped=1 and conflicts=0 from public.import_profit_lab_current_menu('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',jsonb_build_array(
   jsonb_build_object('sourceKey','fixture-menu','name','Fixture Menu','menuPrice',12,'ingredients',jsonb_build_array(jsonb_build_object('name','Vodka','amount',1,'unit','oz','unitCost',0.5)))
-),'fixture.xlsx','v-test')),'Current Menu retry reports existing source');
+),'Sapphire Beach Bar Order Guide v12.xlsx','v12')),'Current Menu retry reports existing source');
 select test.assert((select count(*)=1 from public.list_profit_lab_recipes('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001') where source_key='fixture-menu'),'Current Menu retry creates no duplicates');
 select test.assert((select count(*)=1 from public.list_profit_lab_recipes('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001') where name='Manual Conflict' and source_key is null),'manual recipe conflict remains preserved');
 reset role;
