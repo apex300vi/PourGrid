@@ -336,10 +336,28 @@ test('Stoli Raz exact units persist in the Bar draft and remain in Bellows submi
   vm.runInNewContext(persistence+';this.persist=pgPersistDraft;this.hydrate=pgHydrateDrafts;',context);context.persist('bar');
   let hydrated=context.hydrate();assert.equal(hydrated.adjustments['Stoli Raz'],14/12);assert.equal(hydrated.adjustmentMeta['Stoli Raz'].cases,1);assert.equal(hydrated.adjustmentMeta['Stoli Raz'].loose,2);
   context.S.adjustments['Stoli Raz']=.25;context.S.adjustmentMeta['Stoli Raz']={cases:0,loose:3,direction:'add',orderUnits:.25};context.persist('bar');hydrated=context.hydrate();assert.equal(hydrated.adjustmentMeta['Stoli Raz'].cases,0);assert.equal(hydrated.adjustmentMeta['Stoli Raz'].loose,3);
-  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));assert.match(order,/manualAdjustmentDetails:manual/);assert.match(order,/finalPurchaseBreakdown:pgFinalPurchaseBreakdown\(p,base,manual\)/);assert.match(order,/pgOrderLine\(p,p\.adjQty\)/);assert.match(order,/if\(p\.supplier==="West Indies"\|\|WI_PRODS2\.indexOf\(p\.name\)>=0\)wLines\.push\(line\);else bLines\.push\(line\)/);
+  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));assert.match(order,/manualAdjustmentDetails:manual/);assert.match(order,/finalPurchaseBreakdown:pgFinalPurchaseBreakdown\(p,base,manual\)/);assert.match(order,/pgOrderLine\(p,p\.adjQty\)/);assert.match(order,/pgBellowsWiEmailGroup\(p,WI_PRODS2\)/);
   assert.doesNotMatch(order,/orderExplanation\([^;]*,p\.adj\)/);assert.match(order,/adjTag\.textContent=pgManualPurchaseText/);
   const history=html.slice(html.indexOf('function rHistDet'),html.indexOf('function rEmpty'));assert.match(history,/pgManualPurchaseText/);assert.match(history,/pgFinalPurchaseText/);assert.match(order,/calculatedOrderQty:base===null\?0:base/);assert.match(order,/manualAdjustment:adj/);assert.match(order,/finalOrderQty:final/);
   const setter=html.slice(html.indexOf('function pgSetManualAdjustment'),html.indexOf('function pgDraftHasMeaningfulWork'));assert.doesNotMatch(setter,/S\.counts\s*=|buildTo\s*=|pgSaveCatalogEdits/);
+});
+
+test('unbranded Bellows/WI liquor is shown once in a shared section above both rep sections',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm'),context={};
+  const helpers=html.slice(html.indexOf('var PG_BELLOWS_WI_SHARED_ITEMS'),html.indexOf('function rEmailPanel'));
+  vm.runInNewContext(helpers+';this.group=pgBellowsWiEmailGroup;this.sections=pgAppendBellowsWiSections;',context);
+  ['Peach Schnapps','Amaretto','Irish Cream','Creme de Cacao','Triple Sec'].forEach(name=>assert.equal(context.group({name},[]),'shared',name));
+  assert.equal(context.group({name:'Future generic cordial',bellowsWiEmailGroup:'shared'},[]),'shared');
+  assert.equal(context.group({name:'Stoli Vodka'},['Stoli Vodka']),'westIndies');
+  assert.equal(context.group({name:'Bellows brand'},[]),'bellows');
+  const body=context.sections('INTRO\n',['1 case - Peach Schnapps'],['2 cases - Bellows Brand'],['3 cases - Stoli Vodka']);
+  assert.ok(body.indexOf('-- SHARED / BRAND NOT SPECIFIED --')<body.indexOf('-- BELLOWS --'));
+  assert.ok(body.indexOf('-- BELLOWS --')<body.indexOf('-- WEST INDIES --'));
+  assert.equal((body.match(/Peach Schnapps/g)||[]).length,1);
+  const legacy=html.slice(html.indexOf('function rEmailPanel'),html.indexOf('function rTabs'));
+  const current=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));
+  assert.match(legacy,/pgAppendBellowsWiSections\(body,sharedLines,bellowsLines,wiLines\)/);
+  assert.match(current,/pgAppendBellowsWiSections\(body,sharedLines,bLines,wLines\)/);
 });
 
 test('manual adjustments persist per workflow without mutating inventory or build-to',()=>{
@@ -405,7 +423,7 @@ test('Deep Eddy case and bottle components edit, persist, route to Bellows, subm
   context.S.adjustments['Deep Eddy Grapefruit']=2;context.S.adjustmentMeta['Deep Eddy Grapefruit']={cases:2,loose:0,direction:'add',orderUnits:2};context.persist('bar');hydrated=context.hydrate();assert.equal(hydrated.adjustmentMeta['Deep Eddy Grapefruit'].cases,2);assert.equal(hydrated.adjustmentMeta['Deep Eddy Grapefruit'].loose,0);
   const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));
   assert.match(order,/pgOrderLine\(p,p\.adjQty\)/);assert.match(order,/finalPurchaseBreakdown:pgFinalPurchaseBreakdown\(p,base,manual\)/);assert.match(order,/pgManualPurchaseText/);assert.match(order,/pgFinalPurchaseText/);
-  assert.match(order,/if\(p\.supplier==="West Indies"\|\|WI_PRODS2\.indexOf\(p\.name\)>=0\)wLines\.push\(line\);else bLines\.push\(line\)/);assert.doesNotMatch(order,/WI_PRODS2=\[[^\]]*Deep Eddy Grapefruit/);
+  assert.match(order,/pgBellowsWiEmailGroup\(p,WI_PRODS2\)/);assert.doesNotMatch(order,/WI_PRODS2=\[[^\]]*Deep Eddy Grapefruit/);
   const sheet=html.slice(html.indexOf('function pgOpenManualAdjustment'),html.indexOf('function pgOpenAdjustmentPicker'));assert.match(sheet,/base\+result\.orderUnits<0/);assert.match(sheet,/The final order cannot be negative/);
   const formatter=html.slice(html.indexOf('function pgPlural'),html.indexOf('function pgStoliFlavor'));
   const formatContext={pgFinalPurchaseText:(p,q,b)=>b.loose&&!b.cases?b.loose+' individual bottles':b.cases+' case'+(b.cases===1?'':'s')+(b.loose?' + '+b.loose+' individual bottles':''),pgPlural:(n,o,m)=>Number(n)===1?o:m};
