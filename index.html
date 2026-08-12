@@ -2296,28 +2296,42 @@ function rOrderList(prods,dists){
   return sec;
 }
 
+var PG_BELLOWS_WI_SHARED_ITEMS=["Peach Schnapps","Amaretto","Irish Cream","Creme de Cacao","Triple Sec"];
+function pgBellowsWiEmailGroup(product,westIndiesNames){
+  if(product.bellowsWiEmailGroup==="shared"||PG_BELLOWS_WI_SHARED_ITEMS.indexOf(product.name)>=0)return "shared";
+  return product.supplier==="West Indies"||westIndiesNames.indexOf(product.name)>=0?"westIndies":"bellows";
+}
+
+function pgAppendBellowsWiSections(body,sharedLines,bellowsLines,westIndiesLines){
+  var sections=[];
+  if(sharedLines.length)sections.push("-- SHARED / BRAND NOT SPECIFIED --\n"+sharedLines.join("\n"));
+  if(bellowsLines.length)sections.push("-- BELLOWS --\n"+bellowsLines.join("\n"));
+  if(westIndiesLines.length)sections.push("-- WEST INDIES --\n"+westIndiesLines.join("\n"));
+  return body+sections.join("\n\n");
+}
+
 function rEmailPanel(prods,dists,dk){
   var active=S.eDist[dk]||dists[0];
   var WI_PRODS=["Finest Call Grenadine","Finest Call Margarita Mix","Finest Call Sweet & Sour","Stoli Vodka","Stoli Oranj","Stoli Raz","Stoli Blu","Bacardi Superior","Bacardi Gold","Bacardi Pineapple","Bombay Sapphire Gin","Hendrick's Gin","Jack Daniel's Old No. 7","Dewars White Label","Milagro Silver","Hennessy VS","Sabroso Coffee Liqueur","Blue Curacao","Manon Rose","Soca cans","Reef Life cans","Beach Life cans","White Claw - Black Cherry","Florida's Natural OJ","Florida's Natural Fruit Splash","Florida's Natural Cranberry","Florida's Natural Kiwi","Gatorade Fruit Punch 20oz","Gatorade Glacier Freeze","Gatorade Fierce Grape","Gatorade Lemon Lime","Gatorade Orange 20oz","Mountain Dew 20oz Btl","Pepsi 20oz Btl","Diet Pepsi 20oz Btl","Cherry Pepsi 20oz Btl","A&W Root Beer can","Canada Dry Tonic Water","Canada Dry Club Soda","Canada Dry Ginger Ale","Dr. Pepper can","Diet Dr. Pepper can","Sunkist Orange can","Brisk Ice Tea 20oz","Bubly Blackberry","Bubly Strawberry","Bubly Lime","Aquafina 16.9oz"];
   function buildEmail(dist){
     if(dist==="Bellows/WI"){
       // Split into Bellows and West Indies sections
-      var bellowsLines=[];var wiLines=[];
+      var sharedLines=[];var bellowsLines=[];var wiLines=[];
       prods.filter(function(p){return p.dist===dist;}).forEach(function(p){
         var base=cq(p,pgEffectiveCount(p)||"");
         var adj2=S.adjustments[p.name]||0;
         var q=base!==null?Math.max(0,base+adj2):null;
         if(q&&q>0){
           var line=q+" "+p.unit+" - "+p.name;
-          if(p.supplier==="West Indies"||WI_PRODS.indexOf(p.name)>=0)wiLines.push(line);
+          var group=pgBellowsWiEmailGroup(p,WI_PRODS);
+          if(group==="shared")sharedLines.push(line);
+          else if(group==="westIndies")wiLines.push(line);
           else bellowsLines.push(line);
         }
       });
-      if(!bellowsLines.length&&!wiLines.length)return null;
+      if(!sharedLines.length&&!bellowsLines.length&&!wiLines.length)return null;
       var body="Subject: Liquor Order - Bellows/WI\n\nGood afternoon,\n\nPlease see our order for this week:\n\n";
-      if(bellowsLines.length>0)body+="-- BELLOWS --\n"+bellowsLines.join("\n");
-      if(bellowsLines.length>0&&wiLines.length>0)body+="\n\n";
-      if(wiLines.length>0)body+="-- WEST INDIES --\n"+wiLines.join("\n");
+      body=pgAppendBellowsWiSections(body,sharedLines,bellowsLines,wiLines);
       body+="\n\nThank you,\nJosh\nSapphire Beach Bar - St. Thomas, USVI";
       return body;
     }
@@ -2920,16 +2934,15 @@ function rOrderTab(prods,dists,dk,isG){
 
   function buildBody(dist){
     if(dist==="Bellows/WI"){
-      var bLines=[];var wLines=[];
+      var sharedLines=[];var bLines=[];var wLines=[];
       items.filter(function(p){return p.dist===dist&&p.adjQty>0;}).forEach(function(p){
         var line=pgOrderLine(p,p.adjQty);if(p.name==="Stoli Vodka")line+=" - Free "+pgStoliFlavor();
-        if(p.supplier==="West Indies"||WI_PRODS2.indexOf(p.name)>=0)wLines.push(line);else bLines.push(line);
+        var group=pgBellowsWiEmailGroup(p,WI_PRODS2);
+        if(group==="shared")sharedLines.push(line);else if(group==="westIndies")wLines.push(line);else bLines.push(line);
       });
-      if(!bLines.length&&!wLines.length)return null;
+      if(!sharedLines.length&&!bLines.length&&!wLines.length)return null;
       var body="Subject: Liquor Order - Bellows/WI\n\nGood afternoon,\n\nPlease see our order for this week:\n\n";
-      if(bLines.length)body+="-- BELLOWS --\n"+bLines.join("\n");
-      if(bLines.length&&wLines.length)body+="\n\n";
-      if(wLines.length)body+="-- WEST INDIES --\n"+wLines.join("\n");
+      body=pgAppendBellowsWiSections(body,sharedLines,bLines,wLines);
       body+="\n\nThank you,\nJosh\nSapphire Beach Bar - St. Thomas, USVI";
       return body;
     }
