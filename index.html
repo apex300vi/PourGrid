@@ -4399,13 +4399,14 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(typeof s
 
 <div id="s71Overlay" class="s71-overlay" onclick="if(event.target===this)s71Close()"><div class="s71-sheet"><div class="s71-grab"></div><div id="s71Body"></div></div></div>
 <script type="text/pourgrid-protected" data-pg-protected>
-window.addEventListener("load",function(){
+function pgFinishBoot(){
   setTimeout(function(){
     var s=document.getElementById("pgSplash");
     document.body.classList.remove("pg-booting");
     if(s){s.classList.add("hide");setTimeout(function(){if(s&&s.parentNode)s.parentNode.removeChild(s);},320);}
   },900);
-});
+}
+if(document.readyState==="complete")pgFinishBoot();else window.addEventListener("load",pgFinishBoot,{once:true});
 </script>
 <script type="text/pourgrid-protected" data-pg-protected>
 window.s4CloseSheet=function(){var w=document.getElementById("s4SheetWrap");if(w){w.classList.remove("open");w.dataset.locked="false";}document.body.style.overflow="";if(window.pgSheetReturnFocus&&window.pgSheetReturnFocus.focus)setTimeout(function(){window.pgSheetReturnFocus.focus();},0);};
