@@ -76,6 +76,34 @@ select test.assert((select count(*)=1 and max(version)=2 from public.list_profit
 select test.assert(not has_table_privilege('authenticated','public.profit_lab_recipe_revisions','select,insert,update,delete'),'Profit Lab revision table stays private');
 reset role;
 select test.assert((select count(*)=2 from public.profit_lab_recipe_revisions where recipe_id=:'profit_recipe_id'),'Profit Lab saves immutable revision history');
+-- Current Menu import accepts its narrow revision action, is atomic and repeatable,
+-- and leaves a same-name manual recipe untouched.
+insert into public.profit_lab_recipes(organization_id,location_id,name,target_cost_percent,menu_price,ingredients,status,created_by,updated_by)
+values('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','Manual Conflict',18,12,'[{"name":"Vodka","amount":1,"unit":"oz","unitCost":0.5}]','Draft','00000000-0000-0000-0000-000000000006','00000000-0000-0000-0000-000000000006');
+set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000006',false);
+do $$declare before_count bigint; begin
+  select count(*) into before_count from public.list_profit_lab_recipes('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001');
+  begin
+    perform public.import_profit_lab_current_menu('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',jsonb_build_array(
+      jsonb_build_object('sourceKey','fixture-valid','name','Fixture Valid','menuPrice',12,'ingredients',jsonb_build_array(jsonb_build_object('name','Vodka','amount',1,'unit','oz','unitCost',0.5))),
+      jsonb_build_object('sourceKey','fixture-invalid','name','Fixture Invalid','menuPrice',12,'ingredients','[]'::jsonb)
+    ),'Sapphire Beach Bar Order Guide v12.xlsx','v12');
+  exception when others then null; end;
+  perform test.assert((select count(*)=before_count from public.list_profit_lab_recipes('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001')),'Current Menu import is atomic');
+end$$;
+select test.assert((select imported=1 and skipped=0 and conflicts=1 from public.import_profit_lab_current_menu('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',jsonb_build_array(
+  jsonb_build_object('sourceKey','fixture-menu','name','Fixture Menu','menuPrice',12,'ingredients',jsonb_build_array(jsonb_build_object('name','Vodka','amount',1,'unit','oz','unitCost',0.5))),
+  jsonb_build_object('sourceKey','fixture-conflict','name','Manual Conflict','menuPrice',12,'ingredients',jsonb_build_array(jsonb_build_object('name','Vodka','amount',1,'unit','oz','unitCost',0.5)))
+),'Sapphire Beach Bar Order Guide v12.xlsx','v12')),'Current Menu first import reports add and manual collision');
+select test.assert((select imported=0 and skipped=1 and conflicts=0 from public.import_profit_lab_current_menu('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',jsonb_build_array(
+  jsonb_build_object('sourceKey','fixture-menu','name','Fixture Menu','menuPrice',12,'ingredients',jsonb_build_array(jsonb_build_object('name','Vodka','amount',1,'unit','oz','unitCost',0.5)))
+),'Sapphire Beach Bar Order Guide v12.xlsx','v12')),'Current Menu retry reports existing source');
+select test.assert((select count(*)=1 from public.list_profit_lab_recipes('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001') where source_key='fixture-menu'),'Current Menu retry creates no duplicates');
+select test.assert((select count(*)=1 from public.list_profit_lab_recipes('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001') where name='Manual Conflict' and source_key is null),'manual recipe conflict remains preserved');
+reset role;
+select test.assert((select count(*)=1 from public.profit_lab_recipe_revisions where action='current_menu_import' and snapshot->>'source_key'='fixture-menu'),'current_menu_import revision action is accepted');
+do $$declare recipe uuid; begin select id into recipe from public.profit_lab_recipes where name='Test Painkiller'; begin insert into public.profit_lab_recipe_revisions(recipe_id,organization_id,location_id,version,snapshot,action,changed_by) values(recipe,'10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',99,'{}','not_allowed','00000000-0000-0000-0000-000000000006'); raise exception 'invalid revision action unexpectedly accepted'; exception when check_violation then null; end; end$$;
+select test.assert(true,'invalid revision action remains rejected');
 set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000006',false);
 do $$declare recipe uuid; begin begin perform public.list_profit_lab_recipes('10000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000002'); raise exception 'cross-tenant Profit Lab read unexpectedly succeeded'; exception when raise_exception then if sqlerrm='cross-tenant Profit Lab read unexpectedly succeeded' then raise; end if; end; select id into recipe from public.list_profit_lab_recipes('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001') where name='Test Painkiller'; begin perform public.delete_profit_lab_recipe('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',recipe); raise exception 'Bar Lead Profit Lab delete unexpectedly succeeded'; exception when raise_exception then if sqlerrm='Bar Lead Profit Lab delete unexpectedly succeeded' then raise; end if; end; end$$;
 reset role;
