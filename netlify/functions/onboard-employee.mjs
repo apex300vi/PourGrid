@@ -25,10 +25,7 @@ export default async request=>{
     if(existing){
       const membership=await admin.from('memberships').select('id').eq('organization_id',organizationId).eq('user_id',existing.id).maybeSingle();if(membership.error)throw membership.error;
       if(membership.data){const issued=await admin.rpc('service_issue_member_temporary_password',{p_actor:actor.id,p_organization:organizationId,p_location:locationId,p_email:email});if(issued.error)throw issued.error;return json(200,{email,temporaryPassword:issued.data,existingUser:true})}
-      const password=temporaryPassword();
-      const updated=await admin.auth.admin.updateUserById(existing.id,{password,email_confirm:true});if(updated.error)throw updated.error;
-      const onboarded=await admin.rpc('service_onboard_employee',{p_actor:actor.id,p_organization:organizationId,p_location:locationId,p_user:existing.id,p_email:email,p_role:role});if(onboarded.error)throw onboarded.error;
-      return json(200,{email,temporaryPassword:password,existingUser:true});
+      return json(409,{error:'This email already has a PourGrid account. Existing permanent passwords cannot be replaced by onboarding.'});
     }
     const password=temporaryPassword();
     const created=await admin.auth.admin.createUser({email,password,email_confirm:true});if(created.error)throw created.error;
