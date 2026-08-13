@@ -1,1 +1,1 @@
-if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(()=>{}));
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js?release=49.1',{scope:'/'}).then(registration=>{registration.update();if(registration.waiting)registration.waiting.postMessage({type:'POURGRID_ACTIVATE_UPDATE'})}).catch(()=>{});
