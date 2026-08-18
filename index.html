@@ -815,10 +815,8 @@ async function loadHist(){
   }catch(e){console.error(e);return null;}
 }
 async function saveDB(entry){
-  try{
-    var r=await dbFetch("orders",{method:"POST",body:JSON.stringify({data:entry})});
-    return r&&r[0]?r[0].id:null;
-  }catch(e){console.error(e);return null;}
+  if(!window.POURGRID_ORDER_API||typeof window.POURGRID_ORDER_API.save!=="function")throw new Error("Authenticated order save is unavailable. Reload PourGrid and sign in again.");
+  return window.POURGRID_ORDER_API.save(entry);
 }
 async function delDB(id){
   try{await dbFetch("orders?id=eq."+id,{method:"DELETE"});return true;}
@@ -3070,7 +3068,13 @@ function rOrderTab(prods,dists,dk,isG){
         ss({history:[entry].concat(S.history).slice(0,52),notes:S.notes,ordered:o,adjustments:S.adjustments,adjustmentMeta:S.adjustmentMeta,counts:S.counts,bSub:"count",mSub:"count",bCat:null,mCat:null});
         toast("Saved & synced!");
         if(typeof s5ShowSuccess==="function")s5ShowSuccess("Order saved","Saved to History, deadlines updated, and the active count was cleared for the next inventory.");
-      } else toast("Save failed");
+      } else throw new Error("The server did not return a saved order ID.");
+    }).catch(function(error){
+      console.error("[PourGrid order save]",{message:String(error&&error.message||error),code:error&&error.code||null});
+      var detail=String(error&&error.message||"");
+      var message=/already saved with different contents/i.test(detail)?"This draft was already saved with different contents. Open History before retrying.":/session|jwt|sign in|authenticated/i.test(detail)?"Your secure session expired. Sign in again; this draft is still saved on this device.":/network|fetch|offline/i.test(detail)?"Order not saved — connection unavailable. This draft is still saved on this device.":"Order not saved. This draft is still saved on this device. Retry, or contact support with the current time.";
+      toast(message);
+      if(typeof s5ShowSuccess==="function")s5ShowSuccess("Save failed",message);
     });
   }});
   saveBtn.textContent=isG?"Finish & Save Merchants Order":"Finish & Save Bar Order";
