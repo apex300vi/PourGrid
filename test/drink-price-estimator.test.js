@@ -83,3 +83,10 @@ test('Profit Lab supports edit, duplicate, manager delete, loading, and mobile-s
   assert.match(source,/min-width:44px;min-height:44px/);
   assert.match(source,/@media\(max-width:390px\)/);
 });
+
+test('Profit Lab mount cannot create a dashboard mutation feedback loop',()=>{
+  assert.doesNotMatch(source,/new MutationObserver\(mount\)/);
+  assert.match(source,/window\.pgMountDrinkPriceEstimator=mount;mount\(\);/);
+  assert.match(gate,/fetch\(source\.src/);
+  assert.doesNotMatch(gate,/script\.setAttribute\(attr\.name,attr\.value\)/);
+});
