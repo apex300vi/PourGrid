@@ -4251,7 +4251,7 @@ function render(){
     setTimeout(function(){if(card&&card.scrollIntoView)card.scrollIntoView({block:"start",behavior:"smooth"});},80);
   });
   document.addEventListener("focusout",function(){setTimeout(pgSyncViewportClearance,120);});
-  if(typeof ResizeObserver!=="undefined")new ResizeObserver(pgSyncViewportClearance).observe(document.body);
+  // Observing the whole body creates a feedback loop: this callback changes\n  // viewport CSS variables, which resizes the body and schedules itself again.\n  // WebKit can remain inside that loop long enough to starve auth recovery and\n  // browser input. Window/visualViewport events above cover the real triggers.
   document.addEventListener("keydown",function(e){
     if(e.key!=="Escape")return;
     if(S.histDet){ss({histDet:null});return;}
