@@ -28,9 +28,9 @@ test('reachable origin wins over navigator online hints',()=>{
   assert.match(connectivity,/AbortController/);
 });
 
-test('connectivity recovers across launch, network, wake, visibility, and service-worker changes',()=>{
-  for(const hook of ['online','offline','pageshow','focus','visibilitychange','controllerchange'])assert.match(html,new RegExp('"'+hook+'"'));
-  assert.match(html,/navigator\.serviceWorker\.ready\.then\(pgProbeConnectivity\)/);
+test('connectivity recovers across launch, network, wake, and visibility changes without a worker dependency',()=>{
+  for(const hook of ['online','offline','pageshow','focus','visibilitychange'])assert.match(html,new RegExp('"'+hook+'"'));
+  assert.doesNotMatch(html,/navigator\.serviceWorker\.ready|controllerchange/);
   assert.match(html,/setInterval\(pgProbeConnectivity,30000\)/);
   assert.match(html,/pgProbeConnectivity\(\);/);
 });
