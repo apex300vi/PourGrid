@@ -4227,7 +4227,8 @@ function render(){
     app.appendChild(rContent());
     app.appendChild(rNav());
   }
-  if(S.toast){ap(app,d("toast",S.toast));}\r\n  if(typeof s4AttachSearch==="function")requestAnimationFrame(s4AttachSearch);
+  if(S.toast){ap(app,d("toast",S.toast));}
+  if(typeof s4AttachSearch==="function")requestAnimationFrame(s4AttachSearch);
 }
 
 // Sapphire 3.0 interaction polish: lightweight, non-invasive affordances.
