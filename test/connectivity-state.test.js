@@ -10,7 +10,9 @@ test('connectivity is independent from history synchronization state',()=>{
   assert.match(html,/sync:"loading",connectivity:"checking"/);
   assert.match(html,/S\.connectivity==="online"\?"Online"/);
   assert.doesNotMatch(html,/S\.sync==="ok"\?"Synced":"Offline"/);
-  assert.match(html,/var patch=\{sync:histResult===null\?"error":"ok"\}/);
+  assert.match(html,/loadHist\(\)\.then\(function\(histResult\)/);
+  assert.match(html,/if\(histResult===null\)\{ss\(\{sync:"error"\}\)/);
+  assert.doesNotMatch(html,/Promise\.all\(\[loadHist\(\), loadDeadlines\(\), loadRemoteCounts\(\)\]\)/);
 });
 
 test('probe bypasses caches and sends no credentials or authentication data',()=>{
