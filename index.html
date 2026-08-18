@@ -4245,7 +4245,7 @@ function render(){
   }
   window.pgSyncViewportClearance=pgSyncViewportClearance;
   window.addEventListener("resize",pgSyncViewportClearance,{passive:true});
-  if(window.visualViewport){visualViewport.addEventListener("resize",pgSyncViewportClearance,{passive:true});visualViewport.addEventListener("scroll",pgSyncViewportClearance,{passive:true});}
+  // visualViewport events can be triggered by the CSS clearance changes themselves.
   document.addEventListener("focusin",function(event){
     if(!event.target.matches("input[inputmode],input[type=number]"))return;
     pgSyncViewportClearance();var card=event.target.closest(".pg-count-card");
