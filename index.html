@@ -781,7 +781,7 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 <script>(function(){'use strict';window.POURGRID_BOOT={stage:'interactive-sign-in',mark:function(stage){this.stage=String(stage||'')},settle:function(stage){this.mark(stage)}};if('serviceWorker'in navigator)navigator.serviceWorker.getRegistrations().then(function(items){return Promise.all(items.map(function(item){return item.unregister()}))}).catch(function(){});if(window.caches)caches.keys().then(function(keys){return Promise.all(keys.filter(function(key){return /^pourgrid-shell-/.test(key)}).map(function(key){return caches.delete(key)}))}).catch(function(){})})();</script>
 <script src="/runtime-config.js"></script><script src="/auth-gate.js" defer></script><!-- data-pg-auth-boundary -->
 <script type="text/pourgrid-protected" data-pg-protected src="bottle-intelligence.js?v=1.7.1.1"></script>
-<script type="text/pourgrid-protected" data-pg-protected src="smart-count-launcher.js?v=1.7.1.1"></script>
+<!-- Smart Count launcher is optional; manual Full Count remains available. -->
 <script type="text/pourgrid-protected" data-pg-protected src="pourgrid-vision.js?v=1.7.1.1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="product-persistence.js?v=1.7.1.1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="drink-price-estimator.js?v=2"></script>
