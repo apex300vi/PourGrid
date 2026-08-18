@@ -4279,13 +4279,13 @@ setInterval(pgProbeConnectivity,30000);
 pgProbeConnectivity();
 
 
-// Load history and deadlines on startup
-Promise.all([loadHist(), loadDeadlines(), loadRemoteCounts()]).then(function(results){
-  var histResult=results[0];
-  var dlResult=results[1];
-  var cntResult=results[2];
-  var patch={sync:histResult===null?"error":"ok"};
-  if(histResult!==null)patch.history=histResult;
+// Load remote resources independently. History failure must not block the dashboard,
+// products, counts, or manual ordering.
+loadHist().then(function(histResult){
+  if(histResult===null){ss({sync:"error"});return;}
+  ss({sync:"ok",history:histResult});
+}).catch(function(error){console.error("History initialization failed",error);ss({sync:"error"});});
+loadDeadlines().then(function(dlResult){
   if(dlResult&&dlResult.ordered){
     var merged=Object.assign({},S.ordered);
     Object.keys(dlResult.ordered).forEach(function(k){
@@ -4293,9 +4293,11 @@ Promise.all([loadHist(), loadDeadlines(), loadRemoteCounts()]).then(function(res
       var local=merged[k]||0;
       if(remote>local)merged[k]=remote;
     });
-    patch.ordered=merged;
     lsSet("sbb-ordered",merged);
+    ss({ordered:merged});
   }
+}).catch(function(error){console.error("Deadline initialization failed",error);});
+loadRemoteCounts().then(function(cntResult){
   if(cntResult&&cntResult.counts){
     // Merge remote counts - remote fills in blanks, local values take priority
     var localCts=S.counts;
@@ -4303,11 +4305,10 @@ Promise.all([loadHist(), loadDeadlines(), loadRemoteCounts()]).then(function(res
     Object.keys(localCts).forEach(function(k){
       if(localCts[k]!==undefined&&localCts[k]!=="")mergedCts[k]=localCts[k];
     });
-    patch.counts=mergedCts;
     lsSet("sbb-counts",mergedCts);
+    ss({counts:mergedCts});
   }
-  ss(patch);
-});
+}).catch(function(error){console.error("Count initialization failed",error);});
 
 // Poll every 30s for history, deadlines, and counts
 setInterval(function(){
