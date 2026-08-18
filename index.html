@@ -1863,28 +1863,20 @@ function pgOpenFullCount(){
 }
 
 function rHome(){
-  var wrap=mk("div",""),hdr=d("pg-home-hero");
-  var sc=S.connectivity==="checking"?"#E2AD4A":S.connectivity==="online"?"#4AD3B0":"#FF6259",sl=S.connectivity==="checking"?"Checking":S.connectivity==="online"?"Online":"Offline";
-  var pillRow=mk("div","pg-home-top");pillRow.appendChild(d("pg-home-brand","POURGRID"));
-  var dot=mk("div","sdot");dot.style.cssText="background:"+sc+";color:"+sc+";";
-  var pill=d("sync-pill");ap(pill,dot,sp("sync-lbl",sl));ap(pillRow,pill);
-  var q=mk("div","pg-home-question");q.innerHTML='Your next order.<em>Already prioritized.</em>';
-  ap(hdr,pillRow,q,d("pg-home-answer","A live shift briefing—not another dashboard."));
-  wrap.appendChild(hdr);
-
-  var body=d("pg-home-body");
-  var venue=d("pg-venue-lockup");
-  var venueImg=mk("img","",{src:"/icons/icon-192.png",alt:"Sapphire Beach Bar"});
-  var venueCopy=d("venue-copy");ap(venueCopy,d("venue-name","Sapphire Beach Bar"),d("venue-sub","Powered by PourGrid"));
-  var venueLogoWrap=d("pg-venue-logo-wrap");venueLogoWrap.appendChild(venueImg);
-  ap(venue,venueLogoWrap,venueCopy);body.appendChild(venue);
-  var fullCount=mk("button","pg-full-count-launcher",{type:"button",onclick:pgOpenFullCount}),fullCopy=mk("div","");
-  ap(fullCopy,d("","Full Count"),sp("","All vendors · one shared inventory"));
-  var fullArrow=mk("i","",{"aria-hidden":"true"});fullArrow.textContent="→";ap(fullCount,fullCopy,fullArrow);body.appendChild(fullCount);
-  var estimator=mk("button","pg-estimator-trigger",{id:"pgEstimatorHomeTrigger",type:"button",onclick:function(){if(window.pgOpenDrinkPriceEstimator)window.pgOpenDrinkPriceEstimator();}});
-  estimator.innerHTML='<div><strong>Drink Price Estimator</strong><span>Build recipes, calculate pour cost, and set a profitable menu price</span></div><b aria-hidden="true">›</b>';body.appendChild(estimator);
-  var section=d("pg-home-section"),label=mk("strong","");label.textContent="Right now";ap(section,label,sp("","Based on the next deadline"));body.appendChild(section);
-  body.appendChild(pgHomeBriefing());
+  var wrap=mk("div",""),hdr=d("pg-home-hero"),top=mk("div","pg-home-top");
+  top.appendChild(d("pg-home-brand","POURGRID"));
+  var connection=mk("div","sync-pill"),dot=mk("div","sdot");
+  var online=S.connectivity==="online",checking=S.connectivity==="checking";
+  dot.style.cssText="background:"+(online?"#4AD3B0":checking?"#E2AD4A":"#FF6259")+";";
+  ap(connection,dot,sp("sync-lbl",online?"Online":checking?"Checking":"Offline"));top.appendChild(connection);
+  var question=mk("div","pg-home-question");question.innerHTML="Inventory and ordering.<em>Ready when you are.</em>";
+  ap(hdr,top,question,d("pg-home-answer","Sapphire Beach Bar"));wrap.appendChild(hdr);
+  var body=d("pg-home-body"),venue=d("pg-venue-lockup"),copy=d("venue-copy");
+  ap(copy,d("venue-name","Sapphire Beach Bar"),d("venue-sub","Powered by PourGrid"));venue.appendChild(copy);body.appendChild(venue);
+  var full=mk("button","pg-full-count-launcher",{type:"button",onclick:pgOpenFullCount}),fullCopy=mk("div","");
+  ap(fullCopy,d("","Full Count"),sp("","All current products · saved draft"));var arrow=mk("i","",{"aria-hidden":"true"});arrow.textContent="→";ap(full,fullCopy,arrow);body.appendChild(full);
+  var history=mk("button","pg-estimator-trigger",{type:"button",onclick:function(){ss({screen:"app",tab:"history",histDet:null,s8Dist:null});}});
+  history.innerHTML="<div><strong>History</strong><span>Completed production orders for this location</span></div><b aria-hidden=\"true\">›</b>";body.appendChild(history);
   wrap.appendChild(body);return wrap;
 }
 function rStabs(active,fn,isG){
