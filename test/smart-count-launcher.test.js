@@ -97,15 +97,10 @@ test('packaged-item order accepts any valid entered component and blocks invalid
   assert.match(cardSection,/var has=pgHasPhysicalCount\(p\)/);
 });
 
-test('briefing home presents one next action without rebuilding the dashboard',()=>{
+test('bounded home exposes Dashboard, History, Full Count, and Profit Lab without deadline boot work',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),home=html.slice(html.indexOf('function rHome'),html.indexOf('function rStabs'));
-  assert.match(home,/Your next order/);assert.match(home,/pgHomeBriefing/);assert.doesNotMatch(home,/rDeadlines/);
-  assert.doesNotMatch(home,/Start Bar Count|Start Merchants Count|Open History & Insights|s81-action-card/);
-  const briefing=html.slice(html.indexOf('function pgHomeBriefing'),html.indexOf('function rOrderNotes'));
-  assert.match(briefing,/Next action/);assert.match(briefing,/Coming up/);assert.match(briefing,/Latest submitted order/);assert.match(briefing,/pgOpenUpcomingCycle/);
-  assert.match(briefing,/mk\("button","pg-week-item/);assert.match(briefing,/aria-label","Open /);
-  const streamList=html.slice(html.indexOf('function pgHomeStreamList'),html.indexOf('function pgHomeBriefing'));
-  assert.match(streamList,/a\.dl\.deadline-b\.dl\.deadline/);
+  assert.match(home,/Sapphire Beach Bar/);assert.match(home,/Full Count/);assert.match(home,/tab:"history"/);assert.match(home,/pgEstimatorHomeTrigger/);
+  assert.doesNotMatch(home,/pgHomeBriefing|rDeadlines|pgNextMerchantsCycle/);
 });
 
 test('document shell is complete and cannot publish as a black screen',()=>{
