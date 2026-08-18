@@ -1875,6 +1875,8 @@ function rHome(){
   ap(copy,d("venue-name","Sapphire Beach Bar"),d("venue-sub","Powered by PourGrid"));venue.appendChild(copy);body.appendChild(venue);
   var full=mk("button","pg-full-count-launcher",{type:"button",onclick:pgOpenFullCount}),fullCopy=mk("div","");
   ap(fullCopy,d("","Full Count"),sp("","All current products · saved draft"));var arrow=mk("i","",{"aria-hidden":"true"});arrow.textContent="→";ap(full,fullCopy,arrow);body.appendChild(full);
+  var estimator=mk("button","pg-estimator-trigger",{id:"pgEstimatorHomeTrigger",type:"button",onclick:function(){if(window.pgOpenDrinkPriceEstimator)window.pgOpenDrinkPriceEstimator();}});
+  estimator.innerHTML='<div><strong>Profit Lab</strong><span>Build recipes, calculate pour cost, and set a profitable menu price</span></div><b aria-hidden="true">›</b>';body.appendChild(estimator);
   var history=mk("button","pg-estimator-trigger",{type:"button",onclick:function(){ss({screen:"app",tab:"history",histDet:null,s8Dist:null});}});
   history.innerHTML="<div><strong>History</strong><span>Completed production orders for this location</span></div><b aria-hidden=\"true\">›</b>";body.appendChild(history);
   wrap.appendChild(body);return wrap;
