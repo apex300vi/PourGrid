@@ -76,6 +76,8 @@ test('mobile clearance is measured from sticky action, navigation and visual vie
   assert.doesNotMatch(html,/new ResizeObserver\(pgSyncViewportClearance\)/);
   assert.doesNotMatch(html,/new MutationObserver\(\(\)=>requestAnimationFrame\(s4AttachSearch\)\)/);
   assert.match(html,/typeof s4AttachSearch==="function"/);
+  assert.doesNotMatch(html,/visualViewport\.addEventListener\("resize",pgSyncViewportClearance/);
+  assert.doesNotMatch(html,/visualViewport\.addEventListener\("scroll",pgSyncViewportClearance/);
 });
 
 test('Bar and Merchants routing keeps workspace, category, and active navigation isolated',()=>{
