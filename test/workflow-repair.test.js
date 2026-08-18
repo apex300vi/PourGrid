@@ -76,3 +76,18 @@ test('mobile clearance is measured from sticky action, navigation and visual vie
   assert.doesNotMatch(html,/new ResizeObserver\(pgSyncViewportClearance\)/);
   assert.doesNotMatch(html,/new MutationObserver\(\(\)=>requestAnimationFrame\(s4AttachSearch\)\)/);
   assert.match(html,/typeof s4AttachSearch==="function"/);
+});
+
+test('Bar and Merchants routing keeps workspace, category, and active navigation isolated',()=>{
+  const routing=slice('function pgRouteSnapshot','var pgSheetGestures');
+  const nav=slice('function rNav','function rSplash');
+  assert.match(routing,/destination==="bar"[\s\S]*tab:"bar"/);assert.match(routing,/destination==="merchants"[\s\S]*tab:"merchants"/);
+  assert.match(routing,/destination==="mixers"[\s\S]*tab:"merchants"/);assert.match(routing,/destination==="fruit"[\s\S]*tab:"merchants"/);
+  assert.match(nav,/S\.screen==="app"&&S\.tab===t\.id/);
+});
+
+test('legacy half-case drafts are converted only when exact and otherwise retained with a warning',()=>{
+  const migration=slice('function pgMigrateMerchantPackaging','pgMigrateMerchantPackaging();');
+  assert.match(migration,/Number\.isInteger\(exactUnits\)/);assert.match(migration,/delete nc\[halfKey\]/);
+  assert.match(migration,/cannot be converted to exact units/);assert.match(migration,/nc\[compatKey\]/);
+});
