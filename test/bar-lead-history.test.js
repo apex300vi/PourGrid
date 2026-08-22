@@ -5,7 +5,7 @@ test('history loads through an authenticated location-scoped server API',()=>{
   assert.match(gate,/POURGRID_HISTORY_API=Object\.freeze/);
   assert.match(gate,/get_location_order_history/);
   assert.match(gate,/p_organization:context\.organizationId,p_location:context\.locationId/);
-  assert.match(html,/window\.POURGRID_HISTORY_API\.list\(100,offset\)/);
+  assert.match(html,/window\.POURGRID_HISTORY_API\.list\(60\)/);
   assert.doesNotMatch(html,/dbFetch\("orders\?select=id,created_at,data&order=created_at\.desc&limit=60"\)/);
 });
 

@@ -56,7 +56,6 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608120002_profit_lab_revision_current_menu_action.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608120003_password_change_completion_repair.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608180001_transactional_order_save.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608220001_history_analytics_seasonal_profiles.sql
       - name: Run executable database and RLS suite
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase3_executable.sql
       - name: Verify anonymous direct access is denied

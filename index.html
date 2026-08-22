@@ -784,8 +784,6 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 <script type="text/pourgrid-protected" data-pg-protected src="smart-count-launcher.js?v=1.7.1.1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="pourgrid-vision.js?v=1.7.1.1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="product-persistence.js?v=1.7.1.1"></script>
-<script type="text/pourgrid-protected" data-pg-protected src="history-analytics.js?v=1"></script>
-<script type="text/pourgrid-protected" data-pg-protected src="seasonal-profiles.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="drink-price-estimator.js?v=2"></script>
 <script type="text/pourgrid-protected" data-pg-protected>
 
@@ -810,10 +808,10 @@ async function dbFetch(path,opts){
 async function loadHist(){
   try{
     if(!window.POURGRID_HISTORY_API||typeof window.POURGRID_HISTORY_API.list!=="function")throw new Error("Authorized history API unavailable");
-    var all=[],offset=0,page;
-    do{page=await window.POURGRID_HISTORY_API.list(100,offset);all=all.concat(page||[]);offset+=page?.length||0;}while(page&&page.length===100);
-    if(!window.PourGridHistory)throw new Error("History normalizer unavailable");
-    return window.PourGridHistory.normalizeHistory(all).map(function(order){return Object.assign({},order.raw,{_dbId:order.sourceId,_normalized:order});});
+    var r=await window.POURGRID_HISTORY_API.list(60);
+    // Filter out internal records (counts, deadlines) - only keep actual orders
+    var orders=(r||[]).filter(function(x){return !x.data||!x.data.type;});
+    return orders.slice(0,52).map(function(x){return Object.assign({},x.data,{_dbId:x.id});});
   }catch(e){console.error(e);return null;}
 }
 async function saveDB(entry){
@@ -3061,7 +3059,7 @@ function rOrderTab(prods,dists,dk,isG){
         saveDeadlines(o);
         pgClearWorkflowDraft(activeType,{render:false});
         lsSet("sbb-counts-cleared",Date.now());pushCounts(S.counts);
-        ss({history:[entry].concat(S.history),notes:S.notes,ordered:o,adjustments:S.adjustments,adjustmentMeta:S.adjustmentMeta,counts:S.counts,bSub:"count",mSub:"count",bCat:null,mCat:null});
+        ss({history:[entry].concat(S.history).slice(0,52),notes:S.notes,ordered:o,adjustments:S.adjustments,adjustmentMeta:S.adjustmentMeta,counts:S.counts,bSub:"count",mSub:"count",bCat:null,mCat:null});
         toast("Saved & synced!");
         if(typeof s5ShowSuccess==="function")s5ShowSuccess("Order saved","Saved to History, deadlines updated, and the active count was cleared for the next inventory.");
       } else throw new Error("The server did not return a saved order ID.");
