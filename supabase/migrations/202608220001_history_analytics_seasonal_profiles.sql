@@ -3,7 +3,7 @@ alter table public.legacy_order_references add column if not exists location_id 
 do $$
 declare v_org uuid;v_location uuid;v_count integer;
 begin
- select count(*),min(l.organization_id),min(l.id) into v_count,v_org,v_location from public.locations l where lower(l.name)='sapphire beach bar';
+ select count(*),min(l.organization_id::text)::uuid,min(l.id::text)::uuid into v_count,v_org,v_location from public.locations l where lower(l.name)='sapphire beach bar';
  if v_count<>1 then raise exception 'Expected one Sapphire Beach Bar production location';end if;
  update public.legacy_order_references r set organization_id=v_org,location_id=v_location from public.orders o where o.id=r.legacy_order_id and r.organization_id is null and r.location_id is null and coalesce(o.data->>'type','') not in ('counts','deadlines') and jsonb_typeof(o.data->'items')='array';
  update public.legacy_order_references r set location_id=s.location_id from public.legacy_order_submissions s where s.order_id=r.legacy_order_id and r.location_id is null;
