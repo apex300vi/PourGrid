@@ -784,6 +784,8 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 <script type="text/pourgrid-protected" data-pg-protected src="smart-count-launcher.js?v=1.7.1.1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="pourgrid-vision.js?v=1.7.1.1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="product-persistence.js?v=1.7.1.1"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="history-analytics.js?v=1"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="seasonal-profiles.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="drink-price-estimator.js?v=2"></script>
 <script type="text/pourgrid-protected" data-pg-protected>
 
@@ -808,10 +810,10 @@ async function dbFetch(path,opts){
 async function loadHist(){
   try{
     if(!window.POURGRID_HISTORY_API||typeof window.POURGRID_HISTORY_API.list!=="function")throw new Error("Authorized history API unavailable");
-    var r=await window.POURGRID_HISTORY_API.list(60);
-    // Filter out internal records (counts, deadlines) - only keep actual orders
-    var orders=(r||[]).filter(function(x){return !x.data||!x.data.type;});
-    return orders.slice(0,52).map(function(x){return Object.assign({},x.data,{_dbId:x.id});});
+    var all=[],offset=0,page;
+    do{page=await window.POURGRID_HISTORY_API.list(100,offset);all=all.concat(page||[]);offset+=page?.length||0;}while(page&&page.length===100);
+    if(!window.PourGridHistory)throw new Error("History normalizer unavailable");
+    return window.PourGridHistory.normalizeHistory(all).map(function(order){return Object.assign({},order.raw,{_dbId:order.sourceId,_normalized:order});});
   }catch(e){console.error(e);return null;}
 }
 async function saveDB(entry){
@@ -3065,7 +3067,7 @@ function rOrderTab(prods,dists,dk,isG){
         saveDeadlines(o);
         pgClearWorkflowDraft(activeType,{render:false});
         lsSet("sbb-counts-cleared",Date.now());pushCounts(S.counts);
-        ss({history:[entry].concat(S.history).slice(0,52),notes:S.notes,ordered:o,adjustments:S.adjustments,adjustmentMeta:S.adjustmentMeta,counts:S.counts,bSub:"count",mSub:"count",bCat:null,mCat:null});
+        ss({history:[entry].concat(S.history),notes:S.notes,ordered:o,adjustments:S.adjustments,adjustmentMeta:S.adjustmentMeta,counts:S.counts,bSub:"count",mSub:"count",bCat:null,mCat:null});
         toast("Saved & synced!");
         if(typeof s5ShowSuccess==="function")s5ShowSuccess("Order saved","Saved to History, deadlines updated, and the active count was cleared for the next inventory.");
       } else throw new Error("The server did not return a saved order ID.");
@@ -4251,7 +4253,10 @@ function render(){
     setTimeout(function(){if(card&&card.scrollIntoView)card.scrollIntoView({block:"start",behavior:"smooth"});},80);
   });
   document.addEventListener("focusout",function(){setTimeout(pgSyncViewportClearance,120);});
-  if(typeof ResizeObserver!=="undefined")new ResizeObserver(pgSyncViewportClearance).observe(document.body);
+  // Observing the whole body creates a feedback loop: this callback changes
+  // viewport CSS variables, which resizes the body and schedules itself again.
+  // WebKit can remain inside that loop long enough to starve auth recovery and
+  // browser input. Window/visualViewport events above cover the real triggers.
   document.addEventListener("keydown",function(e){
     if(e.key!=="Escape")return;
     if(S.histDet){ss({histDet:null});return;}
@@ -4279,13 +4284,13 @@ setInterval(pgProbeConnectivity,30000);
 pgProbeConnectivity();
 
 
-// Load history and deadlines on startup
-Promise.all([loadHist(), loadDeadlines(), loadRemoteCounts()]).then(function(results){
-  var histResult=results[0];
-  var dlResult=results[1];
-  var cntResult=results[2];
-  var patch={sync:histResult===null?"error":"ok"};
-  if(histResult!==null)patch.history=histResult;
+// Load remote resources independently. History failure must not block the dashboard,
+// products, counts, or manual ordering.
+loadHist().then(function(histResult){
+  if(histResult===null){ss({sync:"error"});return;}
+  ss({sync:"ok",history:histResult});
+}).catch(function(error){console.error("History initialization failed",error);ss({sync:"error"});});
+loadDeadlines().then(function(dlResult){
   if(dlResult&&dlResult.ordered){
     var merged=Object.assign({},S.ordered);
     Object.keys(dlResult.ordered).forEach(function(k){
@@ -4293,9 +4298,11 @@ Promise.all([loadHist(), loadDeadlines(), loadRemoteCounts()]).then(function(res
       var local=merged[k]||0;
       if(remote>local)merged[k]=remote;
     });
-    patch.ordered=merged;
     lsSet("sbb-ordered",merged);
+    ss({ordered:merged});
   }
+}).catch(function(error){console.error("Deadline initialization failed",error);});
+loadRemoteCounts().then(function(cntResult){
   if(cntResult&&cntResult.counts){
     // Merge remote counts - remote fills in blanks, local values take priority
     var localCts=S.counts;
@@ -4303,11 +4310,10 @@ Promise.all([loadHist(), loadDeadlines(), loadRemoteCounts()]).then(function(res
     Object.keys(localCts).forEach(function(k){
       if(localCts[k]!==undefined&&localCts[k]!=="")mergedCts[k]=localCts[k];
     });
-    patch.counts=mergedCts;
     lsSet("sbb-counts",mergedCts);
+    ss({counts:mergedCts});
   }
-  ss(patch);
-});
+}).catch(function(error){console.error("Count initialization failed",error);});
 
 // Poll every 30s for history, deadlines, and counts
 setInterval(function(){
