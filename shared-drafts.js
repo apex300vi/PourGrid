@@ -10,7 +10,7 @@ function downloadBackup(){backupOnce();var a=document.createElement("a"),blob=ne
 function api(){if(!window.POURGRID_SHARED_DRAFT_API)throw new Error("Shared draft service unavailable");return window.POURGRID_SHARED_DRAFT_API}
 function notify(type){window.dispatchEvent(new CustomEvent("pourgrid:shared-draft",{detail:status(type)}))}
 function set(type,patch){states[type]=Object.assign(states[type]||{type:type,status:"connecting",fields:{},queue:[],conflicts:[]},patch);notify(type);return states[type]}
-function status(type){var s=states[type]||{};return {type:type,status:s.status||"connecting",lastSync:s.lastSync||null,updatedBy:s.updatedBy||null,presence:s.presence||[],conflicts:s.conflicts||[],revision:s.revision||0}}
+function status(type){var s=states[type]||{};return {type:type,status:s.status||"connecting",lastSync:s.lastSync||null,updatedBy:s.updatedBy||null,presence:s.presence||[],conflicts:s.conflicts||[],revision:s.revision||0,realtimeState:s.channel&&s.channel.state||"closed"}}
 function keyOf(product,field){return product+"\u001f"+field}
 function localFields(type){var counts=read("sbb-counts",{}),fields=[];Object.keys(counts).forEach(function(k){var p=k,f="count",i=k.lastIndexOf("::");if(i>0){p=k.slice(0,i);f=k.slice(i+2)}if(["count","cases","halves","loose"].indexOf(f)>=0)fields.push({productKey:p,fieldKey:f,value:counts[k]})});
  var notes=read("sbb-notes",{}),adjs=read("sbb-adjustments",{}),meta=read("sbb-adjustment-meta",{});if(notes[type])fields.push({productKey:"$workflow",fieldKey:"note",value:notes[type]});Object.keys(adjs).forEach(function(k){fields.push({productKey:k,fieldKey:"adjustment",value:adjs[k]})});Object.keys(meta).forEach(function(k){fields.push({productKey:k,fieldKey:"adjustment_meta",value:meta[k]})});return fields}
