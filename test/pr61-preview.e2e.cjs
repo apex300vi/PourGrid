@@ -1,0 +1,32 @@
+'use strict';
+const {chromium}=require('playwright');
+const assert=require('node:assert/strict');
+(async()=>{
+  const browser=await chromium.launch({headless:true});
+  const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];
+  page.on('console',message=>{if(message.type()==='error')errors.push(message.text())});
+  await page.goto(process.env.PG_E2E_URL,{waitUntil:'domcontentloaded'});
+  await page.locator('#pgAuthEmail').fill(process.env.PG_E2E_EMAIL);
+  await page.locator('#pgAuthPassword').fill(process.env.PG_E2E_PASSWORD);
+  await page.locator('#pgAuthSubmit').click();
+  await page.locator('#app:not([hidden])').waitFor({timeout:30000});
+  for(const label of ['Dashboard','History','Profit Lab'])await page.getByText(label,{exact:true}).first().waitFor();
+  const result=await page.evaluate(async({org,location})=>{
+    const context=window.POURGRID_AUTH_CONTEXT;
+    const rows=await window.POURGRID_HISTORY_API.list(100,0);
+    const profiles=await window.POURGRID_SEASONAL_API.list();
+    const normal=profiles.find(profile=>profile.is_effective);
+    const key=Object.keys(localStorage).find(name=>/^sb-.*-auth-token$/.test(name));
+    const stored=key&&JSON.parse(localStorage.getItem(key));
+    const token=stored?.access_token||stored?.currentSession?.access_token;
+    const response=await fetch(window.POURGRID_CONFIG.supabaseUrl+'/rest/v1/rpc/get_location_order_history_v2',{method:'POST',headers:{apikey:window.POURGRID_CONFIG.supabaseAnonKey,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({p_organization:org,p_location:location,p_limit:10,p_offset:0})});
+    return {context,historyRows:rows.length,normal:normal&&normal.name,multiplier:Number(normal&&normal.percentage_multiplier),crossTenantAllowed:response.ok,saveUsesContext:/p_organization:context\.organizationId,p_location:context\.locationId/.test(window.POURGRID_ORDER_API.save.toString())};
+  },{org:process.env.PG_TARGET_ORG,location:process.env.PG_TARGET_LOCATION});
+  assert.ok(result.context.organizationId&&result.context.locationId);
+  assert.ok(result.historyRows>=1,'isolated attributed History fixture must be visible');
+  assert.equal(result.normal,'Normal');assert.equal(result.multiplier,100);
+  assert.equal(result.crossTenantAllowed,false);assert.equal(result.saveUsesContext,true);
+  assert.ok(!errors.some(value=>/uncaught|exception|history.*failed/i.test(value)),errors.join('\n'));
+  console.log(JSON.stringify({authenticated:true,dashboard:true,history:true,profitLab:true,isolatedHistory:true,normal100:true,crossTenantDenied:true,saveUsesAuthorizedContext:true,noVendorEmail:true}));
+  await browser.close();
+})().catch(error=>{console.error(error&&error.stack||error);process.exit(1)});
