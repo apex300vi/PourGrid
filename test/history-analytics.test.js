@@ -1,0 +1,13 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const source=fs.readFileSync('history-analytics.js','utf8');
+function api(){const context={window:{}};vm.runInNewContext(source,context);return context.window.PourGridHistory;}
+test('mixed history normalizes, sorts and deduplicates deterministically',()=>{const h=api(),rows=[{source:'legacy',source_id:'1',dedupe_key:'draft-a',created_at:'2026-01-01T00:00:00Z',payload:{items:[]}},{source:'structured',source_id:'2',dedupe_key:'draft-a',created_at:'2026-01-02T00:00:00Z',payload:{items:[]}},{source:'legacy',source_id:'3',created_at:'2025-12-01T00:00:00Z',payload:{items:[]}}],result=h.normalizeHistory(rows);assert.equal(result.length,2);assert.equal(result[0].source,'structured');assert.equal(result[1].sourceId,'3');});
+test('missing values remain missing while recorded zero remains zero',()=>{const item=api().normalize({payload:{items:[{name:'Rum',count:0,manualAdjustment:null}]}}).items[0];assert.equal(item.physicalCount,0);assert.equal(item.manualAdjustment,null);});
+test('analytics refuses to call order quantity alone consumption',()=>{const result=api().analyze([{created_at:'2026-01-01',payload:{items:[{name:'Rum',finalOrderQty:2}]}},{created_at:'2026-01-08',payload:{items:[{name:'Rum',finalOrderQty:2}]}}]);assert.equal(result.usableCycles,0);assert.equal(result.confidence,'Low');assert.match(result.excluded[0].reason,/count snapshot/i);});
+test('analytics accounts for elapsed days and is deterministic',()=>{const rows=[{created_at:'2026-01-01',payload:{counts:{Rum:10},items:[{name:'Rum',finalOrderQty:4}]}},{created_at:'2026-01-05',payload:{counts:{Rum:6},items:[]}},{created_at:'2026-01-12',payload:{counts:{Rum:3},items:[]}}],h=api(),a=h.analyze(rows),b=h.analyze(rows);assert.deepEqual(a,b);assert.equal(a.cycles[0].days,4);});
+test('frontend loads all pages and never reapplies the former 52-record cap',()=>{const html=fs.readFileSync('index.html','utf8');assert.match(html,/offset\+=page\?\.length/);assert.match(html,/page\.length===100/);assert.doesNotMatch(html,/orders\.slice\(0,52\)/);assert.doesNotMatch(html,/concat\(S\.history\)\.slice\(0,52\)/);});
+test('production build publishes the history normalizer',()=>{assert.match(fs.readFileSync('scripts/build-static.mjs','utf8'),/'history-analytics\.js'/);});
+test('production attribution is forward-only and skips unrelated CI tenants',()=>{const sql=fs.readFileSync('supabase/migrations/202608220002_history_location_attribution.sql','utf8');assert.match(sql,/v_org_count=0 then return/);assert.match(sql,/assigned_at=coalesce\(r\.assigned_at,now\(\)\)/);assert.doesNotMatch(sql,/update public\.orders|delete from public\.orders|truncate/i);});
