@@ -41,3 +41,8 @@ test('missing vendor falls back visibly to Shared instead of dropping',()=>{
   const p={id:'catalog:future',name:'Future product',dist:null};
   assert.deepEqual(Pipeline.reconcile([p],()=>2),[{productId:'catalog:future',name:'Future product',workspace:'bar',vendor:null,emailSection:Pipeline.SHARED,quantity:2}]);
 });
+
+test('production build publishes the canonical order pipeline asset',()=>{
+  const build=fs.readFileSync(path.join(__dirname,'..','scripts','build-static.mjs'),'utf8');
+  assert.match(build,/['"]order-pipeline\.js['"]/);
+});
