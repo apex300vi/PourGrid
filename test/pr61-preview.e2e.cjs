@@ -10,7 +10,9 @@ const assert=require('node:assert/strict');
   await page.locator('#pgAuthPassword').fill(process.env.PG_E2E_PASSWORD);
   await page.locator('#pgAuthSubmit').click();
   await page.locator('#app:not([hidden])').waitFor({timeout:30000});
-  for(const label of ['Dashboard','History','Profit Lab'])await page.getByText(label,{exact:true}).first().waitFor();
+  await page.getByText('Home',{exact:true}).first().waitFor();
+  await page.getByText('History',{exact:true}).first().waitFor();
+  await page.getByText('Profit Lab',{exact:true}).first().waitFor();
   const result=await page.evaluate(async({org,location})=>{
     const context=window.POURGRID_AUTH_CONTEXT;
     const rows=await window.POURGRID_HISTORY_API.list(100,0);
