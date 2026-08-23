@@ -338,13 +338,13 @@ test('Stoli Raz exact units persist in the Bar draft and remain in Bellows submi
 });
 
 test('unbranded Bellows/WI liquor is shown once in a shared section above both rep sections',()=>{
-  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm'),context={};
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm'),Pipeline=require('../order-pipeline.js'),context={PourGridOrderPipeline:Pipeline};
   const helpers=html.slice(html.indexOf('var PG_BELLOWS_WI_SHARED_ITEMS'),html.indexOf('function rEmailPanel'));
   vm.runInNewContext(helpers+';this.group=pgBellowsWiEmailGroup;this.sections=pgAppendBellowsWiSections;',context);
-  ['Peach Schnapps','Amaretto','Irish Cream','Creme de Cacao','Triple Sec'].forEach(name=>assert.equal(context.group({name},[]),'shared',name));
-  assert.equal(context.group({name:'Future generic cordial',bellowsWiEmailGroup:'shared'},[]),'shared');
-  assert.equal(context.group({name:'Stoli Vodka'},['Stoli Vodka']),'westIndies');
-  assert.equal(context.group({name:'Bellows brand'},[]),'bellows');
+  ['Peach Schnapps','Amaretto','Irish Cream','Creme de Cacao','Triple Sec','Blue Curacao'].forEach(name=>assert.equal(context.group({name,emailRoute:'shared'},[]),'shared',name));
+  assert.equal(context.group({name:'Future generic cordial',emailRoute:'shared'},[]),'shared');
+  assert.equal(context.group({name:'Stoli Vodka',emailRoute:'westIndies'},['Stoli Vodka']),'westIndies');
+  assert.equal(context.group({name:'Bellows brand',dist:'Bellows/WI'},[]),'bellows');
   const body=context.sections('INTRO\n',['1 case - Peach Schnapps'],['2 cases - Bellows Brand'],['3 cases - Stoli Vodka']);
   assert.ok(body.indexOf('-- SHARED / BRAND NOT SPECIFIED --')<body.indexOf('-- BELLOWS --'));
   assert.ok(body.indexOf('-- BELLOWS --')<body.indexOf('-- WEST INDIES --'));
