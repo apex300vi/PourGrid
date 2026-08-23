@@ -9,7 +9,7 @@ const assert=require('node:assert/strict');
   page.on('console',m=>{if(m.type()==='error')failures.push(m.text().slice(0,300));});
   await page.goto(base,{waitUntil:'domcontentloaded'});
   await page.locator('#pgAuthEmail').fill(email);await page.locator('#pgAuthPassword').fill(password);await page.locator('#pgAuthSubmit').click();
-  await page.locator('#app:not([hidden])').waitFor({timeout:20000});
+  try{await page.locator('#app:not([hidden])').waitFor({timeout:20000});}catch(error){throw Error('dashboard unavailable: '+(await page.locator('body').innerText()).replace(email,'[isolated-email]').slice(0,1200));}
   await page.getByText('Sapphire Beach Bar').waitFor({state:'detached',timeout:1000}).catch(()=>{});
   assert.match(await page.locator('body').innerText(),/Full Count|Dashboard/i);
 
