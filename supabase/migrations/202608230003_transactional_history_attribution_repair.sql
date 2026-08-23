@@ -38,6 +38,9 @@ begin
   if coalesce(p_order->>'orderType','') not in ('bar','merchants') then
     raise exception using errcode='22023',message='Order workflow is invalid';
   end if;
+  if coalesce(p_order->>'type','') in ('counts','deadlines') then
+    raise exception using errcode='22023',message='Order payload is not History-visible';
+  end if;
   if jsonb_typeof(p_order->'counts') is distinct from 'object' or jsonb_typeof(p_order->'items') is distinct from 'array' then
     raise exception using errcode='22023',message='Count snapshot and order items are required';
   end if;

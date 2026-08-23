@@ -26,6 +26,7 @@ test('save RPC validates tenant membership, location, workflow, draft, counts, a
   assert.match(sql,/Location is outside organization/);
   assert.match(sql,/matching draft identity/);
   assert.match(sql,/not in \('bar','merchants'\)/);
+  assert.match(sql,/in \('counts','deadlines'\)[\s\S]*Order payload is not History-visible/);
   assert.match(sql,/jsonb_typeof\(p_order->'counts'\)/);
   assert.match(sql,/jsonb_typeof\(p_order->'items'\)/);
   assert.match(sql,/revoke all on function[\s\S]*from public,anon/);
