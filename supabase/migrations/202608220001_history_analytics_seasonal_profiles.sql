@@ -22,7 +22,7 @@ begin
   union all
   select 'structured',so.id::text,'structured:'||so.id::text,coalesce(so.submitted_at,so.created_at),jsonb_build_object('id',so.id,'date',to_char(coalesce(so.submitted_at,so.created_at) at time zone 'America/St_Thomas','YYYY-MM-DD'),'time',to_char(coalesce(so.submitted_at,so.created_at) at time zone 'America/St_Thomas','HH12:MI AM'),'orderType',so.workflow,'items',coalesce((select jsonb_agg(jsonb_build_object('productId',ol.item_id,'name',ii.name,'calculatedOrderQty',ol.draft_units,'finalOrderQty',ol.submitted_units,'packageSize',ol.units_per_package) order by ii.name) from public.order_lines ol join public.inventory_items ii on ii.id=ol.item_id where ol.order_id=so.id),'[]'::jsonb),'counts',null,'calculationVersion','structured-v1')
   from public.structured_orders so where so.organization_id=p_organization and so.location_id=p_location and so.status<>'draft'
- ),ranked as(select u.*,row_number() over(partition by dedupe_key order by(source='structured')desc,created_at desc,source_id desc)n from unified u)
+ ),ranked as(select u.*,row_number() over(partition by u.dedupe_key order by(u.source='structured')desc,u.created_at desc,u.source_id desc)n from unified u)
  select r.source,r.source_id,r.dedupe_key,r.created_at,r.payload from ranked r where n=1 order by r.created_at desc,r.source_id desc limit least(greatest(coalesce(p_limit,100),1),100) offset greatest(coalesce(p_offset,0),0);
 end$$;
 revoke all on function public.get_location_order_history_v2(uuid,uuid,integer,integer) from public,anon;
@@ -68,5 +68,4 @@ end$$;
 revoke all on function public.list_seasonal_profiles(uuid,uuid,date),public.save_seasonal_profile(uuid,uuid,jsonb),public.activate_seasonal_profile(uuid,uuid,uuid,date)from public,anon;
 grant execute on function public.list_seasonal_profiles(uuid,uuid,date),public.save_seasonal_profile(uuid,uuid,jsonb),public.activate_seasonal_profile(uuid,uuid,uuid,date)to authenticated;
 commit;
-
 
