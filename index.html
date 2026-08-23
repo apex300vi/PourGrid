@@ -784,6 +784,7 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 <script type="text/pourgrid-protected" data-pg-protected src="smart-count-launcher.js?v=1.7.1.1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="pourgrid-vision.js?v=1.7.1.1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="product-persistence.js?v=1.7.1.1"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="order-pipeline.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="drink-price-estimator.js?v=2"></script>
 <script type="text/pourgrid-protected" data-pg-protected>
 
@@ -855,6 +856,25 @@ function pgApplyCatalogEdits(){
 }
 pgMigrateLimeJuiceUnits();
 pgApplyCatalogEdits();
+
+var PG_CANONICAL_ORDER_ROUTES={
+  "Amaretto":{id:"catalog:generic-amaretto",emailRoute:"shared"},
+  "Blue Curacao":{id:"catalog:generic-blue-curacao",emailRoute:"shared"},
+  "Creme de Cacao":{id:"catalog:generic-creme-de-cacao",emailRoute:"shared"},
+  "Irish Cream":{id:"catalog:generic-irish-cream",emailRoute:"shared"},
+  "Peach Schnapps":{id:"catalog:generic-peach-schnapps",emailRoute:"shared"},
+  "Triple Sec":{id:"catalog:generic-triple-sec",emailRoute:"shared"},
+  "Gatorade Fruit Punch 20oz":{id:"catalog:gatorade-fruit-punch-20oz",emailRoute:"westIndies",supplier:"West Indies"},
+  "Gatorade Glacier Freeze":{id:"catalog:gatorade-glacier-freeze",emailRoute:"westIndies",supplier:"West Indies"},
+  "Gatorade Fierce Grape":{id:"catalog:gatorade-fierce-grape",emailRoute:"westIndies",supplier:"West Indies"},
+  "Gatorade Lemon Lime":{id:"catalog:gatorade-lemon-lime",emailRoute:"westIndies",supplier:"West Indies"},
+  "Gatorade Orange 20oz":{id:"catalog:gatorade-orange-20oz",emailRoute:"westIndies",supplier:"West Indies"},
+  "Florida's Natural OJ":{id:"catalog:floridas-natural-oj",emailRoute:"westIndies",supplier:"West Indies"},
+  "Florida's Natural Fruit Splash":{id:"catalog:floridas-natural-fruit-splash",emailRoute:"westIndies",supplier:"West Indies"},
+  "Florida's Natural Cranberry":{id:"catalog:floridas-natural-cranberry",emailRoute:"westIndies",supplier:"West Indies"},
+  "Florida's Natural Kiwi":{id:"catalog:floridas-natural-kiwi",emailRoute:"westIndies",supplier:"West Indies"}
+};
+PRODUCTS.forEach(function(product){var route=PG_CANONICAL_ORDER_ROUTES[product._catalogName];if(route)Object.assign(product,{catalogId:route.id,emailRoute:route.emailRoute,supplier:route.supplier||product.supplier});});
 
 var BAR=PRODUCTS.filter(function(p){return p.dist!=="Merchants";});
 var MER=PRODUCTS.filter(function(p){return p.dist==="Merchants";});
@@ -2289,10 +2309,11 @@ function rOrderList(prods,dists){
   return sec;
 }
 
-var PG_BELLOWS_WI_SHARED_ITEMS=["Peach Schnapps","Amaretto","Irish Cream","Creme de Cacao","Triple Sec"];
+var PG_BELLOWS_WI_SHARED_ITEMS=["Amaretto","Blue Curacao","Creme de Cacao","Irish Cream","Peach Schnapps","Triple Sec"];
 function pgBellowsWiEmailGroup(product,westIndiesNames){
-  if(product.bellowsWiEmailGroup==="shared"||PG_BELLOWS_WI_SHARED_ITEMS.indexOf(product.name)>=0)return "shared";
-  return product.supplier==="West Indies"||westIndiesNames.indexOf(product.name)>=0?"westIndies":"bellows";
+  var section=PourGridOrderPipeline.emailSection(product);
+  if(section===PourGridOrderPipeline.SHARED)return "shared";
+  return section==="West Indies"?"westIndies":"bellows";
 }
 
 function pgAppendBellowsWiSections(body,sharedLines,bellowsLines,westIndiesLines){
@@ -3029,12 +3050,7 @@ function rOrderTab(prods,dists,dk,isG){
 
   var btnWrap=mk("div","s6-savebar");
   var saveBtn=mk("button",isG?"savebtn green":"savebtn",{onclick:function(){
-    var saveItems=prods.map(function(p){
-      var base=cq(p,pgEffectiveCount(p)||"");
-      var adj=S.adjustments[p.name]||0;
-      var final=base!==null?Math.max(0,base+adj):(adj>0?adj:null),manual=S.adjustmentMeta[p.name]||null;
-      return Object.assign({},p,{onHand:pgEffectiveCount(p)||"",calculatedOrderQty:base===null?0:base,manualAdjustment:adj,manualAdjustmentDetails:manual,finalPurchaseBreakdown:pgFinalPurchaseBreakdown(p,base,manual),finalOrderQty:final,orderQty:final});
-    }).filter(function(p){return p.orderQty!==null&&p.orderQty>0;});
+    var saveItems=items.map(function(p){var base=p.orderQty,adj=p.adj,manual=p.manualAdjustmentDetails||null,final=p.adjQty;return Object.assign({},p,{productId:PourGridOrderPipeline.id(p),calculatedOrderQty:base===null?0:base,manualAdjustment:adj,manualAdjustmentDetails:manual,finalPurchaseBreakdown:pgFinalPurchaseBreakdown(p,base,manual),finalOrderQty:final,orderQty:final});});
     if(!saveItems.length){toast("No items to order");return;}
     var emails=pgCurrentEmailBodies(),status=pgEmailStatus()[dk]||{};
     var needed=Object.keys(emails),missing=needed.filter(function(dd){return !status[dd];});
