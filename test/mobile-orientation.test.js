@@ -23,7 +23,8 @@ test('guard keeps workflow mounted, blocks hidden taps, and shows exact recovery
 });
 
 test('rotation preserves state and exact scroll without resize-observer feedback',()=>{
-  assert.match(html,/pgOrientationScroll=\{x:window\.scrollX,y:window\.scrollY\}/);
+  assert.match(html,/pgOrientationScroll=\{x:pgOrientationPortraitScroll\.x,y:pgOrientationPortraitScroll\.y\}/);
+  assert.match(html,/window\.addEventListener\("scroll"[^\n]+pgOrientationPortraitScroll/);
   assert.match(html,/window\.scrollTo\(restore\.x,restore\.y\)/);
   assert.match(html,/requestAnimationFrame\(pgSyncOrientationGuard\)/);
   assert.doesNotMatch(html,/ResizeObserver\([^)]*pgSyncOrientationGuard/);

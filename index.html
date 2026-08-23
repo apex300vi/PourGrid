@@ -4280,7 +4280,7 @@ function render(){
   requestAnimationFrame(pgSyncOrientationGuard);
 }
 
-var pgOrientationScroll=null,pgOrientationWorkflow="";
+var pgOrientationScroll=null,pgOrientationPortraitScroll={x:0,y:0},pgOrientationWorkflow="";
 function pgCountReviewActive(){
   if(S.screen!=="app")return false;
   return S.tab==="bar"?(S.bSub==="count"||S.bSub==="order"):S.tab==="merchants"?(S.mSub==="count"||S.mSub==="order"):false;
@@ -4297,13 +4297,15 @@ function pgRequestPortraitLock(){
 }
 function pgSyncOrientationGuard(){
   var active=pgCountReviewActive(),workflow=active?[S.tab,S.tab==="bar"?S.bSub:S.mSub].join(":"):"",blocked=active&&pgPhoneLandscape(),guard=pgOrientationGuardElement();
+  if(active&&!blocked&&!guard.classList.contains("open"))pgOrientationPortraitScroll={x:window.scrollX,y:window.scrollY};
   if(active&&workflow!==pgOrientationWorkflow){pgOrientationWorkflow=workflow;pgRequestPortraitLock();}
   if(!active)pgOrientationWorkflow="";
-  if(blocked&&!guard.classList.contains("open")){pgOrientationScroll={x:window.scrollX,y:window.scrollY};guard.classList.add("open");document.body.classList.add("pg-orientation-blocked");}
+  if(blocked&&!guard.classList.contains("open")){pgOrientationScroll={x:pgOrientationPortraitScroll.x,y:pgOrientationPortraitScroll.y};guard.classList.add("open");document.body.classList.add("pg-orientation-blocked");}
   else if(!blocked&&guard.classList.contains("open")){var restore=pgOrientationScroll;guard.classList.remove("open");document.body.classList.remove("pg-orientation-blocked");pgOrientationScroll=null;if(restore)requestAnimationFrame(function(){window.scrollTo(restore.x,restore.y);});}
 }
 window.addEventListener("resize",pgSyncOrientationGuard,{passive:true});
 window.addEventListener("orientationchange",pgSyncOrientationGuard,{passive:true});
+window.addEventListener("scroll",function(){if(pgCountReviewActive()&&!pgPhoneLandscape())pgOrientationPortraitScroll={x:window.scrollX,y:window.scrollY};},{passive:true});
 if(window.screen&&window.screen.orientation&&window.screen.orientation.addEventListener)window.screen.orientation.addEventListener("change",pgSyncOrientationGuard);
 
 // Sapphire 3.0 interaction polish: lightweight, non-invasive affordances.
