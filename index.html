@@ -765,6 +765,7 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 .pg-recipe-sheet{position:fixed;inset:0;z-index:12500;background:rgba(1,8,14,.84);backdrop-filter:blur(14px);display:none;align-items:flex-end;justify-content:center}
 .pg-recipe-sheet.open{display:flex}
 .pg-recipe-panel{width:min(680px,100%);border-radius:26px 26px 0 0;background:linear-gradient(180deg,#0b2132,#07131f);border:1px solid rgba(255,255,255,.13);box-shadow:0 -20px 70px rgba(0,0,0,.55);padding:20px 18px calc(28px + env(safe-area-inset-bottom))}
+@media(max-width:759px){.nav{position:fixed!important;bottom:0!important;transform:translate3d(-50%,0,0)!important;border-radius:24px 24px 0 0!important;width:min(430px,100%)!important;will-change:transform}.app{padding-bottom:calc(118px + env(safe-area-inset-bottom))!important}.hlist,.det{scroll-margin-bottom:calc(110px + env(safe-area-inset-bottom));padding-bottom:calc(110px + env(safe-area-inset-bottom))}}
 .pg-recipe-name{font-size:25px;font-weight:900;color:#fff;margin-right:45px}
 .pg-recipe-price{color:#e9c878;font-weight:850;margin-top:4px}
 .pg-recipe-body{margin-top:18px;padding:16px;border-radius:17px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.09);color:#e8f0f4;font-size:16px;line-height:1.55}
@@ -788,6 +789,7 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 <script type="text/pourgrid-protected" data-pg-protected src="history-analytics.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="seasonal-profiles.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="order-pipeline.js?v=1"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="shared-drafts.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="drink-price-estimator.js?v=2"></script>
 <script type="text/pourgrid-protected" data-pg-protected>
 
@@ -1122,7 +1124,9 @@ function pgPersistDraft(type){
   var drafts=pgDrafts(),record=drafts[type]||{id:pgDraftId(type),createdAt:new Date().toISOString(),seasonalProfile:pgCurrentSeasonalSnapshot()};
   var products=type==="merchants"?MER:BAR,names=products.map(function(p){return p.name;}),adjustments={},meta={};
   names.forEach(function(name){if(Number(S.adjustments[name]))adjustments[name]=Number(S.adjustments[name]);if(S.adjustmentMeta[name])meta[name]=S.adjustmentMeta[name];});
-  record.adjustments=adjustments;record.adjustmentMeta=meta;record.note=S.notes[pgDraftNoteKey(type)]||"";record.updatedAt=new Date().toISOString();drafts[type]=record;lsSet(PG_DRAFT_KEY,drafts);return record;
+  record.adjustments=adjustments;record.adjustmentMeta=meta;record.note=S.notes[pgDraftNoteKey(type)]||"";record.updatedAt=new Date().toISOString();drafts[type]=record;lsSet(PG_DRAFT_KEY,drafts);
+  if(typeof window!=="undefined"&&window.PourGridSharedDraft){Object.keys(adjustments).forEach(function(name){PourGridSharedDraft.queue(type,name,"adjustment",adjustments[name]);});Object.keys(meta).forEach(function(name){PourGridSharedDraft.queue(type,name,"adjustment_meta",meta[name]);});PourGridSharedDraft.queue(type,"$workflow","note",record.note);}
+  return record;
 }
 function pgHydrateDrafts(){
   var drafts=pgDrafts(),adjustments={},meta={},notes={bar:"",mer:""};
@@ -1196,7 +1200,10 @@ pgMigrateMerchantPackaging();
 function ss(p){Object.assign(S,p);render();}
 var PG_CONNECTIVITY_PROBE="/runtime-config.js",pgConnectivityInFlight=null;
 function pgPaintConnectivity(){
-  var state=S.connectivity,colour=state==="online"?"#34C759":state==="offline"?"#FF3B30":"#F5A623",label=state==="online"?"Online":state==="offline"?"Offline":"Checking";
+  var state=S.connectivity,activeType=S.tab==="merchants"?"merchants":"bar",shared=window.PourGridSharedDraft&&PourGridSharedDraft.status(activeType),syncState=shared&&shared.status;
+  var labels={"offline-saved":"Offline — saved on this device",connecting:"Connecting",syncing:"Connected — syncing",synced:"Synced",unsynced:"Unsynced changes",conflict:"Needs review",saving:"Saving", "save-failed":"Save failed"};
+  var label=state==="offline"?"Offline — saved on this device":(labels[syncState]||(state==="online"?"Connected":"Checking"));
+  var colour=syncState==="synced"?"#34C759":syncState==="conflict"||syncState==="save-failed"?"#FF3B30":state==="offline"?"#F5A623":"#59C7EA";
   document.querySelectorAll(".sync-pill").forEach(function(pill){var dot=pill.querySelector(".sdot"),text=pill.querySelector(".sync-lbl");if(dot)dot.style.cssText="background:"+colour+";color:"+colour+";";if(text)text.textContent=label;});
   if(typeof s5SetOffline==="function")s5SetOffline();
 }
@@ -1936,6 +1943,7 @@ function rHome(){
   history.innerHTML="<div><strong>History</strong><span>Completed production orders for this location</span></div><b aria-hidden=\"true\">›</b>";body.appendChild(history);
   wrap.appendChild(body);return wrap;
 }
+window.addEventListener("pourgrid:shared-draft",pgPaintConnectivity);
 function rStabs(active,fn,isG){
   var tabs=[{id:"count",lbl:"Count"},{id:"order",lbl:"Order"},{id:"email",lbl:"Email"}];
   var icons={count:"📦",order:"📋",email:"✉️"};
@@ -2857,6 +2865,8 @@ function rTabs2(active,fn,isG){
 
 function rOrderTab(prods,dists,dk,isG){
   var accent=isG?"#4AD3B0":"#59C7EA";
+  var sharedType=isG?"merchants":"bar";
+  if(window.PourGridSharedDraft)window.PourGridSharedDraft.review(sharedType).then(function(){},function(error){console.warn("[PourGrid shared review]",String(error&&error.message||error));});
   var WI_PRODS2=["Finest Call Grenadine","Finest Call Margarita Mix","Finest Call Sweet & Sour","Stoli Vodka","Stoli Oranj","Stoli Raz","Stoli Blu","Bacardi Superior","Bacardi Gold","Bacardi Pineapple","Bombay Sapphire Gin","Hendrick's Gin","Jack Daniel's Old No. 7","Dewars White Label","Milagro Silver","Hennessy VS","Sabroso Coffee Liqueur","Blue Curacao","Manon Rose","Soca cans","Reef Life cans","Beach Life cans","White Claw - Black Cherry","Florida's Natural OJ","Florida's Natural Fruit Splash","Florida's Natural Cranberry","Florida's Natural Kiwi","Gatorade Fruit Punch 20oz","Gatorade Glacier Freeze","Gatorade Fierce Grape","Gatorade Lemon Lime","Gatorade Orange 20oz","Mountain Dew 20oz Btl","Pepsi 20oz Btl","Diet Pepsi 20oz Btl","Cherry Pepsi 20oz Btl","A&W Root Beer can","Canada Dry Tonic Water","Canada Dry Club Soda","Canada Dry Ginger Ale","Dr. Pepper can","Diet Dr. Pepper can","Sunkist Orange can","Brisk Ice Tea 20oz","Bubly Blackberry","Bubly Strawberry","Bubly Lime","Aquafina 16.9oz"];
 
   var items=prods.map(pgOrderItem).filter(pgOrderItemVisible);
@@ -3097,7 +3107,8 @@ function rOrderTab(prods,dists,dk,isG){
     var currentNote=S.notes[dk]||"";
     var activeType=isG?"merchants":"bar",activeSession=pgSession()[activeType]||{};
     var entry={id:Date.now(),draftId:activeSession.id||null,orderType:activeType,date:new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}),time:new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}),note:currentNote,counts:pgWorkflowCountSnapshot(activeType),countDetails:pgHalfCaseCountDetails(activeType),items:saveItems,emails:emails,emailStatus:status,seasonalProfile:activeSession.seasonalProfile||pgNormalSeasonalSnapshot(),calculationVersion:"seasonal-build-to-v1.0.0",stoliFreeFlavor:pgStoliFlavor()};
-    saveDB(entry).then(function(dbId){
+    var sharedSave=window.PourGridSharedDraft?window.PourGridSharedDraft.finalize(activeType,entry):saveDB(entry);
+    sharedSave.then(function(dbId){
       if(dbId){
         entry._dbId=dbId;
         var keys=isG?["merchants-wed","merchants-sun"]:["bellows","cc1"];
@@ -3807,10 +3818,13 @@ async function saveDeadlines(ordered){
 var countSyncTimer=null;
 
 async function loadRemoteCounts(){
-  return null;
+  if(!window.PourGridSharedDraft)return null;
+  await window.PourGridSharedDraft.init();
+  return {counts:S.counts,updatedAt:Date.now()};
 }
 
 async function pushCounts(counts){
+  if(window.PourGridSharedDraft)window.PourGridSharedDraft.syncCounts(counts);
   return counts;
 }
 
