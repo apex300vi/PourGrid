@@ -13,7 +13,7 @@ jobs:
       - run: npm install --no-save playwright@1.55.0
       - run: npx playwright install --with-deps chromium
       - name: Wait for this preview revision
-        run: for i in {1..30}; do curl -fsSL https://deploy-preview-60--pourgrid.netlify.app/ | grep -q pgRestoreOrientationScroll && exit 0; sleep 5; done; exit 1
+        run: for i in {1..30}; do curl -fsSL https://deploy-preview-60--pourgrid.netlify.app/ | grep -q pgOrientationScrollTimer && exit 0; sleep 5; done; exit 1
       - env:
           PG_E2E_URL: https://deploy-preview-60--pourgrid.netlify.app/
           PG_E2E_EMAIL: ${{ secrets.PG_PR58_E2E_EMAIL }}
