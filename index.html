@@ -4298,7 +4298,7 @@ function pgRequestPortraitLock(){
 function pgRestoreOrientationScroll(position){
   if(!position)return;
   function restore(){window.scrollTo(position.x,position.y);}
-  restore();requestAnimationFrame(function(){restore();requestAnimationFrame(restore);});setTimeout(restore,80);
+  restore();requestAnimationFrame(function(){restore();requestAnimationFrame(restore);});setTimeout(restore,80);setTimeout(restore,180);setTimeout(restore,320);
 }
 function pgSyncOrientationGuard(){
   var active=pgCountReviewActive(),workflow=active?[S.tab,S.tab==="bar"?S.bSub:S.mSub].join(":"):"",blocked=active&&pgPhoneLandscape(),guard=pgOrientationGuardElement();
