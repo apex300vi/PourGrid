@@ -42,6 +42,7 @@ test('review and finalize share an exact immutable revision',()=>{
 test('authorized realtime API and honest sync states are wired',()=>{
   assert.match(auth,/POURGRID_SHARED_DRAFT_API/);
   assert.match(auth,/postgres_changes/);
+  assert.match(fs.readFileSync(path.join(root,'supabase/migrations/202608230006_shared_draft_realtime_read_policy.sql'),'utf8'),/has_location_role/);
   assert.match(client,/offline-saved/);
   assert.match(client,/syncing/);
   assert.match(client,/conflict/);
