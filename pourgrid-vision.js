@@ -61,24 +61,25 @@
     if(/^bib/.test(String(product.name||"").toLowerCase()))return "BIBs";
     if(/co2|tank/.test(String(product.name||"").toLowerCase()))return "tanks";
     if(info.mode==="halfCase")return "half cases";
+    if(info.allowHalfCaseCount)return raw;
     if(info.buildToBasis!=="units"&&product.unit==="Case")return "cases";
     if(raw==="units"&&/can/i.test(String(product.name||"")))return "cans";
     if(raw==="units"&&product.unit==="Case"&&Number(product.pack)>1)return "bottles";
     return raw;
   }
   function orderQuantity(product,onHand,config){
-    var info=effectiveInfo(product,config),counted=Number(onHand)||0,target=Number(product.buildTo)||0,unitBasis=info.buildToBasis==="units",countedForTarget=unitBasis&&info.countBasis==="cases"?counted*info.unitsPerCase:counted,shortage=Math.max(target-countedForTarget,0);if(shortage===0)return 0;if(product.unit!=="Case")return shortage;return unitBasis?Math.ceil(shortage/info.unitsPerCase):Math.ceil(shortage);
+    var info=effectiveInfo(product,config),counted=Number(onHand)||0,target=Number(product.buildTo)||0,unitBasis=info.buildToBasis==="units",mixedBasis=!unitBasis&&info.countBasis==="units",countedForTarget=unitBasis&&info.countBasis==="cases"?counted*info.unitsPerCase:counted,targetForCount=mixedBasis?target*info.unitsPerCase:target,shortage=Math.max(targetForCount-countedForTarget,0);if(shortage===0)return 0;if(product.unit!=="Case")return shortage;return unitBasis||mixedBasis?Math.ceil(shortage/info.unitsPerCase):Math.ceil(shortage);
   }
   function orderExplanation(product,onHand,config,adjustment){
-    var info=effectiveInfo(product,config),counted=Number(onHand)||0,target=Number(product.buildTo)||0,unitBasis=info.buildToBasis==="units",countedForTarget=unitBasis&&info.countBasis==="cases"?counted*info.unitsPerCase:counted;
-    var shortage=Math.max(target-countedForTarget,0),orderedByCase=product.unit==="Case",divisor=unitBasis&&orderedByCase?info.unitsPerCase:1,base=orderQuantity(product,onHand,info),manualAdjustment=Number(adjustment)||0,suggested=Math.max(0,base+manualAdjustment),itemWords=words(product,info);
+    var info=effectiveInfo(product,config),counted=Number(onHand)||0,target=Number(product.buildTo)||0,unitBasis=info.buildToBasis==="units",mixedBasis=!unitBasis&&info.countBasis==="units",countedForTarget=unitBasis&&info.countBasis==="cases"?counted*info.unitsPerCase:counted,targetForCount=mixedBasis?target*info.unitsPerCase:target;
+    var shortage=Math.max(targetForCount-countedForTarget,0),orderedByCase=product.unit==="Case",divisor=(unitBasis||mixedBasis)&&orderedByCase?info.unitsPerCase:1,base=orderQuantity(product,onHand,info),manualAdjustment=Number(adjustment)||0,suggested=Math.max(0,base+manualAdjustment),itemWords=words(product,info);
     function itemLabel(n){return Number(n)===1&&/s$/.test(itemWords)&&itemWords!=="BIBs"?itemWords.slice(0,-1):itemWords;}
-    var text="You have "+countedForTarget+" "+itemLabel(countedForTarget)+". Your target is "+target+" "+itemLabel(target)+". You are short "+shortage+" "+itemLabel(shortage)+". ";
-    if(orderedByCase&&divisor>1&&shortage&&shortage%divisor!==0){text+="This item is ordered by full case. PourGrid rounds up to "+base+" "+plural(base,"case","cases")+".";}
+    var text="You have "+countedForTarget+" "+itemLabel(countedForTarget)+". Your target is "+targetForCount+" "+itemLabel(targetForCount)+". You are short "+shortage+" "+itemLabel(shortage)+". ";
+    if(orderedByCase&&divisor>1&&shortage&&shortage%divisor!==0){text+="This item is ordered by full case. PourGrid rounds up to "+base+" "+plural(base,"case","cases")+(info.allowHalfCaseCount?", leaving "+Math.max(0,base*divisor-shortage)+" "+itemLabel(Math.max(0,base*divisor-shortage))+" above target after delivery.":".");}
     else if(orderedByCase&&divisor>1){text+="At "+divisor+" "+itemWords+" per case, order "+base+" "+plural(base,"case","cases")+".";}
     else text+=(orderedByCase?"This item is ordered by the case. ":"")+"Order "+base+" "+plural(base,String(product.unit||"unit").toLowerCase(),String(product.unit||"unit").toLowerCase()+"s")+".";
     if(manualAdjustment){text+=" Manual adjustment: "+(manualAdjustment>0?"+":"")+manualAdjustment+" "+plural(Math.abs(manualAdjustment),"case","cases")+". Final suggested order: "+suggested+" "+plural(suggested,"case","cases")+".";}
-    return {target:target,counted:countedForTarget,shortage:shortage,unitsPerCase:divisor,baseSuggestedOrder:base,manualAdjustment:manualAdjustment,suggestedOrder:suggested,text:text};
+    return {target:targetForCount,baseTarget:target,counted:countedForTarget,shortage:shortage,unitsPerCase:divisor,purchaseOverage:Math.max(0,base*divisor-shortage),baseSuggestedOrder:base,manualAdjustment:manualAdjustment,suggestedOrder:suggested,text:text,calculationVersion:info.calculationVersion||"order-v1.0.0"};
   }
   return {WORKFLOW_STATES:WORKFLOW_STATES,createWorkflow:createWorkflow,idOf:idOf,context:context,unitInfo:unitInfo,reviewRows:reviewRows,reviewSummary:reviewSummary,resultStatus:resultStatus,inventoryLines:inventoryLines,createPhotoSession:createPhotoSession,applyReviewedCounts:applyReviewedCounts,orderQuantity:orderQuantity,orderExplanation:orderExplanation};
 });
