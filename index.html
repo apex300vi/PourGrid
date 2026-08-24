@@ -1359,18 +1359,19 @@ function rHdr(){
 }
 
 function rNav(){
-  var tabs=[{id:"home",lbl:"Home"},{id:"bar",lbl:"Bar"},{id:"merchants",lbl:"Merchants"},{id:"history",lbl:"History"}];
+  var tabs=[{id:"home",lbl:"Home"},{id:"bar",lbl:"Bar"},{id:"merchants",lbl:"Merchants"},{id:"profit",lbl:"Profit Lab"},{id:"history",lbl:"History"}];
   var icons={
     home:'<svg viewBox="0 0 24 24" fill="none"><path d="M3.5 10.5 12 3l8.5 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-5v-6h-4v6H5a1.5 1.5 0 0 1-1.5-1.5v-9Z" stroke-width="1.65" stroke-linejoin="round"/></svg>',
     bar:'<svg viewBox="0 0 24 24" fill="none"><path d="M5 4h14l-5.5 7v6.5M10.5 21h6M7 8h10" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     merchants:'<svg viewBox="0 0 24 24" fill="none"><path d="M4 8.5 12 4l8 4.5v8L12 21l-8-4.5v-8ZM4 8.5l8 4.5 8-4.5M12 13v8" stroke-width="1.65" stroke-linejoin="round"/></svg>',
-    history:'<svg viewBox="0 0 24 24" fill="none"><path d="M4.3 9A8 8 0 1 1 4 14M4.3 9V4.5M4.3 9h4.5M12 7.5V12l3 2" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    history:'<svg viewBox="0 0 24 24" fill="none"><path d="M4.3 9A8 8 0 1 1 4 14M4.3 9V4.5M4.3 9h4.5M12 7.5V12l3 2" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    profit:'<svg viewBox="0 0 24 24" fill="none"><path d="M6 3h12l-5 7v5l3 3H8l3-3v-5L6 3Z" stroke-width="1.65" stroke-linejoin="round"/><path d="M9 21h6" stroke-width="1.65" stroke-linecap="round"/></svg>'
   };
   var nav=mk("nav","nav");
   tabs.forEach(function(t){
-    var active=t.id==="home"?S.screen==="home":(S.screen==="app"&&S.tab===t.id);
+    var active=t.id==="profit"?window.pgProfitLabIsOpen:t.id==="home"?S.screen==="home":(S.screen==="app"&&S.tab===t.id);
     var accent=t.id==="merchants"?"#4AD3B0":t.id==="history"?"#E2AD4A":t.id==="home"?"#E2AD4A":"#59C7EA";
-    var b=mk("button","nbtn",{onclick:function(tid){return function(){pgApplyRoute(tid);};}(t.id)});
+    var b=mk("button","nbtn",{onclick:function(tid){return function(){if(tid==="profit"&&window.pgOpenProfitLab){window.pgOpenProfitLab();return;}pgApplyRoute(tid);};}(t.id)});
     var ico=sp("nicon","");ico.innerHTML=icons[t.id];ico.style.color=active?accent:"#718795";
     var lbl=sp("nlbl",t.lbl);lbl.style.color=active?accent:"#718795";
     ap(b,ico,lbl);

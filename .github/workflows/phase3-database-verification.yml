@@ -64,8 +64,11 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608230004_shared_location_drafts.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608230005_shared_draft_empty_reader_repair.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608230006_shared_draft_realtime_read_policy.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608240001_seasonal_profile_manager.sql
       - name: Run executable database and RLS suite
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase3_executable.sql
+      - name: Verify Seasonal Profile activation, isolation, and draft pinning
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/seasonal_profile_manager.sql
       - name: Verify anonymous direct access is denied
         shell: bash
         run: |
