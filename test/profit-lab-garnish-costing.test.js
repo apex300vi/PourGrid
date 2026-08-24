@@ -37,11 +37,13 @@ test('estimated ingredients explain their cost and remain editable once per loca
   assert.match(sql,/array\['administrator','manager','bar_lead'\]/);
 });
 
-test('garnish picker supports shared presets alongside catalog and custom ingredients',()=>{
-  assert.match(source,/Shared ingredient/);
-  assert.match(source,/PourGrid catalog/);
-  assert.match(source,/Custom ingredient/);
-  assert.match(source,/sharedOptions/);
+test('garnish presets participate in the unified catalog while legacy custom rows remain readable',()=>{
+  assert.match(source,/function unifiedCatalog/);
+  assert.match(source,/sourceMetadata/);
+  assert.match(source,/data-field="catalogCategory"/);
+  assert.match(source,/data-field="catalogItem"/);
+  assert.match(source,/Legacy custom ingredient/);
+  assert.doesNotMatch(source,/>Shared ingredient<|>PourGrid catalog<|>Custom ingredient</);
 });
 
 test('legacy import reads legacy fields before normalization and stays idempotent',()=>{
