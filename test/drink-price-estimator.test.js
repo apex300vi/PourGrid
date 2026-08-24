@@ -11,10 +11,12 @@ test('Profit Lab ships as a protected first-class Home workspace',()=>{
   assert.match(source,/button\.innerHTML='<div><strong>Profit Lab/);
 });
 
-test('Profit Lab combines catalog and custom ingredients at their proportions',()=>{
-  assert.match(source,/source:name\?'catalog':'custom'/);
-  assert.match(source,/PourGrid catalog/);
-  assert.match(source,/Custom ingredient/);
+test('Profit Lab exposes one unified category and item catalog while preserving legacy sources internally',()=>{
+  assert.match(source,/function unifiedCatalog/);
+  assert.match(source,/data-field="catalogCategory"/);
+  assert.match(source,/data-field="catalogItem"/);
+  assert.doesNotMatch(source,/>Shared ingredient<|>PourGrid catalog<|>Custom ingredient</);
+  assert.match(source,/Legacy custom ingredient/);
   assert.match(source,/var line=amount\*unitCost/);
   assert.match(source,/total\+=line/);
   assert.match(source,/total\/\(target\/100\)/);
@@ -33,10 +35,11 @@ test('target slider communicates and applies the requested price direction',()=>
   assert.match(source,/Actual cost %/);
 });
 
-test('shared recipes use authenticated location-scoped server APIs',()=>{
+test('shared recipes and ingredient definitions use authenticated location-scoped server APIs',()=>{
   assert.match(gate,/POURGRID_PROFIT_LAB_API=Object\.freeze/);
   assert.match(gate,/list_profit_lab_recipes/);
   assert.match(gate,/save_profit_lab_recipe/);
+  assert.match(gate,/list_profit_lab_ingredients/);
   assert.match(gate,/delete_profit_lab_recipe/);
   assert.match(gate,/p_organization:context\.organizationId,p_location:context\.locationId/);
   assert.match(source,/api\(\)\.list\(\)/);
