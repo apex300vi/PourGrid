@@ -23,7 +23,7 @@ test('flexible costing stores separate package yield preparation waste and confi
 test('recipes reference shared definitions and costs recalculate from current assumptions',()=>{
   assert.match(source,/ingredientId/);
   assert.match(source,/definitionCost/);
-  assert.match(source,/price\s*\/\s*\(packages\*units\*prep\*\(1-waste\/100\)\)/);
+  assert.match(source,/(?:numericPrice|price)\s*\/\s*\(packages\*units\*prep\*\(1-waste\/100\)\)/);
   assert.match(sql,/guard_profit_lab_ingredient_references/);
   assert.match(sql,/Shared ingredient is outside this location/);
 });

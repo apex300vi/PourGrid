@@ -13,7 +13,7 @@ test('verified supplier calculations use package facts',()=>{
  assert.ok(Math.abs(cost(161.03,12,500)-0.0268383333)<1e-9);
  for(const id of ['3209726','3402205','1400850','2602600','2601500','3813800','2605000','6809200','6812601'])assert.match(sql,new RegExp(id));
 });
-test('BIB dilution remains unavailable until an adjustable ratio is verified',()=>{
+test('legacy BIB math remains null-safe until later product-specific ratios are verified',()=>{
  assert.match(sql,/syrup_to_water_ratio/);
  assert.match(sql,/then null else p_case_price\/\(p_syrup_oz\*\(1\+p_syrup_to_water_ratio\)\)/);
  assert.match(sql,/Ratio is unverified/);
