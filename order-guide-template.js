@@ -54,6 +54,12 @@
   var HEADER=COLUMNS.map(function(column){return column.label;});
   var WORKSPACE_LABELS={bar:"Bar",merchants:"Food & produce"};
   var EXAMPLE_PREFIX="EXAMPLE";
+  // Excel writes ";" in plenty of locales and Sheets' other one-click export is tabs. The
+  // instruction lines are full of commas whichever one a manager ends up with, so the
+  // delimiter is chosen by which one actually produces a header row, not by counting.
+  var DELIMITERS=[",",";","\t"];
+  // A guard against a manager uploading a whole POS export by mistake, not a real ceiling.
+  var MAX_ROWS=2000;
 
   function text(value){return String(value==null?"":value).trim();}
   function norm(value){return text(value).toLowerCase().replace(/[^a-z0-9]/g,"");}
@@ -102,6 +108,25 @@
     return text(name).toUpperCase().indexOf(EXAMPLE_PREFIX)===0;
   }
 
+  // Row validation borrows property-catalog's own limits so the preview can never promise
+  // an import that addVendor or addItem would then refuse.
+  function limit(key,fallback){
+    var Catalog=catalog();
+    return Catalog&&isFinite(Catalog[key])?Catalog[key]:fallback;
+  }
+  function validEmail(value){
+    var Catalog=catalog();
+    return Catalog&&Catalog.isValidEmail?Catalog.isValidEmail(value):/^\S+@\S+\.\S+$/.test(text(value));
+  }
+  function lowerSet(names){
+    var set={};
+    (Array.isArray(names)?names:[]).forEach(function(name){
+      var key=text(name).toLowerCase();
+      if(key)set[key]=true;
+    });
+    return set;
+  }
+
   // --- CSV ------------------------------------------------------------------
 
   function csvCell(value){
@@ -110,9 +135,11 @@
   }
   function csvLine(cells){return cells.map(csvCell).join(",");}
 
-  // RFC 4180: quoted fields may hold commas, newlines, and doubled quotes.
-  function parseCsv(input){
-    var source=String(input==null?"":input).replace(/^\uFEFF/,""),rows=[],row=[],cell="",quoted=false,i=0;
+  // RFC 4180: quoted fields may hold the delimiter, newlines, and doubled quotes.
+  function parseCsv(input,delimiter){
+    var source=String(input==null?"":input).replace(/^\uFEFF/,""),
+        sep=typeof delimiter==="string"&&delimiter.length===1?delimiter:",",
+        rows=[],row=[],cell="",quoted=false,i=0;
     function endCell(){row.push(cell);cell="";}
     function endRow(){endCell();rows.push(row);row=[];}
     while(i<source.length){
@@ -125,13 +152,59 @@
         cell+=ch;i++;continue;
       }
       if(ch==='"'){quoted=true;i++;continue;}
-      if(ch===","){endCell();i++;continue;}
+      if(ch===sep){endCell();i++;continue;}
       if(ch==="\r"){if(source.charAt(i+1)==="\n")i++;endRow();i++;continue;}
       if(ch==="\n"){endRow();i++;continue;}
       cell+=ch;i++;
     }
     if(cell.length||row.length)endRow();
     return rows;
+  }
+
+  // The delimiter that finds the most template columns wins; comma breaks the tie because
+  // it is first. A sheet none of them can read falls through to the format complaint.
+  function sniffDelimiter(source){
+    var best=DELIMITERS[0],bestHits=0;
+    DELIMITERS.forEach(function(sep){
+      var header=findHeader(parseCsv(source,sep));
+      if(header&&header.hits>bestHits){bestHits=header.hits;best=sep;}
+    });
+    return best;
+  }
+
+  // Only consulted once a file has already failed to yield a header row, so this never
+  // second-guesses a CSV that read fine.
+  function looksBinary(source){
+    var head=source.slice(0,512),odd=0;
+    for(var i=0;i<head.length;i++){
+      var code=head.charCodeAt(i);
+      if(code===0)return true;
+      if(code===0xFFFD||(code<32&&code!==9&&code!==10&&code!==13))odd++;
+    }
+    return head.length>0&&odd/head.length>0.05;
+  }
+
+  // Saving the filled template is where this flow actually breaks: Excel's Save button
+  // produces .xlsx and Numbers exports .numbers, and both land here as mojibake. Naming the
+  // file the manager is actually holding beats telling them it is not the template.
+  // The signatures are built by code point so no control byte is typed into this source.
+  var ZIP_MAGIC="PK"+String.fromCharCode(3,4);
+  var OLE_MAGIC=[String.fromCharCode(0xFFFD,0xFFFD,0x11,0xFFFD),String.fromCharCode(0xD0,0xCF,0x11,0xE0)];
+
+  function formatComplaint(source){
+    var head=String(source==null?"":source).slice(0,8);
+    if(!text(source))return "That file is empty. Fill the template in, save it, and upload the saved copy.";
+    // .xlsx, .numbers, and .ods are all zip archives with a spreadsheet inside.
+    if(head.indexOf(ZIP_MAGIC)===0)
+      return "That is an Excel workbook (.xlsx) or a Numbers file, not a CSV. Open it and use File → Save As in Excel, or File → Export To in Numbers, choose CSV, and upload that copy.";
+    // The older .xls OLE2 container, however it happened to decode.
+    if(OLE_MAGIC.some(function(magic){return head.indexOf(magic)===0;}))
+      return "That is an older Excel workbook (.xls), not a CSV. Open it and use File → Save As → CSV, then upload that copy.";
+    if(head.indexOf("%PDF")===0)
+      return "That is a PDF. PourGrid needs the spreadsheet itself, saved as CSV.";
+    if(looksBinary(source))
+      return "That file is not a spreadsheet PourGrid can read. Open your sheet, save it as CSV, and upload that copy.";
+    return null;
   }
 
   function isBlankRow(cells){
@@ -153,7 +226,8 @@
       "# 4. Units Per Case is how many bottles or cans come in one case. Use 1 if you order and count whole cases.",
       "# 5. Build-To (Par) is how many you want on hand after a delivery, in the same units you physically count.",
       "# 6. Delete the EXAMPLE rows before you upload — PourGrid skips them either way.",
-      "# 7. Save as CSV and upload it on the PourGrid setup screen. This sheet only ever builds "+name+"'s guide."
+      "# 7. Save as CSV — not .xlsx or .numbers. Excel: File > Save As > CSV. Numbers: File > Export To > CSV.",
+      "# 8. Upload the saved CSV on the PourGrid setup screen. This sheet only ever builds "+name+"'s guide."
     ];
   }
 
@@ -209,7 +283,7 @@
     for(var i=0;i<rows.length;i++){
       if(isCommentRow(rows[i])||isBlankRow(rows[i]))continue;
       var mapped=mapHeader(rows[i]);
-      if("name" in mapped.map&&mapped.hits>=2)return {index:i,map:mapped.map};
+      if("name" in mapped.map&&mapped.hits>=2)return {index:i,map:mapped.map,hits:mapped.hits};
     }
     return null;
   }
@@ -226,16 +300,21 @@
     return isFinite(parsed)?parsed:NaN;
   }
 
+  // `reservedNames` are the active property's published guide products and `existingItemNames`
+  // the items it already added itself. Both are checked here rather than left to applyTemplate
+  // so a collision shows up in the preview instead of after the catalog has been written.
   function parseTemplate(input,options){
     options=options||{};
     var result={
       ok:false,fatal:null,items:[],vendors:[],errors:[],warnings:[],
       skippedExamples:0,sections:[],count:0
     };
-    var rows=parseCsv(input);
+    var source=String(input==null?"":input);
+    var rows=parseCsv(source,sniffDelimiter(source));
     var header=findHeader(rows);
     if(!header){
-      result.fatal='That file does not look like the PourGrid template. It needs a header row with an "Item Name" column — download the template and fill that in.';
+      result.fatal=formatComplaint(source)||
+        'That file does not look like the PourGrid template. It needs a header row with an "Item Name" column — download the template and fill that in.';
       return result;
     }
     var map=header.map;
@@ -243,7 +322,13 @@
       result.fatal='The sheet has no "Vendor" column. Every item has to say who it is ordered from.';
       return result;
     }
+    if(rows.length-header.index-1>MAX_ROWS){
+      result.fatal="That sheet has more than "+MAX_ROWS+" rows below the header. An order guide this size is almost always the wrong export — check the file and upload the guide on its own.";
+      return result;
+    }
 
+    var itemNameMax=limit("ITEM_NAME_MAX",80),vendorNameMax=limit("VENDOR_NAME_MAX",60);
+    var reserved=lowerSet(options.reservedNames),alreadyHere=lowerSet(options.existingItemNames);
     var seenItems={},vendorOrder=[],vendorsByKey={},counts={};
     SECTIONS.forEach(function(section){counts[section.key]=0;});
 
@@ -265,6 +350,25 @@
       var nameKey=name.toLowerCase();
       if(seenItems[nameKey]){
         result.errors.push("Row "+line+" ("+name+"): this item is already on row "+seenItems[nameKey]+".");
+        continue;
+      }
+      if(name.length>itemNameMax){
+        result.errors.push("Row "+line+" ("+name.slice(0,30)+"…): shorten this item name to under "+itemNameMax+" characters.");
+        continue;
+      }
+      if(reserved[nameKey]){
+        result.errors.push("Row "+line+" ("+name+"): the published order guide already has this item, and a sheet cannot replace it. Rename the row or take it off the sheet.");
+        continue;
+      }
+      // The same rules addVendor enforces, checked here so a bad email is a preview error
+      // rather than a vendor that silently fails to save and orphans all of its items.
+      if(vendorName.length>vendorNameMax){
+        result.errors.push("Row "+line+" ("+name+"): shorten the vendor name to under "+vendorNameMax+" characters.");
+        continue;
+      }
+      var emailValue=cellAt(cells,map,"email");
+      if(emailValue&&!validEmail(emailValue)){
+        result.errors.push("Row "+line+" ("+name+'): "'+emailValue+'" is not a valid vendor email. Fix it or leave the cell blank.');
         continue;
       }
 
@@ -312,12 +416,14 @@
         else result.warnings.push("Row "+line+" ("+name+'): ignored the bottle size "'+mlValue+'".');
       }
 
+      if(alreadyHere[nameKey])result.warnings.push("Row "+line+" ("+name+"): this property already has an item with this name, so adding to the current list will skip it.");
+
       seenItems[nameKey]=line;
       counts[section.key]++;
       result.items.push(item);
 
       var vendorKey=vendorName.toLowerCase();
-      var workspace=resolveWorkspace(cellAt(cells,map,"workspace")),email=cellAt(cells,map,"email");
+      var workspace=resolveWorkspace(cellAt(cells,map,"workspace")),email=emailValue;
       if(!vendorsByKey[vendorKey]){
         vendorsByKey[vendorKey]={name:vendorName,workspace:workspace||"bar",email:email,line:line,workspaceSet:!!workspace};
         vendorOrder.push(vendorKey);
@@ -390,7 +496,9 @@
       items=result.items;added.push(item.name);
     });
 
-    return {vendors:vendors,items:items,added:added,addedVendors:addedVendors,skipped:skipped,mode:replace?"replace":"append"};
+    // `ok` is false when a sheet that previewed clean still produced nothing — the caller
+    // must not write the result, or a replace would swap a working catalog for an empty one.
+    return {ok:added.length>0,vendors:vendors,items:items,added:added,addedVendors:addedVendors,skipped:skipped,mode:replace?"replace":"append"};
   }
 
   return {
@@ -398,7 +506,10 @@
     COLUMNS:COLUMNS,
     HEADER:HEADER,
     WORKSPACE_LABELS:WORKSPACE_LABELS,
+    DELIMITERS:DELIMITERS,
+    MAX_ROWS:MAX_ROWS,
     parseCsv:parseCsv,
+    sniffDelimiter:sniffDelimiter,
     csvLine:csvLine,
     buildTemplate:buildTemplate,
     templateFilename:templateFilename,

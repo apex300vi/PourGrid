@@ -221,8 +221,10 @@ test('the catalog, vendors, and workspaces are derived from the active property'
 });
 
 test('the property switcher, pilot banner, and onboarding screen are wired into the dashboard',()=>{
-  assert.match(html,/property-context\.js\?v=1/);
-  assert.match(html,/property-catalog\.js\?v=1/);
+  // The version only has to be there to bust the cache; which number it is on is not a
+  // contract, and pinning it made a behaviour change in the module fail here instead.
+  assert.match(html,/property-context\.js\?v=\d+/);
+  assert.match(html,/property-catalog\.js\?v=\d+/);
   assert.match(html,/function rPropertySwitcher/);
   assert.match(html,/function pgOpenPropertySwitcher/);
   assert.match(html,/Counts, vendors, and order history stay separate for each property\./);

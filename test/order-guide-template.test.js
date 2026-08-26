@@ -175,6 +175,86 @@ test('a sheet that is not the template is refused before anything is saved',()=>
   assert.match(noVendor.fatal,/no "Vendor" column/);
 });
 
+test('the same sheet saved with semicolons or tabs parses identically',()=>{
+  const rows=[
+    ['BEER','Beer','Carib Cans','Island Beverage','Bar','','Case','1','','20','Case count'],
+    ['LIQUOR','Vodka','House Vodka','Island Beverage','Bar','','Case','12','1000','36','']
+  ];
+  const comma=Template.parseTemplate(sheet(rows.map(row=>row.join(','))));
+  Template.DELIMITERS.filter(sep=>sep!==',').forEach(sep=>{
+    const parsed=Template.parseTemplate([HEADER.split(',').join(sep)]
+      .concat(rows.map(row=>row.join(sep))).join('\r\n')+'\r\n');
+    assert.equal(parsed.ok,true,JSON.stringify([sep,parsed.fatal,parsed.errors]));
+    assert.deepEqual(parsed.items,comma.items);
+    assert.deepEqual(parsed.vendors,comma.vendors);
+  });
+  assert.equal(Template.sniffDelimiter('Item Name;Vendor;Build-To (Par)\nCarib;Bellows;20\n'),';');
+  // The instruction lines are full of commas whichever delimiter the file uses, so they
+  // must not be what decides it.
+  assert.equal(Template.sniffDelimiter(Template.buildTemplate({propertyName:'SeaSalt'})),',');
+});
+
+test('a workbook, a PDF, and an empty file are each named rather than called "not the template"',()=>{
+  const complain=source=>Template.parseTemplate(source).fatal;
+  assert.match(complain('PK'+String.fromCharCode(3,4)+'  [Content_Types].xml'),/Excel workbook \(\.xlsx\) or a Numbers file/);
+  assert.match(complain(String.fromCharCode(0xFFFD,0xFFFD,0x11,0xFFFD)+'junk'),/older Excel workbook \(\.xls\)/);
+  assert.match(complain(String.fromCharCode(0xD0,0xCF,0x11,0xE0)+'junk'),/older Excel workbook \(\.xls\)/);
+  assert.match(complain('%PDF-1.7\n1 0 obj'),/That is a PDF/);
+  assert.match(complain(''),/That file is empty/);
+  assert.match(complain('   \r\n'),/That file is empty/);
+  assert.match(complain('a b c '),/not a spreadsheet PourGrid can read/);
+  // A real CSV that simply is not the template still gets the template explanation.
+  assert.match(complain('sales,covers\n1200,88\n'),/needs a header row with an "Item Name" column/);
+});
+
+test('a sheet the catalog would refuse fails in the preview instead of after the save',()=>{
+  const email=Template.parseTemplate(sheet(['BEER,Beer,Carib Cans,Island Beverage,Bar,orders@island,Case,1,,20,']));
+  assert.equal(email.ok,false);
+  assert.deepEqual(email.errors,['Row 2 (Carib Cans): "orders@island" is not a valid vendor email. Fix it or leave the cell blank.']);
+
+  const longVendor=Template.parseTemplate(sheet(['BEER,Beer,Carib Cans,'+'V'.repeat(Catalog.VENDOR_NAME_MAX+1)+',Bar,,Case,1,,20,']));
+  assert.equal(longVendor.ok,false);
+  assert.match(longVendor.errors[0],/shorten the vendor name to under 60 characters/);
+
+  const longItem=Template.parseTemplate(sheet(['BEER,Beer,'+'N'.repeat(Catalog.ITEM_NAME_MAX+1)+',Island Beverage,Bar,,Case,1,,20,']));
+  assert.equal(longItem.ok,false);
+  assert.match(longItem.errors[0],/shorten this item name to under 80 characters/);
+
+  // Every one of these is a rule property-catalog enforces on save; the point is that the
+  // uploader hears about it while the preview is still the only thing that exists.
+  [email,longVendor,longItem].forEach(parsed=>{
+    const built=Template.applyTemplate(parsed,{existingVendors:[],existingItems:[]});
+    assert.equal(built.ok,false);
+    assert.deepEqual(built.added,[]);
+  });
+});
+
+test('a row that collides with the published guide is an error, not a partial import',()=>{
+  const parsed=Template.parseTemplate(sheet([
+    'LIQUOR,Vodka,Stoli Vodka,Island Beverage,Bar,,Case,12,1000,99,',
+    'LIQUOR,Vodka,New House Vodka,Island Beverage,Bar,,Case,12,1000,24,'
+  ]),{reservedNames:['stoli vodka']});
+  assert.equal(parsed.ok,false);
+  assert.match(parsed.errors[0],/^Row 2 \(Stoli Vodka\): the published order guide already has this item/);
+  assert.equal(parsed.count,1,'the good row parsed, but ok is false so nothing may be written');
+});
+
+test('a name the property already has warns without blocking a replace',()=>{
+  const parsed=Template.parseTemplate(sheet(['BEER,Beer,Carib Cans,Island Beverage,Bar,,Case,1,,20,']),
+    {existingItemNames:['carib cans']});
+  assert.equal(parsed.ok,true,'replacing the catalog with this sheet is still legitimate');
+  assert.match(parsed.warnings[0],/adding to the current list will skip it/);
+});
+
+test('an implausibly large sheet is refused before it is walked row by row',()=>{
+  const rows=[];
+  for(let i=0;i<=Template.MAX_ROWS;i++)rows.push('BEER,Beer,Item '+i+',Island Beverage,Bar,,Case,1,,20,');
+  const parsed=Template.parseTemplate(sheet(rows));
+  assert.equal(parsed.ok,false);
+  assert.match(parsed.fatal,/more than 2000 rows below the header/);
+  assert.deepEqual(parsed.items,[]);
+});
+
 test('applying a sheet builds the catalog and replaces an earlier import',()=>{
   const first=Template.parseTemplate(sheet([
     'BEER,Beer,Carib Cans,Island Beverage,Bar,,Case,1,,20,',

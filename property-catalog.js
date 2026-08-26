@@ -7,6 +7,11 @@
   var VENDORS_KEY="pourgrid-property-vendors-v1";
   var WORKSPACES=["bar","merchants"];
   var ORDER_UNITS=["Case","Bottle","BIB","Tank","Pack","Carton"];
+  // Named rather than inlined so the spreadsheet importer can check a row against the same
+  // rules addVendor/addItem enforce, and report it before anything is written.
+  var VENDOR_NAME_MAX=60;
+  var ITEM_NAME_MAX=80;
+  var EMAIL_PATTERN=/^\S+@\S+\.\S+$/;
 
   // Sapphire's live vendor routing, unchanged. New properties start with nothing.
   var SAPPHIRE_VENDORS=[
@@ -42,6 +47,8 @@
     try{store.setItem(key,JSON.stringify(value));return true;}catch(error){return false;}
   }
 
+  function isValidEmail(value){return EMAIL_PATTERN.test(text(value));}
+
   function normalizeVendor(input){
     var name=text(input&&input.name),workspace=text(input&&input.workspace).toLowerCase();
     if(!name)return null;
@@ -74,9 +81,9 @@
   function addVendor(vendors,input){
     var vendor=normalizeVendor(input),list=normalizeVendors(vendors);
     if(!vendor)return {ok:false,error:"Give the vendor a name.",vendors:list};
-    if(vendor.name.length>60)return {ok:false,error:"Vendor names stay under 60 characters.",vendors:list};
+    if(vendor.name.length>VENDOR_NAME_MAX)return {ok:false,error:"Vendor names stay under "+VENDOR_NAME_MAX+" characters.",vendors:list};
     if(list.some(function(x){return x.name.toLowerCase()===vendor.name.toLowerCase();}))return {ok:false,error:"That vendor already exists.",vendors:list};
-    if(vendor.email&&!/^\S+@\S+\.\S+$/.test(vendor.email))return {ok:false,error:"Enter a valid vendor email, or leave it blank.",vendors:list};
+    if(vendor.email&&!isValidEmail(vendor.email))return {ok:false,error:"Enter a valid vendor email, or leave it blank.",vendors:list};
     return {ok:true,error:null,vendors:list.concat([vendor]),vendor:vendor};
   }
 
@@ -137,7 +144,7 @@
         item=normalizeItem(input),
         available=vendorNames(vendors);
     if(!item)return {ok:false,error:"Give the item a name.",items:list};
-    if(item.name.length>80)return {ok:false,error:"Item names stay under 80 characters.",items:list};
+    if(item.name.length>ITEM_NAME_MAX)return {ok:false,error:"Item names stay under "+ITEM_NAME_MAX+" characters.",items:list};
     if(!item.dist)return {ok:false,error:"Choose a vendor for this item.",items:list};
     if(available.indexOf(item.dist)<0)return {ok:false,error:"That vendor is not set up for this property yet.",items:list};
     var taken=list.map(function(x){return x.name.toLowerCase();}).concat((Array.isArray(reservedNames)?reservedNames:[]).map(function(x){return text(x).toLowerCase();}));
@@ -175,6 +182,9 @@
     VENDORS_KEY:VENDORS_KEY,
     ORDER_UNITS:ORDER_UNITS,
     WORKSPACES:WORKSPACES,
+    VENDOR_NAME_MAX:VENDOR_NAME_MAX,
+    ITEM_NAME_MAX:ITEM_NAME_MAX,
+    isValidEmail:isValidEmail,
     SAPPHIRE_VENDORS:SAPPHIRE_VENDORS,
     VENDOR_COLORS:VENDOR_COLORS,
     COLOR_PALETTE:COLOR_PALETTE,

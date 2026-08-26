@@ -15,10 +15,20 @@ A UTF-8 CSV — Excel, Numbers, and Google Sheets all open and save it. The down
 for the property (`PourGrid-Order-Guide-Template-SeaSalt.csv`) and ships with a byte order
 mark so Excel does not mangle accented product names.
 
-The first eight lines start with `#` and are instructions; the importer skips them. Then the
+The first nine lines start with `#` and are instructions; the importer skips them. Then the
 header row, then eight `EXAMPLE:` rows — two each for beer, liquor, wine, and N/A. The
 importer skips those too, so an untouched template imports nothing rather than eight
 made-up SKUs.
+
+The file has to come back as a CSV, and the delimiter can be a comma, a semicolon, or a tab
+— Excel picks between the first two by locale and Sheets exports the third. The importer
+tries all three and keeps whichever one finds the header row, so nobody has to know which
+they have.
+
+Saving is the step that actually trips people up: Excel's Save button produces `.xlsx` and
+Numbers exports `.numbers`. Upload one of those and the error names the file you are holding
+and the menu item that fixes it, rather than claiming the sheet is not the template. The
+same goes for `.xls` and for a PDF of a par sheet.
 
 ## Columns
 
@@ -49,6 +59,13 @@ filename, a per-section count, any warnings, and — if any row is wrong — the
 numbers and what to fix. **A sheet with any bad row imports nothing.** Order data is not
 worth half-importing: the fix is to correct the sheet and upload it again.
 
+Every rule the catalog enforces on save is checked here, at preview time — an item or vendor
+name that is too long, a vendor email that is not one, a row that collides with a published
+guide product. A row that would be refused on save is a preview error instead, so the
+uploader never watches a sheet import cleanly and then discover it did not. If an import
+somehow still comes back with nothing added, nothing is written and the property's existing
+guide stands.
+
 Once the preview is clean, the buttons are:
 
 - **Import N items** when the property has no items of its own yet.
@@ -61,7 +78,8 @@ any item still assigned to it.
 Two things a sheet can never do:
 
 - **Overwrite a published guide product.** Sapphire's v12 items are reserved names; a row
-  that collides with one is skipped and reported, and the published build-to stands.
+  that collides with one is a preview error naming that row, and the published build-to
+  stands. Rename the row or take it off the sheet.
 - **Touch another property.** The import reads and writes only the signed-in property's
   namespaced keys.
 

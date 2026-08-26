@@ -96,7 +96,7 @@ function harness(property,options){
     +slice('function rHdr()','function rNav()')
     +slice('function rSplash()','var SELL_PRICES=');
   vm.runInNewContext(source+';this.rSetup=rSetup;this.rPropertySwitcher=rPropertySwitcher;this.rPilotBanner=rPilotBanner;this.rSetupEntry=rSetupEntry;this.pgPropertyInitials=pgPropertyInitials;this.pgSetupComplete=pgSetupComplete;this.rHome=rHome;this.rHdr=rHdr;this.rSplash=rSplash;'
-    +'this.rGuideSheetCard=rGuideSheetCard;this.pgDownloadGuideTemplate=pgDownloadGuideTemplate;this.pgReviewGuideSheet=pgReviewGuideSheet;this.pgApplyGuideSheet=pgApplyGuideSheet;this.pgClearGuideImport=pgClearGuideImport;',context);
+    +'this.rGuideSheetCard=rGuideSheetCard;this.pgDownloadGuideTemplate=pgDownloadGuideTemplate;this.pgReviewGuideSheet=pgReviewGuideSheet;this.pgApplyGuideSheet=pgApplyGuideSheet;this.pgClearGuideImport=pgClearGuideImport;this.pgGuideFailure=pgGuideFailure;',context);
   context.store=store;
   return context;
 }
@@ -310,16 +310,93 @@ test('an uploaded sheet can never overwrite a published guide product',()=>{
     'LIQUOR,Vodka,Stoli Vodka,Bellows/WI,Bar,,Case,12,1000,1,',
     'LIQUOR,Vodka,New House Vodka,Bellows/WI,Bar,,Case,12,1000,24,'
   ]),'sapphire-extras.csv');
+  // The collision is named in the preview, before the import button, rather than reported
+  // once half the sheet has already been written.
+  const preview=textOf(app.rSetup());
+  assert.match(preview,/Row 2 \(Stoli Vodka\): the published order guide already has this item/);
+  assert.doesNotMatch(preview,/Import 1 item/);
+
+  app.pgApplyGuideSheet('replace');
+  assert.deepEqual(Catalog.readItems(app.store),[],'a sheet with a reserved row imports nothing');
+  assert.equal(app.PRODUCTS.filter(product=>product.name==='Stoli Vodka')[0].buildTo,125);
+  assert.deepEqual(app.toasts,[]);
+
+  // Renaming the offending row is all it takes.
+  app.pgReviewGuideSheet(guideSheet(['LIQUOR,Vodka,New House Vodka,Bellows/WI,Bar,,Case,12,1000,24,']),'fixed.csv');
   app.pgApplyGuideSheet('replace');
   assert.deepEqual(Catalog.readItems(app.store).map(item=>item.name),['New House Vodka']);
-  assert.equal(app.PRODUCTS.filter(product=>product.name==='Stoli Vodka')[0].buildTo,125);
   assert.deepEqual(app.toasts,['1 item imported for Sapphire Beach Bar']);
+});
 
-  // The outcome survives the re-render that follows the import.
-  const after=textOf(app.rSetup());
-  assert.match(after,/1 item imported/);
-  assert.match(after,/1 row could not be added/);
-  assert.match(after,/Stoli Vodka — An item with that name already exists\./);
+test('a workbook, a PDF, and an empty file each say what to do about it',()=>{
+  const app=harness(PILOT,{});
+  app.pgReviewGuideSheet('PK'+String.fromCharCode(3,4)+' [Content_Types].xml','guide.xlsx');
+  assert.match(textOf(app.rSetup()),/Excel workbook \(\.xlsx\) or a Numbers file.*Save As in Excel/s);
+
+  app.pgReviewGuideSheet(String.fromCharCode(0xFFFD,0xFFFD,0x11,0xFFFD)+' ole','guide.xls');
+  assert.match(textOf(app.rSetup()),/older Excel workbook \(\.xls\)/);
+
+  app.pgReviewGuideSheet('%PDF-1.4\n1 0 obj','guide.pdf');
+  assert.match(textOf(app.rSetup()),/That is a PDF/);
+
+  app.pgReviewGuideSheet('   \r\n','empty.csv');
+  assert.match(textOf(app.rSetup()),/That file is empty/);
+});
+
+test('a sheet saved with semicolons or tabs reads the same as one saved with commas',()=>{
+  [';','\t'].forEach(sep=>{
+    const app=harness(PILOT,{});
+    app.pgReviewGuideSheet([
+      GUIDE_HEADER.split(',').join(sep),
+      ['BEER','Beer','Carib Cans','Island Beverage','Bar','','Case','1','','20',''].join(sep)
+    ].join('\r\n')+'\r\n','guide.csv');
+    assert.match(textOf(app.rSetup()),/1 item · 1 vendor · 1 beer/,'delimiter '+JSON.stringify(sep));
+    app.pgApplyGuideSheet('replace');
+    assert.deepEqual(Catalog.readItems(app.store).map(item=>item.name),['Carib Cans']);
+  });
+});
+
+test('a vendor the catalog would refuse is caught in the preview, not after the save',()=>{
+  const vendors=Catalog.addVendor([],{name:'Island Beverage',workspace:'bar'}).vendors;
+  const items=Catalog.addItem([],{name:'Hand Added Rum',dist:'Island Beverage',cat:'Rum',pack:12,unit:'Case',buildTo:6},vendors).items;
+  const app=harness(PILOT,{vendors,items});
+  app.pgReviewGuideSheet(guideSheet([
+    'BEER,Beer,Carib Cans,Island Beverage,Bar,orders@island,Case,1,,20,'
+  ]),'bad-email.csv');
+  const screen=textOf(app.rSetup());
+  assert.match(screen,/"orders@island" is not a valid vendor email/);
+  assert.doesNotMatch(screen,/Replace with sheet/);
+
+  // The property's own guide is the thing being protected: a replace that could not add a
+  // single row must not leave it holding nothing.
+  app.pgApplyGuideSheet('replace');
+  assert.deepEqual(Catalog.readItems(app.store).map(item=>item.name),['Hand Added Rum']);
+  assert.deepEqual(app.toasts,[]);
+});
+
+test('a file that cannot be read at all still says so after the screen re-renders',()=>{
+  const app=harness(PILOT,{});
+  // rSetup rebuilds the validation box, so a message written into it before render() is
+  // gone by the time the uploader looks. These have to survive that.
+  app.pgGuideFailure('That file could not be read. Open it, save it as CSV, and upload that copy.');
+  assert.match(textOf(app.rSetup()),/That file could not be read/);
+  app.pgGuideFailure('That file is 12MB. An order guide sheet is a few hundred kilobytes at most — check you picked the right file.');
+  const screen=textOf(app.rSetup());
+  assert.match(screen,/That file is 12MB/);
+  assert.match(screen,/Dismiss/);
   app.pgClearGuideImport();
-  assert.doesNotMatch(textOf(app.rSetup()),/could not be added/);
+  assert.doesNotMatch(textOf(app.rSetup()),/That file is 12MB/);
+});
+
+test('a re-upload of names the property already has warns first and leaves the guide alone',()=>{
+  const vendors=Catalog.addVendor([],{name:'Island Beverage',workspace:'bar'}).vendors;
+  const items=Catalog.addItem([],{name:'Carib Cans',dist:'Island Beverage',cat:'Beer',pack:1,unit:'Case',buildTo:20},vendors).items;
+  const app=harness(PILOT,{vendors,items});
+  app.pgReviewGuideSheet(guideSheet(['BEER,Beer,Carib Cans,Island Beverage,Bar,,Case,1,,30,']),'again.csv');
+  assert.match(textOf(app.rSetup()),/already has an item with this name, so adding to the current list will skip it/);
+
+  app.pgApplyGuideSheet('append');
+  assert.deepEqual(Catalog.readItems(app.store).map(item=>item.name),['Carib Cans']);
+  assert.equal(Catalog.readItems(app.store)[0].buildTo,20,'the existing build-to stands');
+  assert.match(textOf(app.rSetup()),/guide is unchanged/);
 });

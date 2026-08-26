@@ -847,8 +847,8 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 <script>(function(){'use strict';window.POURGRID_BOOT={stage:'interactive-sign-in',mark:function(stage){this.stage=String(stage||'')},settle:function(stage){this.mark(stage)}};if('serviceWorker'in navigator)navigator.serviceWorker.getRegistrations().then(function(items){return Promise.all(items.map(function(item){return item.unregister()}))}).catch(function(){});if(window.caches)caches.keys().then(function(keys){return Promise.all(keys.filter(function(key){return /^pourgrid-shell-/.test(key)}).map(function(key){return caches.delete(key)}))}).catch(function(){})})();</script>
 <script src="/runtime-config.js"></script><script src="/auth-gate.js" defer></script><!-- data-pg-auth-boundary -->
 <script type="text/pourgrid-protected" data-pg-protected src="property-context.js?v=1"></script>
-<script type="text/pourgrid-protected" data-pg-protected src="property-catalog.js?v=1"></script>
-<script type="text/pourgrid-protected" data-pg-protected src="order-guide-template.js?v=1"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="property-catalog.js?v=2"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="order-guide-template.js?v=2"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="bottle-intelligence.js?v=1.7.1.1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="smart-count-launcher.js?v=1.7.1.1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="pourgrid-vision.js?v=1.7.1.1"></script>
@@ -2319,6 +2319,14 @@ function rSetupField(label,control){
 
 var PG_GUIDE_IMPORT=null,PG_GUIDE_RESULT=null;
 
+// rSetup builds #pgSetupError itself, so anything written there is gone the moment the
+// screen re-renders. Everything this flow has to tell the uploader goes through state that
+// survives the render instead, or the upload fails silently.
+function pgGuideFailure(message,skipped){
+  PG_GUIDE_IMPORT=null;PG_GUIDE_RESULT={added:0,skipped:skipped||[],message:message};
+  pgSetupError("");render();
+}
+
 function pgDownloadGuideTemplate(){
   var csv=PourGridOrderGuideTemplate.buildTemplate({propertyName:pgPropertyName(),vendors:pgVendors()});
   // The BOM keeps Excel from mangling accented product names when it opens the file.
@@ -2330,15 +2338,27 @@ function pgDownloadGuideTemplate(){
   toast("Template downloaded");
 }
 
+// A filled guide is tens of kilobytes. Anything past this is the wrong file, and reading it
+// as text would freeze the tab before the parser ever got to complain about it.
+var PG_GUIDE_MAX_BYTES=4*1024*1024;
+
 function pgPickGuideSheet(){
   var input=document.createElement("input");
-  input.type="file";input.accept=".csv,text/csv,text/plain";input.style.display="none";
+  // Workbook types are listed on purpose: a manager who saved .xlsx can still pick it and
+  // be told how to re-save, which beats the file being greyed out with no explanation.
+  input.type="file";
+  input.accept=".csv,.tsv,.txt,.xlsx,.xls,.numbers,text/csv,text/tab-separated-values,text/plain";
+  input.style.display="none";
   input.onchange=function(){
     var file=input.files&&input.files[0];
     if(input.parentNode)input.parentNode.removeChild(input);
     if(!file)return;
+    if(file.size>PG_GUIDE_MAX_BYTES){
+      pgGuideFailure("That file is "+Math.round(file.size/1048576)+"MB. An order guide sheet is a few hundred kilobytes at most — check you picked the right file.");
+      return;
+    }
     var reader=new FileReader();
-    reader.onerror=function(){pgSetupError("That file could not be read. Save it as CSV and try again.");render();};
+    reader.onerror=function(){pgGuideFailure("That file could not be read. Open it, save it as CSV, and upload that copy.");};
     reader.onload=function(){pgReviewGuideSheet(String(reader.result||""),file.name);};
     reader.readAsText(file);
   };
@@ -2346,7 +2366,15 @@ function pgPickGuideSheet(){
 }
 
 function pgReviewGuideSheet(csv,filename){
-  PG_GUIDE_IMPORT={filename:filename||"order-guide.csv",parsed:PourGridOrderGuideTemplate.parseTemplate(csv)};
+  PG_GUIDE_IMPORT={
+    filename:filename||"order-guide.csv",
+    // The published guide and this property's own items are handed to the parser so a name
+    // collision is an error in the preview, not a row that fails after the catalog is saved.
+    parsed:PourGridOrderGuideTemplate.parseTemplate(csv,{
+      reservedNames:PG_SEED_PRODUCTS.map(function(p){return p.name;}),
+      existingItemNames:PG_CUSTOM_ITEMS.map(function(item){return item.name;})
+    })
+  };
   PG_GUIDE_RESULT=null;pgSetupError("");render();
 }
 
@@ -2363,6 +2391,13 @@ function pgApplyGuideSheet(mode){
     reservedNames:PG_SEED_PRODUCTS.map(function(p){return p.name;}),
     mode:mode==="append"?"append":"replace"
   });
+  // The preview already rejected every row the catalog would refuse, so a skip here means
+  // something unforeseen. Replacing on that basis would trade a working guide for a partial
+  // one, so nothing is written and the current guide stands.
+  if(!result.ok||(result.mode==="replace"&&result.skipped.length)){
+    pgGuideFailure("Nothing on that sheet could be imported, so "+pgPropertyName()+"'s guide is unchanged.",result.skipped);
+    return;
+  }
   if(!PourGridPropertyCatalog.saveItems(PG_STORE,result.items)){pgSetupError("The order guide could not be saved on this device. Free up space and try again.");return;}
   pgSetVendors(result.vendors);pgRebuildCatalog();
   // Kept in state, not in the validation box: render() rebuilds the screen underneath it.
@@ -2382,8 +2417,8 @@ function rGuideIssues(kind,list){
 function rGuideSheetResult(){
   var result=PG_GUIDE_RESULT;
   if(!result)return null;
-  var box=d("pg-sheet-preview"+(result.skipped.length?" bad":""));
-  box.appendChild(d("pg-sheet-summary",result.added+" item"+(result.added===1?"":"s")+" imported"));
+  var box=d("pg-sheet-preview"+(result.skipped.length||!result.added?" bad":""));
+  box.appendChild(d("pg-sheet-summary",result.message||(result.added+" item"+(result.added===1?"":"s")+" imported")));
   if(result.skipped.length){
     ap(box,sp("pg-sheet-note",result.skipped.length+" row"+(result.skipped.length===1?"":"s")+" could not be added:"),
        rGuideIssues("errors",result.skipped.map(function(row){return row.name+" — "+row.reason;})));
@@ -2428,7 +2463,7 @@ function rGuideSheetCard(step){
   var steps=mk("ol","pg-sheet-steps");
   ["Download the template — the columns and an example row for each section are already in it.",
    "Fill in one row per SKU: section, item name, vendor, units per case, and build-to (par).",
-   "Save it as CSV and upload it here. Every row is checked before anything is saved."].forEach(function(line){
+   "Save it as CSV — not .xlsx — and upload it here. Every row is checked before anything is saved."].forEach(function(line){
     var li=mk("li","");li.textContent=line;steps.appendChild(li);
   });
   card.appendChild(steps);
