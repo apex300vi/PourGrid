@@ -25,7 +25,9 @@ test('atomic revisions preserve conflicts and idempotent retries',()=>{
 });
 
 test('legacy recovery is write once and completed submissions are excluded',()=>{
-  assert.match(client,/if\(localStorage\.getItem\(BACKUP\)\)return/);
+  assert.match(client,/if\(store\(\)\.getItem\(BACKUP\)\)return/);
+  assert.match(client,/function store\(\)\{return window\.PG_STORE\|\|localStorage\}/);
+  assert.doesNotMatch(client,/localStorage\.(get|set|remove)Item\(/);
   assert.match(client,/downloadBackup/);
   assert.match(sql,/legacy_order_submissions[\s\S]*completed_excluded/);
   assert.match(sql,/server_preserved/);

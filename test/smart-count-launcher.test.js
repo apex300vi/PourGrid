@@ -99,7 +99,8 @@ test('packaged-item order accepts any valid entered component and blocks invalid
 
 test('bounded home exposes Dashboard, History, Full Count, and Profit Lab without deadline boot work',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),home=html.slice(html.indexOf('function rHome'),html.indexOf('function rStabs'));
-  assert.match(home,/Sapphire Beach Bar/);assert.match(home,/Full Count/);assert.match(home,/tab:"history"/);assert.match(home,/pgEstimatorHomeTrigger/);
+  assert.match(home,/pgPropertyName\(\)/);assert.match(home,/rPropertySwitcher\("home"\)/);assert.match(home,/Full Count/);assert.match(home,/tab:"history"/);assert.match(home,/pgEstimatorHomeTrigger/);
+  assert.doesNotMatch(home,/Sapphire Beach Bar/);
   assert.doesNotMatch(home,/pgHomeBriefing|rDeadlines|pgNextMerchantsCycle/);
 });
 
@@ -150,8 +151,11 @@ test('Bar and Merchants render separate workspaces while each keeps its shared d
   assert.match(filters,/filter==="all"\?BAR:BAR\.filter/);
   assert.match(filters,/pgHasPhysicalCount\(p\)/);
   const bar=html.slice(html.indexOf('function rBarCountWorkspace'),html.indexOf('function rMerchantsCountWorkspace'));
-  ['all','Bellows/WI','CC1'].forEach(v=>assert.match(bar,new RegExp('"'+v.replace('/','\\/')+'"')));
+  assert.match(bar,/var filterKeys=pgBarFilterKeys\(\)/);assert.match(bar,/filterKeys\.forEach/);
   assert.doesNotMatch(bar,/Merchants|Mixer|Fruit/);
+  // Sapphire's own vendor list still resolves to the original three bar views.
+  const Catalog=require('../property-catalog.js');
+  assert.deepEqual(['all'].concat(Catalog.barVendorNames(Catalog.seedVendorsFor({seedCatalog:'sapphire-v12'}))),['all','Bellows/WI','CC1']);
   const merchants=html.slice(html.indexOf('function rMerchantsCountWorkspace'),html.indexOf('function rCatGrid'));
   assert.match(merchants,/\["Mixer","Fruit"\]/);assert.doesNotMatch(merchants,/Bellows\/WI|CC1|Full Count/);
   const routing=html.slice(html.indexOf('function rContent'),html.indexOf('function rTabs2'));
@@ -184,8 +188,9 @@ test('Dashboard navigation centrally maps every count destination without replac
   assert.match(routes,/destination==="bar"\|\|destination==="full"/);assert.match(routes,/countFilter:"all"/);
   assert.match(routes,/destination==="merchants"/);assert.match(routes,/merchantView:"Mixer"/);
   assert.match(routes,/destination==="fruit"/);assert.match(routes,/merchantView:"Fruit"/);
-  assert.match(routes,/destination==="bellows"/);assert.match(routes,/countFilter:"Bellows\/WI"/);
-  assert.match(routes,/destination==="cc1"/);assert.match(routes,/countFilter:"CC1"/);
+  assert.match(routes,/destination\.indexOf\("vendor:"\)===0/);assert.match(routes,/pgHasVendor\(vendor\)/);assert.match(routes,/countFilter:vendor/);
+  assert.match(routes,/pgOpenBarView\(filter\)\{pgApplyRoute\(filter&&filter!=="all"\?"vendor:"\+filter:"full"\)/);
+  assert.doesNotMatch(routes,/"Bellows\/WI"|"CC1"/);
   assert.match(routes,/function pgSafeRouteState/);assert.match(routes,/next\.tab==="merchants"/);
   assert.doesNotMatch(routes,/counts\s*:/);assert.doesNotMatch(routes,/adjustments\s*:/);assert.doesNotMatch(routes,/pgStartSession/);
   const nav=html.slice(html.indexOf('function rNav'),html.indexOf('function rSplash'));
@@ -261,7 +266,7 @@ test('manual adjustment parser supports cases, bottles, conversion, direction, a
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm'),context={};
   const quantities=html.slice(html.indexOf('function pgWholeQuantity'),html.indexOf('function pgPackParts'));
   const adjustments=html.slice(html.indexOf('function pgAdjustmentCapability'),html.indexOf('function pgSetManualAdjustment'));
-  context.pgPack=()=>null;vm.runInNewContext(quantities+adjustments+';this.adjust=pgManualAdjustment;',context);
+  context.pgPack=()=>null;context.pgIsMerchantProduct=product=>product&&product.dist==='Merchants';vm.runInNewContext(quantities+adjustments+';this.adjust=pgManualAdjustment;',context);
   const casesOnly=context.adjust({dist:'Merchants',unit:'Case',pack:12},'2','','add');assert.equal(casesOnly.valid,true);assert.equal(casesOnly.orderUnits,2);assert.equal(casesOnly.cases,2);assert.equal(casesOnly.loose,0);assert.equal(casesOnly.capability.allowLoose,false);
   assert.equal(context.adjust({dist:'Merchants',unit:'Case',pack:12},'2','1','add').valid,false);
   assert.equal(context.adjust({dist:'Merchants',unit:'Bottle',pack:12},'','','add').valid,false);
@@ -298,7 +303,7 @@ test('Bar workflow permits cases and loose units except explicitly case-only pro
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm');
   const quantities=html.slice(html.indexOf('function pgWholeQuantity'),html.indexOf('function pgPackParts'));
   const purchasing=html.slice(html.indexOf('function pgAdjustmentCapability'),html.indexOf('function pgSetManualAdjustment'));
-  const context={pgPack:()=>null,pgPlural:(n,one,many)=>Number(n)===1?one:many};
+  const context={pgPack:()=>null,pgIsMerchantProduct:product=>product&&product.dist==='Merchants',pgPlural:(n,one,many)=>Number(n)===1?one:many};
   vm.runInNewContext(quantities+purchasing+';this.adjust=pgManualAdjustment;this.capability=pgAdjustmentCapability;this.breakdown=pgFinalPurchaseBreakdown;this.manualText=pgManualPurchaseText;this.finalText=pgFinalPurchaseText;',context);
   const stoli={name:'Stoli Raz',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',bottleMl:1000,buildTo:12};
   const deep={name:'Deep Eddy Grapefruit',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',bottleMl:1000,buildTo:6};
@@ -317,7 +322,7 @@ test('Bar workflow permits cases and loose units except explicitly case-only pro
   const missing={name:'Future Missing Pack',dist:'New Bar Vendor',unit:'Case',pack:null};assert.equal(context.capability(missing).allowCases,false);assert.equal(context.capability(missing).allowLoose,true);assert.equal(context.capability(missing).missingCaseConfig,true);assert.equal(context.adjust(missing,'1','0','add').valid,false);assert.equal(context.adjust(missing,'0','3','add').orderUnits,3);
   const lime={name:'Lime Juice',dist:'Merchants',unit:'Case',pack:12};assert.equal(context.adjust(lime,'0','3','add').valid,false);assert.equal(context.capability(lime).rule,'caseOnly');
   const merchantBottle={name:'Configured Merchant Bottle',dist:'Merchants',unit:'Bottle',pack:12,purchaseRule:'bottleOnly'};assert.equal(context.capability(merchantBottle).allowCases,false);assert.equal(context.adjust(merchantBottle,'1','0','add').valid,false);
-  const catalog=JSON.parse(html.match(/var PG_V12_PRODUCTS=(\[.*?\]);\r?\nvar PRODUCTS/s)[1]),bar=catalog.filter(product=>product.dist!=='Merchants');assert.ok(bar.length>0);assert.equal(bar.filter(product=>!Number.isInteger(Number(product.pack))||Number(product.pack)<=0).length,0);bar.forEach(product=>{const capability=context.capability(product);assert.equal(capability.rule,product.purchaseRule==='caseOnly'?'caseOnly':'barCaseAndLoose',product.name);assert.equal(capability.allowCases,true,product.name);assert.equal(capability.allowLoose,product.purchaseRule!=='caseOnly',product.name);});
+  const catalog=JSON.parse(html.match(/var PG_V12_PRODUCTS=(\[.*?\]);\r?\n\/\//s)[1]),bar=catalog.filter(product=>product.dist!=='Merchants');assert.ok(bar.length>0);assert.equal(bar.filter(product=>!Number.isInteger(Number(product.pack))||Number(product.pack)<=0).length,0);bar.forEach(product=>{const capability=context.capability(product);assert.equal(capability.rule,product.purchaseRule==='caseOnly'?'caseOnly':'barCaseAndLoose',product.name);assert.equal(capability.allowCases,true,product.name);assert.equal(capability.allowLoose,product.purchaseRule!=='caseOnly',product.name);});
   assert.doesNotMatch(html,/PG_PURCHASE_RULES/);
   assert.match(html,/"Deep Eddy Grapefruit"[\s\S]*?"pack":12[\s\S]*?"unit":"Case"[\s\S]*?"bottleMl":1000/);
   assert.match(html,/"Stoli Raz"[\s\S]*?"pack":12[\s\S]*?"unit":"Case"[\s\S]*?"bottleMl":1000/);

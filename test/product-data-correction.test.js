@@ -8,7 +8,9 @@ const Vision=require('../pourgrid-vision.js');
 const Persistence=require('../product-persistence.js');
 const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
 const catalogSource=html.slice(html.indexOf('var PG_V12_PRODUCTS='),html.indexOf('// Explicit beer eligibility'));
-const catalogContext={PourGridProductPersistence:{stableId:product=>product.name},Object};
+const Catalog=require('../property-catalog.js');
+function memoryStore(){const values=new Map();return {getItem:key=>values.has(key)?values.get(key):null,setItem:(key,value)=>values.set(key,String(value)),removeItem:key=>values.delete(key)};}
+const catalogContext={PourGridProductPersistence:{stableId:product=>product.name},PourGridPropertyCatalog:Catalog,PG_PROPERTY:{seedCatalog:'sapphire-v12'},PG_STORE:memoryStore(),Object,Array,String,Number,JSON};
 vm.runInNewContext(catalogSource+';this.catalog=PRODUCTS;',catalogContext);
 const catalog=Array.from(catalogContext.catalog,product=>JSON.parse(JSON.stringify(product)));
 const florida=catalog.filter(p=>p.name.startsWith("Florida's Natural "));
@@ -68,7 +70,7 @@ test('unit-basis case-only products still round bottle shortages to whole cases'
     assert.equal(Vision.orderQuantity(p,onHand,p.packaging),expected,`${p.name}: shortage ${shortage}`);
     assert.equal(Object.is(Vision.orderQuantity(p,onHand,p.packaging),-0),false,`${p.name}: no negative zero`);
   }
-  const context={pgPack:p=>p.packaging,Number,Math};
+  const context={pgPack:p=>p.packaging,pgIsMerchantProduct:p=>p.dist==='Merchants',Number,Math};
   vm.runInNewContext(functionSource('pgAdjustmentCapability')+';this.capability=pgAdjustmentCapability;',context);
   for(const p of [...florida,...finest]){const cap=context.capability(p);assert.equal(cap.rule,'caseOnly');assert.equal(cap.allowCases,true);assert.equal(cap.allowLoose,false);assert.equal(cap.unitsPerCase,12);assert.equal(cap.canonicalUnit,'case');}
 });
@@ -79,7 +81,7 @@ test('stale device-specific Florida packaging edits are upgraded without changin
   const stale={catalogId:'floridas-natural-oj',originalName:"Florida's Natural OJ",name:"Florida's Natural OJ",buildTo:3,pack:12,packaging:{mode:'caseLoose',unitsPerCase:12,countBasis:'units',buildToBasis:'units'}};
   const edits={[Persistence.stableId(florida[0])]:stale};
   Persistence.saveVerified(localStorage,edits);
-  const context={PRODUCTS:[florida[0]],localStorage,PourGridProductPersistence:Persistence,pgCatalogEdits:()=>Persistence.read(localStorage),pgSaveCatalogEdits:value=>Persistence.saveVerified(localStorage,value),pgRequiresCaseBuildTo:product=>product.name.startsWith("Florida's Natural "),pgEnforceBuildToBasis:(product,packaging)=>({...packaging,buildToBasis:'cases'})};
+  const context={PRODUCTS:[florida[0]],localStorage,PG_STORE:localStorage,PourGridProductPersistence:Persistence,pgCatalogEdits:()=>Persistence.read(localStorage),pgSaveCatalogEdits:value=>Persistence.saveVerified(localStorage,value),pgRequiresCaseBuildTo:product=>product.name.startsWith("Florida's Natural "),pgEnforceBuildToBasis:(product,packaging)=>({...packaging,buildToBasis:'cases'})};
   vm.runInNewContext(functionSource('pgMigrateFloridaCaseBuildTos')+';this.migrate=pgMigrateFloridaCaseBuildTos;',context);
   context.migrate();
   const upgraded=Persistence.resolve(Persistence.read(localStorage),florida[0]);

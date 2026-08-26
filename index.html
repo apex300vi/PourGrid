@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Sapphire Bar">
 <meta name="theme-color" content="#04111F">
-<meta name="pourgrid-release" content="PourGrid V1 RC1.7.1 STAGING"><title>Sapphire Beach Bar · Inventory & Ordering</title>
+<meta name="pourgrid-release" content="PourGrid V1 RC1.7.1 STAGING"><title>PourGrid · Inventory & Ordering</title>
 <link rel="stylesheet" href="/auth.css">
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
@@ -777,11 +777,55 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 .pg-order-tools{display:flex;gap:9px;padding:0 16px 12px}.pg-order-tools button{display:block;min-height:44px;min-width:0;flex:1;border-radius:13px;font-size:11px;font-weight:850}.pg-add-order{border:1px solid rgba(98,206,240,.22);background:rgba(98,206,240,.09);color:#82dced}.pg-adjust-btn{min-height:34px;padding:7px 10px;border:1px solid rgba(237,201,120,.25);border-radius:10px;background:rgba(237,201,120,.08);color:#efd083;font-size:10px;font-weight:850}.pg-adjust-summary{margin-top:7px;padding:8px 10px;border-radius:10px;background:rgba(237,201,120,.07);color:#d9c38f;font-size:10px;line-height:1.45}.pg-form-error{display:none;margin:10px 0;padding:9px 10px;border-radius:10px;background:rgba(235,104,110,.1);color:#ffadb1;font-size:11px;font-weight:750}.pg-form-error.show{display:block}.pg-adjust-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.pg-adjust-grid label,.pg-adjust-field label{display:block;margin-bottom:5px;color:#8ea6b1;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.7px}.pg-adjust-grid input,.pg-adjust-field input,.pg-adjust-field select,.pg-adjust-field textarea{width:100%;min-height:44px;border:1px solid rgba(255,255,255,.1);border-radius:11px;background:rgba(255,255,255,.045);color:#eef6f8;padding:10px;font-size:16px}.pg-adjust-field{margin-top:10px}.pg-adjust-field textarea{min-height:72px;resize:vertical}
 .pg-orientation-guard{position:fixed;z-index:20000;inset:0;display:none;place-items:center;padding:calc(18px + env(safe-area-inset-top)) calc(24px + env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));background:rgba(3,16,27,.98);color:#f5f8f9;text-align:center;pointer-events:auto;overscroll-behavior:none}.pg-orientation-guard.open{display:grid}.pg-orientation-guard div{max-width:520px}.pg-orientation-guard strong{display:block;color:#edc978;font-size:20px;line-height:1.25}.pg-orientation-guard p{margin:10px 0 0;color:#b7cbd3;font-size:14px;line-height:1.5}.pg-orientation-blocked{overflow:hidden;touch-action:none}
 .pg-adjust-route{margin:0 16px 12px;padding:12px 13px;border:1px solid rgba(237,201,120,.25);border-radius:14px;background:linear-gradient(145deg,rgba(79,61,27,.42),rgba(12,36,50,.88));color:#e9d49d;font-size:11px;line-height:1.5}.pg-adjust-route strong{display:block;color:#f4dc9a;font-size:12px}.pg-adjust-route button{width:100%;min-height:40px;margin-top:9px;border:1px solid rgba(237,201,120,.3);border-radius:11px;background:rgba(237,201,120,.1);color:#f1d58d;font-weight:850}.pg-count-adjusted{margin-top:8px;padding:8px 10px;border:1px solid rgba(237,201,120,.24);border-radius:10px;background:rgba(237,201,120,.08);color:#efd083;font-size:10px;font-weight:800;line-height:1.45}.pg-count-adjusted button{margin-left:6px;border:0;background:transparent;color:#8ee2f2;font:inherit;text-decoration:underline}.pg-vendor-label{display:block;margin-top:5px;color:#8bb7c7;font-size:10px;font-weight:750}
+.pg-property-switch{appearance:none;display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:0;color:rgba(255,255,255,.55);font-size:10.5px;letter-spacing:3.2px;text-transform:uppercase;font-weight:700;font-family:inherit;cursor:pointer;text-align:left}
+.pg-property-switch:disabled{cursor:default;opacity:1}
+.pg-property-switch-caret{font-size:12px;letter-spacing:0;color:rgba(237,201,120,.85)}
+.pg-property-switch.home{width:100%;justify-content:space-between;min-height:46px;margin:0 0 12px;padding:12px 15px;border:1px solid rgba(110,190,220,.16);border-radius:15px;background:rgba(255,255,255,.03);letter-spacing:2.4px;color:#9FBCCB}
+.pg-property-monogram{display:grid;place-items:center;width:100%;height:100%;border-radius:11px;background:linear-gradient(150deg,rgba(89,199,234,.22),rgba(237,201,120,.2));color:#EDF6FA;font-size:13px;font-weight:850;letter-spacing:.5px;font-family:var(--mono)}
+.pg-property-list{display:flex;flex-direction:column;gap:9px;margin-top:6px}
+.pg-property-option{appearance:none;display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:56px;padding:12px 14px;border:1px solid rgba(110,190,220,.16);border-radius:15px;background:rgba(255,255,255,.03);color:var(--text);font-family:inherit;text-align:left;cursor:pointer}
+.pg-property-option.current{border-color:rgba(237,201,120,.42);background:rgba(237,201,120,.08)}
+.pg-property-option span{display:flex;flex-direction:column;gap:3px;min-width:0}
+.pg-property-option strong{font-size:14.5px;font-weight:800}
+.pg-property-option small{font-size:11px;color:var(--text-faint);font-weight:600}
+.pg-property-option b{color:rgba(237,201,120,.85);font-size:16px}
+.pg-pilot-banner{margin:0 0 12px;padding:13px 15px;border:1px solid rgba(237,201,120,.28);border-radius:15px;background:linear-gradient(145deg,rgba(79,61,27,.34),rgba(12,36,50,.86))}
+.pg-pilot-title{font-size:13px;font-weight:850;color:#EDC978;letter-spacing:.2px}
+.pg-pilot-sub{display:block;margin-top:3px;font-size:11.5px;color:var(--text-faint);font-weight:600}
+.pg-setup{padding:calc(46px + env(safe-area-inset-top)) 18px calc(28px + var(--pg-nav-height,0px));display:flex;flex-direction:column;gap:14px}
+.pg-setup-head{display:flex;flex-direction:column;gap:5px}
+.pg-setup-kicker{font-size:9.5px;letter-spacing:3.4px;text-transform:uppercase;font-weight:800;color:rgba(237,201,120,.85)}
+.pg-setup-title{font-size:25px;font-weight:800;letter-spacing:-.6px;color:var(--text)}
+.pg-setup-sub{font-size:12.5px;color:var(--text-faint);font-weight:600;line-height:1.45}
+.pg-setup-card{padding:16px;border:1px solid rgba(110,190,220,.14);border-radius:19px;background:rgba(255,255,255,.028);display:flex;flex-direction:column;gap:12px}
+.pg-setup-step{font-size:10px;letter-spacing:2.6px;text-transform:uppercase;font-weight:800;color:#79D5F2}
+.pg-setup-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px}
+.pg-setup-field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.pg-setup-field label{font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;font-weight:800;color:var(--text-faint)}
+.pg-setup-field input,.pg-setup-field select{appearance:none;min-height:44px;width:100%;padding:10px 12px;border:1px solid rgba(110,190,220,.18);border-radius:12px;background:rgba(4,17,31,.6);color:var(--text);font-size:15px;font-weight:650;font-family:inherit}
+.pg-setup-list{display:flex;flex-direction:column;gap:8px}
+.pg-setup-row{display:flex;align-items:center;gap:11px;padding:11px 12px;border:1px solid rgba(110,190,220,.12);border-radius:14px;background:rgba(255,255,255,.03)}
+.pg-setup-row>div:nth-child(2){flex:1;min-width:0}
+.pg-setup-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.pg-setup-row-name{font-size:14px;font-weight:800;color:var(--text)}
+.pg-setup-row-sub{display:block;margin-top:2px;font-size:11px;color:var(--text-faint);font-weight:600}
+.pg-setup-empty{display:block;font-size:12px;color:var(--text-faint);font-weight:600;line-height:1.5}
+.pg-setup-primary,.pg-setup-secondary{appearance:none;min-height:46px;padding:12px 18px;border-radius:13px;font-size:13px;font-weight:850;font-family:inherit;cursor:pointer}
+.pg-setup-primary{border:0;background:linear-gradient(135deg,#59C7EA,#2F8FB8);color:#04111F}
+.pg-setup-primary:disabled{opacity:.45;cursor:default}
+.pg-setup-secondary{border:1px solid rgba(110,190,220,.28);background:none;color:#9FBCCB}
+.pg-setup-remove{appearance:none;min-height:36px;padding:8px 12px;border:1px solid rgba(231,76,60,.32);border-radius:11px;background:none;color:#FF8F85;font-size:11.5px;font-weight:800;font-family:inherit;cursor:pointer}
+.pg-setup-validation{display:none;padding:11px 13px;border:1px solid rgba(231,76,60,.35);border-radius:13px;background:rgba(231,76,60,.1);color:#FF8F85;font-size:12.5px;font-weight:700}
+.pg-setup-validation.show{display:block}
+.pg-setup-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.pg-setup-progress{font-size:11.5px;color:var(--text-faint);font-weight:700}
 </style><link rel="stylesheet" href="/auth-recovery.css">
 </head>
 <body class="pg-auth-pending"><div id="pgAuthRoot"><main class="pg-auth"><section class="pg-auth-card"><div class="pg-auth-kicker">POURGRID</div><h1>Sign in to PourGrid</h1><p class="pg-auth-copy">Sign in with your work email and password.</p><form id="pgAuthForm" novalidate><label for="pgAuthEmail">Work email</label><input id="pgAuthEmail" name="username" type="email" inputmode="email" autocomplete="username" required placeholder="name@example.com"><label for="pgAuthPassword">Password</label><input id="pgAuthPassword" name="password" type="password" autocomplete="current-password" required><div id="pgAuthMessage" class="pg-auth-message" role="alert" aria-live="polite">Session restoration runs in the background. You can sign in now.</div><button id="pgAuthSubmit" type="submit">Sign in</button></form></section></main></div><div class="app" id="app" hidden></div>
 <script>(function(){'use strict';window.POURGRID_BOOT={stage:'interactive-sign-in',mark:function(stage){this.stage=String(stage||'')},settle:function(stage){this.mark(stage)}};if('serviceWorker'in navigator)navigator.serviceWorker.getRegistrations().then(function(items){return Promise.all(items.map(function(item){return item.unregister()}))}).catch(function(){});if(window.caches)caches.keys().then(function(keys){return Promise.all(keys.filter(function(key){return /^pourgrid-shell-/.test(key)}).map(function(key){return caches.delete(key)}))}).catch(function(){})})();</script>
 <script src="/runtime-config.js"></script><script src="/auth-gate.js" defer></script><!-- data-pg-auth-boundary -->
+<script type="text/pourgrid-protected" data-pg-protected src="property-context.js?v=1"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="property-catalog.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="bottle-intelligence.js?v=1.7.1.1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="smart-count-launcher.js?v=1.7.1.1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="pourgrid-vision.js?v=1.7.1.1"></script>
@@ -802,6 +846,52 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 
 var SB_URL=window.POURGRID_CONFIG.supabaseUrl;
 var SB_KEY=window.POURGRID_CONFIG.supabaseAnonKey;
+
+// --- Multi-property support -------------------------------------------------
+// Every authorized location is its own property. Server data (history, shared drafts,
+// seasonal profiles, Profit Lab) is already scoped per location by the operational RPCs;
+// this scopes the on-device half so counts, drafts, vendors, and catalog edits can never
+// leak between Sapphire and a pilot property.
+var PG_PROPERTY_STATE=PourGridPropertyContext.boot(localStorage,window.POURGRID_AUTH_CONTEXT||null);
+var PG_PROPERTY=PG_PROPERTY_STATE.property;
+var PG_STORE=PG_PROPERTY_STATE.store;
+function pgPropertyName(){return PG_PROPERTY.displayName||PG_PROPERTY.locationName||"PourGrid";}
+function pgPropertyLabel(){return PourGridPropertyContext.label(PG_PROPERTY);}
+function pgIsHomeProperty(){return !!PG_PROPERTY_STATE.isHome;}
+function pgPropertyTrialDays(){return PourGridPropertyContext.trialDaysRemaining(PG_PROPERTY);}
+function pgUpdateRegistry(next){
+  if(!next)return;
+  PG_PROPERTY_STATE.registry=next;
+  PourGridPropertyContext.writeRegistry(localStorage,next);
+  if(next.properties[PG_PROPERTY.id])PG_PROPERTY=next.properties[PG_PROPERTY.id];
+}
+function pgAuthorizedProperties(){
+  var contexts=Array.isArray(window.POURGRID_AUTH_CONTEXTS)?window.POURGRID_AUTH_CONTEXTS:[],
+      registry=PG_PROPERTY_STATE.registry||{properties:{}},seen={},rows=[];
+  contexts.forEach(function(context){
+    var id=String(context&&context.locationId||"");
+    if(!id||seen[id])return;
+    seen[id]=true;
+    var known=registry.properties&&registry.properties[id];
+    rows.push({
+      id:id,
+      name:known&&known.displayName||context.locationName||context.organizationName||"Property",
+      organizationName:context.organizationName||"",
+      locationName:context.locationName||"",
+      current:id===PG_PROPERTY.id
+    });
+  });
+  if(!seen[PG_PROPERTY.id]&&PG_PROPERTY.id)rows.unshift({id:PG_PROPERTY.id,name:pgPropertyName(),organizationName:PG_PROPERTY.organizationName,locationName:PG_PROPERTY.locationName,current:true});
+  return rows;
+}
+function pgSwitchProperty(locationId){
+  var id=String(locationId||"");
+  if(!id||id===PG_PROPERTY.id)return false;
+  if(typeof window.POURGRID_SWITCH_PROPERTY==="function")return window.POURGRID_SWITCH_PROPERTY(id);
+  localStorage.setItem("pourgrid-selected-location",id);
+  location.reload();
+  return true;
+}
 
 async function dbFetch(path,opts){
   opts=opts||{};
@@ -828,11 +918,15 @@ async function delDB(id){
   try{await dbFetch("orders?id=eq."+id,{method:"DELETE"});return true;}
   catch(e){return false;}
 }
-function lsGet(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}}
-function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+function lsGet(k){try{var v=PG_STORE.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}}
+function lsSet(k,v){try{PG_STORE.setItem(k,JSON.stringify(v));}catch(e){}}
 
 var PG_V12_PRODUCTS=[{"name":"Stoli Vodka","dist":"Bellows/WI","cat":"Vodka","buildTo":125,"pack":12,"unit":"Case","note":"Each case = 3 free bottles of Stoli Oranj, Raz, or Blu","bottleMl":1000},{"name":"Tito's Handmade Vodka","dist":"CC1","cat":"Vodka","buildTo":80,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Stoli Oranj","dist":"Bellows/WI","cat":"Vodka","buildTo":12,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Stoli Raz","dist":"Bellows/WI","cat":"Vodka","buildTo":12,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Stoli Blu","dist":"Bellows/WI","cat":"Vodka","buildTo":24,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Deep Eddy Grapefruit","dist":"Bellows/WI","cat":"Vodka","buildTo":6,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Deep Eddy Lemon","dist":"Bellows/WI","cat":"Vodka","buildTo":20,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Ketel One","dist":"Bellows/WI","cat":"Vodka","buildTo":6,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Bacardi Gold","dist":"Bellows/WI","cat":"Rum","buildTo":50,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Bacardi Superior","dist":"Bellows/WI","cat":"Rum","buildTo":100,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Bacardi Pineapple","dist":"Bellows/WI","cat":"Rum","buildTo":12,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Myers's Dark Rum","dist":"Bellows/WI","cat":"Rum","buildTo":16,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Captain Morgan Spiced Rum","dist":"Bellows/WI","cat":"Rum","buildTo":8,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Goslings Black Seal Rum","dist":"CC1","cat":"Rum","buildTo":4,"pack":12,"unit":"Bottle","note":"","bottleMl":1000},{"name":"Cruzan Hurricane Proof","dist":"CC1","cat":"Rum","buildTo":2,"pack":12,"unit":"Bottle","note":"","bottleMl":750},{"name":"Cruzan Light","dist":"CC1","cat":"Rum","buildTo":12,"pack":12,"unit":"Case","note":"","bottleMl":750},{"name":"Cruzan Dark","dist":"CC1","cat":"Rum","buildTo":50,"pack":12,"unit":"Case","note":"","bottleMl":750},{"name":"Cruzan Coconut","dist":"CC1","cat":"Rum","buildTo":36,"pack":12,"unit":"Case","note":"","bottleMl":750},{"name":"Cruzan Banana","dist":"CC1","cat":"Rum","buildTo":6,"pack":12,"unit":"Case","note":"","bottleMl":750},{"name":"Cruzan Raspberry","dist":"CC1","cat":"Rum","buildTo":6,"pack":12,"unit":"Case","note":"","bottleMl":750},{"name":"Cruzan Passion Fruit","dist":"CC1","cat":"Rum","buildTo":6,"pack":12,"unit":"Case","note":"","bottleMl":750},{"name":"Cruzan Mango","dist":"CC1","cat":"Rum","buildTo":6,"pack":12,"unit":"Case","note":"","bottleMl":750},{"name":"Cruzan Vanilla","dist":"CC1","cat":"Rum","buildTo":8,"pack":12,"unit":"Case","note":"","bottleMl":750},{"name":"Milagro Silver","dist":"Bellows/WI","cat":"Tequila","buildTo":30,"pack":6,"unit":"Case","note":"","bottleMl":1000},{"name":"Lunazul Blanco","dist":"Bellows/WI","cat":"Tequila","buildTo":36,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Lunazul Reposado","dist":"Bellows/WI","cat":"Tequila","buildTo":6,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Ghost Tequila","dist":"Bellows/WI","cat":"Tequila","buildTo":2,"pack":6,"unit":"Case","note":"","bottleMl":1000},{"name":"Clase Azul Reposado","dist":"Bellows/WI","cat":"Tequila","buildTo":3,"pack":6,"unit":"Case","note":"","bottleMl":1000},{"name":"Don Julio Reposado","dist":"Bellows/WI","cat":"Tequila","buildTo":12,"pack":6,"unit":"Case","note":"","bottleMl":1000},{"name":"Don Julio Blanco","dist":"Bellows/WI","cat":"Tequila","buildTo":16,"pack":6,"unit":"Case","note":"","bottleMl":1000},{"name":"Don Julio Anejo","dist":"Bellows/WI","cat":"Tequila","buildTo":4,"pack":6,"unit":"Case","note":"","bottleMl":1000},{"name":"Tanqueray Gin","dist":"Bellows/WI","cat":"Gin","buildTo":10,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Bombay Sapphire Gin","dist":"Bellows/WI","cat":"Gin","buildTo":4,"pack":12,"unit":"Bottle","note":"","bottleMl":1000},{"name":"Hendrick's Gin","dist":"Bellows/WI","cat":"Gin","buildTo":2,"pack":12,"unit":"Bottle","note":"","bottleMl":1000},{"name":"Jack Daniel's Old No. 7","dist":"Bellows/WI","cat":"Whiskey","buildTo":10,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Crown Royal","dist":"Bellows/WI","cat":"Whiskey","buildTo":8,"pack":12,"unit":"Bottle","note":"","bottleMl":1000},{"name":"Crown Apple","dist":"Bellows/WI","cat":"Whiskey","buildTo":8,"pack":12,"unit":"Bottle","note":"","bottleMl":1000},{"name":"Fireball Cinnamon Whisky","dist":"Bellows/WI","cat":"Whiskey","buildTo":8,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Skrewball","dist":"CC1","cat":"Whiskey","buildTo":4,"pack":6,"unit":"Case","note":"","bottleMl":1000},{"name":"Jameson Irish Whiskey","dist":"CC1","cat":"Whiskey","buildTo":18,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Bulleit Bourbon","dist":"Bellows/WI","cat":"Bourbon","buildTo":4,"pack":12,"unit":"Bottle","note":"","bottleMl":1000},{"name":"Maker's Mark Bourbon","dist":"CC1","cat":"Bourbon","buildTo":2,"pack":12,"unit":"Bottle","note":"","bottleMl":1000},{"name":"Dewars White Label","dist":"Bellows/WI","cat":"Scotch","buildTo":4,"pack":12,"unit":"Bottle","note":"","bottleMl":1000},{"name":"Johnnie Walker Black Label","dist":"Bellows/WI","cat":"Scotch","buildTo":4,"pack":12,"unit":"Bottle","note":"","bottleMl":1000},{"name":"Hennessy VS","dist":"Bellows/WI","cat":"Brandy","buildTo":16,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Irish Cream","dist":"Bellows/WI","cat":"Liqueur","buildTo":18,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Sabroso Coffee Liqueur","dist":"Bellows/WI","cat":"Liqueur","buildTo":12,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Peach Schnapps","dist":"Bellows/WI","cat":"Liqueur","buildTo":22,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Triple Sec","dist":"Bellows/WI","cat":"Liqueur","buildTo":18,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Grand Marnier","dist":"Bellows/WI","cat":"Liqueur","buildTo":2,"pack":6,"unit":"Bottle","note":"","bottleMl":1000},{"name":"Cointreau","dist":"CC1","cat":"Liqueur","buildTo":2,"pack":12,"unit":"Bottle","note":"","bottleMl":1000},{"name":"Amaretto","dist":"Bellows/WI","cat":"Liqueur","buildTo":6,"pack":12,"unit":"Bottle","note":"","bottleMl":1000},{"name":"Jagermeister","dist":"CC1","cat":"Liqueur","buildTo":16,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Blue Curacao","dist":"Bellows/WI","cat":"Liqueur","buildTo":8,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Frangelico","dist":"CC1","cat":"Liqueur","buildTo":6,"pack":6,"unit":"Bottle","note":"","bottleMl":1000},{"name":"Sambuca","dist":"Bellows/WI","cat":"Liqueur","buildTo":2,"pack":12,"unit":"Bottle","note":"","bottleMl":1000},{"name":"Creme de Cacao","dist":"Bellows/WI","cat":"Liqueur","buildTo":12,"pack":6,"unit":"Case","note":"","bottleMl":1000},{"name":"Aperol","dist":"CC1","cat":"Liqueur","buildTo":6,"pack":6,"unit":"Case","note":"","bottleMl":1000},{"name":"Campari","dist":"CC1","cat":"Liqueur","buildTo":2,"pack":6,"unit":"Case","note":"","bottleMl":1000},{"name":"Manon Rose","dist":"Bellows/WI","cat":"Wine","buildTo":8,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Lunetta Prosecco","dist":"Bellows/WI","cat":"Wine","buildTo":36,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Joel Gott Chardonnay","dist":"Bellows/WI","cat":"Wine","buildTo":12,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Sokol Blosser Red Blend","dist":"Bellows/WI","cat":"Wine","buildTo":12,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Kim Crawford Sauv Blanc","dist":"CC1","cat":"Wine","buildTo":24,"pack":12,"unit":"Case","note":"","bottleMl":1000},{"name":"Corona cans","dist":"CC1","cat":"Beer","buildTo":30,"pack":1,"unit":"Case","note":""},{"id":"catalog:bud-light","name":"Bud Light Cans","dist":"CC1","cat":"Beer","buildTo":2,"pack":1,"unit":"Case","note":""},{"name":"Mich Ultra cans","dist":"CC1","cat":"Beer","buildTo":25,"pack":1,"unit":"Case","note":""},{"name":"Surfside Lemonade","dist":"CC1","cat":"Beer","buildTo":10,"pack":1,"unit":"Case","note":""},{"name":"Carib cans","dist":"Bellows/WI","cat":"Beer","buildTo":20,"pack":1,"unit":"Case","note":""},{"name":"Heineken cans","dist":"Bellows/WI","cat":"Beer","buildTo":15,"pack":1,"unit":"Case","note":""},{"name":"Heineken 0.0 cans","dist":"Bellows/WI","cat":"Beer","buildTo":2,"pack":1,"unit":"Case","note":""},{"name":"Miller Lite cans","dist":"Bellows/WI","cat":"Beer","buildTo":20,"pack":1,"unit":"Case","note":""},{"name":"Coors Light cans","dist":"Bellows/WI","cat":"Beer","buildTo":20,"pack":1,"unit":"Case","note":""},{"name":"Soca cans","dist":"Bellows/WI","cat":"Beer","buildTo":10,"pack":1,"unit":"Case","note":""},{"name":"Reef Life cans","dist":"Bellows/WI","cat":"Beer","buildTo":15,"pack":1,"unit":"Case","note":""},{"name":"Beach Life cans","dist":"Bellows/WI","cat":"Beer","buildTo":15,"pack":1,"unit":"Case","note":""},{"name":"White Claw - Black Cherry","dist":"Bellows/WI","cat":"Beer","buildTo":10,"pack":1,"unit":"Case","note":""},{"name":"Twisted Tea cans","dist":"Bellows/WI","cat":"Beer","buildTo":10,"pack":1,"unit":"Case","note":""},{"name":"Aquafina 16.9oz","dist":"Bellows/WI","cat":"Water","buildTo":50,"pack":1,"unit":"Case","note":""},{"name":"Ginger Beer 12oz can","dist":"Bellows/WI","cat":"Non-Alc","buildTo":6,"pack":1,"unit":"Case","note":""},{"name":"Green Ting","dist":"Bellows/WI","cat":"Non-Alc","buildTo":2,"pack":1,"unit":"Case","note":""},{"name":"Pellegrino","dist":"Bellows/WI","cat":"Non-Alc","buildTo":2,"pack":1,"unit":"Case","note":""},{"name":"Red Bull","dist":"Bellows/WI","cat":"Non-Alc","buildTo":12,"pack":1,"unit":"Case","note":""},{"name":"Coke can","dist":"CC1","cat":"Non-Alc","buildTo":10,"pack":1,"unit":"Case","note":""},{"name":"Diet Coke can","dist":"CC1","cat":"Non-Alc","buildTo":6,"pack":1,"unit":"Case","note":""},{"name":"Coke Zero can","dist":"CC1","cat":"Non-Alc","buildTo":4,"pack":1,"unit":"Case","note":""},{"name":"Sprite can","dist":"CC1","cat":"Non-Alc","buildTo":6,"pack":1,"unit":"Case","note":""},{"name":"Coke 20oz Btl","dist":"CC1","cat":"Non-Alc","buildTo":3,"pack":1,"unit":"Case","note":""},{"name":"Diet Coke 20oz Btl","dist":"CC1","cat":"Non-Alc","buildTo":2,"pack":1,"unit":"Case","note":""},{"name":"Sprite 20oz Btl","dist":"CC1","cat":"Non-Alc","buildTo":2,"pack":1,"unit":"Case","note":""},{"name":"Mountain Dew 20oz Btl","dist":"Bellows/WI","cat":"Non-Alc","buildTo":1,"pack":1,"unit":"Case","note":""},{"name":"Pepsi 20oz Btl","dist":"Bellows/WI","cat":"Non-Alc","buildTo":1,"pack":1,"unit":"Case","note":""},{"name":"Diet Pepsi 20oz Btl","dist":"Bellows/WI","cat":"Non-Alc","buildTo":1,"pack":1,"unit":"Case","note":""},{"name":"Cherry Pepsi 20oz Btl","dist":"Bellows/WI","cat":"Non-Alc","buildTo":1,"pack":1,"unit":"Case","note":""},{"name":"Gatorade Fruit Punch 20oz","dist":"Bellows/WI","cat":"Non-Alc","buildTo":2,"pack":1,"unit":"Case","note":""},{"name":"Gatorade Glacier Freeze","dist":"Bellows/WI","cat":"Non-Alc","buildTo":2,"pack":1,"unit":"Case","note":""},{"name":"Gatorade Fierce Grape","dist":"Bellows/WI","cat":"Non-Alc","buildTo":2,"pack":1,"unit":"Case","note":""},{"name":"Gatorade Lemon Lime","dist":"Bellows/WI","cat":"Non-Alc","buildTo":2,"pack":1,"unit":"Case","note":""},{"name":"Gatorade Orange 20oz","dist":"Bellows/WI","cat":"Non-Alc","buildTo":2,"pack":1,"unit":"Case","note":""},{"name":"Brisk Ice Tea 20oz","dist":"Bellows/WI","cat":"Non-Alc","buildTo":1,"pack":1,"unit":"Case","note":""},{"name":"Bubly Blackberry","dist":"Bellows/WI","cat":"Non-Alc","buildTo":1,"pack":1,"unit":"Case","note":""},{"name":"Bubly Strawberry","dist":"Bellows/WI","cat":"Non-Alc","buildTo":1,"pack":1,"unit":"Case","note":""},{"name":"Bubly Lime","dist":"Bellows/WI","cat":"Non-Alc","buildTo":1,"pack":1,"unit":"Case","note":""},{"name":"A&W Root Beer can","dist":"Bellows/WI","cat":"Non-Alc","buildTo":2,"pack":1,"unit":"Case","note":""},{"name":"Canada Dry Tonic Water","dist":"Bellows/WI","cat":"Non-Alc","buildTo":4,"pack":1,"unit":"Case","note":""},{"name":"Canada Dry Club Soda","dist":"Bellows/WI","cat":"Non-Alc","buildTo":6,"pack":1,"unit":"Case","note":""},{"name":"Canada Dry Ginger Ale","dist":"Bellows/WI","cat":"Non-Alc","buildTo":6,"pack":1,"unit":"Case","note":""},{"name":"Dr. Pepper can","dist":"Bellows/WI","cat":"Non-Alc","buildTo":1,"pack":1,"unit":"Case","note":""},{"name":"Diet Dr. Pepper can","dist":"Bellows/WI","cat":"Non-Alc","buildTo":1,"pack":1,"unit":"Case","note":""},{"name":"Sunkist Orange can","dist":"Bellows/WI","cat":"Non-Alc","buildTo":1,"pack":1,"unit":"Case","note":""},{"name":"BIB Coke","dist":"CC1","cat":"BIB","buildTo":3,"pack":1,"unit":"Case","note":""},{"name":"BIB Cranberry","dist":"CC1","cat":"BIB","buildTo":3,"pack":1,"unit":"Case","note":""},{"name":"BIB Diet Coke","dist":"CC1","cat":"BIB","buildTo":3,"pack":1,"unit":"Case","note":""},{"name":"BIB Lemonade","dist":"CC1","cat":"BIB","buildTo":3,"pack":1,"unit":"Case","note":""},{"name":"BIB Sprite","dist":"CC1","cat":"BIB","buildTo":3,"pack":1,"unit":"Case","note":""},{"name":"CO2","dist":"CC1","cat":"BIB","buildTo":3,"pack":1,"unit":"Case","note":""},{"name":"Finest Call Grenadine","dist":"Bellows/WI","cat":"Mixer","buildTo":6,"pack":12,"unit":"Case","note":"","supplier":"West Indies","bottleMl":1000,"bottleSizeLabel":"1 L","purchaseRule":"caseOnly","packaging":{"mode":"caseLoose","unitsPerCase":12,"largeUnit":"Case","largeUnitLabel":"cases","looseUnit":"Bottle","unitLabel":"bottles","countBasis":"units","buildToBasis":"units","legacyCountBasis":"units"}},{"name":"Finest Call Margarita Mix","dist":"Bellows/WI","cat":"Mixer","buildTo":25,"pack":12,"unit":"Case","note":"","supplier":"West Indies","bottleMl":1000,"bottleSizeLabel":"1 L","purchaseRule":"caseOnly","packaging":{"mode":"caseLoose","unitsPerCase":12,"largeUnit":"Case","largeUnitLabel":"cases","looseUnit":"Bottle","unitLabel":"bottles","countBasis":"units","buildToBasis":"units","legacyCountBasis":"units"}},{"name":"Finest Call Sweet & Sour","dist":"Bellows/WI","cat":"Mixer","buildTo":18,"pack":12,"unit":"Case","note":"","supplier":"West Indies","bottleMl":1000,"bottleSizeLabel":"1 L","purchaseRule":"caseOnly","packaging":{"mode":"caseLoose","unitsPerCase":12,"largeUnit":"Case","largeUnitLabel":"cases","looseUnit":"Bottle","unitLabel":"bottles","countBasis":"units","buildToBasis":"units","legacyCountBasis":"units"}},{"name":"Zing Zang","dist":"Bellows/WI","cat":"Mixer","buildTo":10,"pack":12,"unit":"Case","note":""},{"name":"Florida's Natural OJ","dist":"Bellows/WI","cat":"Mixer","buildTo":3,"pack":12,"unit":"Case","note":"","bottleMl":354.882,"bottleSizeLabel":"12 fl oz","purchaseRule":"caseOnly","packaging":{"mode":"caseLoose","unitsPerCase":12,"largeUnit":"Case","largeUnitLabel":"cases","looseUnit":"Bottle","unitLabel":"bottles","countBasis":"units","buildToBasis":"units","legacyCountBasis":"ambiguous"}},{"name":"Florida's Natural Fruit Splash","dist":"Bellows/WI","cat":"Mixer","buildTo":2,"pack":12,"unit":"Case","note":"","bottleMl":354.882,"bottleSizeLabel":"12 fl oz","purchaseRule":"caseOnly","packaging":{"mode":"caseLoose","unitsPerCase":12,"largeUnit":"Case","largeUnitLabel":"cases","looseUnit":"Bottle","unitLabel":"bottles","countBasis":"units","buildToBasis":"units","legacyCountBasis":"ambiguous"}},{"name":"Florida's Natural Cranberry","dist":"Bellows/WI","cat":"Mixer","buildTo":2,"pack":12,"unit":"Case","note":"","bottleMl":354.882,"bottleSizeLabel":"12 fl oz","purchaseRule":"caseOnly","packaging":{"mode":"caseLoose","unitsPerCase":12,"largeUnit":"Case","largeUnitLabel":"cases","looseUnit":"Bottle","unitLabel":"bottles","countBasis":"units","buildToBasis":"units","legacyCountBasis":"ambiguous"}},{"name":"Florida's Natural Kiwi","dist":"Bellows/WI","cat":"Mixer","buildTo":2,"pack":12,"unit":"Case","note":"","bottleMl":354.882,"bottleSizeLabel":"12 fl oz","purchaseRule":"caseOnly","packaging":{"mode":"caseLoose","unitsPerCase":12,"largeUnit":"Case","largeUnitLabel":"cases","looseUnit":"Bottle","unitLabel":"bottles","countBasis":"units","buildToBasis":"units","legacyCountBasis":"ambiguous"}},{"name":"Fruit Punch","dist":"Merchants","cat":"Mixer","buildTo":10,"pack":1,"unit":"Case","note":""},{"name":"Pineapple Juice","dist":"Merchants","cat":"Mixer","buildTo":10,"pack":1,"unit":"Case","note":""},{"name":"Orange Juice","dist":"Merchants","cat":"Mixer","buildTo":6,"pack":1,"unit":"Case","note":""},{"name":"Cranberry Juice","dist":"Merchants","cat":"Mixer","buildTo":2,"pack":1,"unit":"Case","note":""},{"name":"Grapefruit Juice","dist":"Merchants","cat":"Mixer","buildTo":2,"pack":1,"unit":"Case","note":""},{"name":"Coco Lopez","dist":"Merchants","cat":"Mixer","buildTo":6,"pack":1,"unit":"Case","note":""},{"name":"Lime Juice","dist":"Merchants","cat":"Mixer","buildTo":8,"pack":12,"unit":"Case","note":""},{"name":"Pina Colada Island Oasis","dist":"Merchants","cat":"Mixer","buildTo":72,"pack":12,"unit":"Case","note":""},{"name":"Strawberry Island Oasis","dist":"Merchants","cat":"Mixer","buildTo":72,"pack":12,"unit":"Case","note":""},{"name":"Mango Island Oasis","dist":"Merchants","cat":"Mixer","buildTo":60,"pack":12,"unit":"Case","note":""},{"name":"Banana Island Oasis","dist":"Merchants","cat":"Mixer","buildTo":24,"pack":12,"unit":"Case","note":""},{"name":"Guava Island Oasis","dist":"Merchants","cat":"Mixer","buildTo":24,"pack":12,"unit":"Case","note":""},{"name":"Passionfruit Island Oasis","dist":"Merchants","cat":"Mixer","buildTo":24,"pack":12,"unit":"Case","note":""},{"name":"Margarita Island Oasis","dist":"Merchants","cat":"Mixer","buildTo":6,"pack":12,"unit":"Case","note":""},{"name":"Ice Cream Island Oasis","dist":"Merchants","cat":"Mixer","buildTo":12,"pack":12,"unit":"Case","note":""},{"name":"Watermelon Island Oasis","dist":"Merchants","cat":"Mixer","buildTo":6,"pack":12,"unit":"Case","note":""},{"name":"Maraschino Cherries","dist":"Merchants","cat":"Fruit","buildTo":1,"pack":4,"unit":"Case","note":"4 gallon jugs per case"},{"name":"Limes","dist":"Merchants","cat":"Fruit","buildTo":3,"pack":1,"unit":"Case","note":""},{"name":"Lemons","dist":"Merchants","cat":"Fruit","buildTo":2,"pack":1,"unit":"Case","note":""},{"name":"Oranges","dist":"Merchants","cat":"Fruit","buildTo":1,"pack":1,"unit":"Case","note":""},{"name":"Grapefruits","dist":"Merchants","cat":"Fruit","buildTo":1,"pack":1,"unit":"Case","note":""}];
-var PRODUCTS=PG_V12_PRODUCTS.map(function(x){var product=Object.assign({},x);product._catalogName=x.name;product.catalogId=PourGridProductPersistence.stableId(product);return product;});
+// Sapphire keeps its v12 order guide. A brand-new pilot property starts empty and builds
+// its own list during onboarding.
+var PG_SEED_PRODUCTS=PG_PROPERTY.seedCatalog==="sapphire-v12"?PG_V12_PRODUCTS:[];
+var PG_CUSTOM_ITEMS=PourGridPropertyCatalog.readItems(PG_STORE);
+var PRODUCTS=PourGridPropertyCatalog.buildCatalog(PG_SEED_PRODUCTS,PG_CUSTOM_ITEMS).map(function(x){var product=Object.assign({},x);product._catalogName=x.name;product.catalogId=PourGridProductPersistence.stableId(product);return product;});
 
 var PG_CASE_BUILD_TO_PRODUCTS={
   "Florida's Natural OJ":true,
@@ -858,9 +952,9 @@ PRODUCTS.forEach(function(product){
 });
 
 function pgCatalogEdits(){
-  return PourGridProductPersistence.read(localStorage);
+  return PourGridProductPersistence.read(PG_STORE);
 }
-function pgSaveCatalogEdits(v){return PourGridProductPersistence.saveVerified(localStorage,v||{});}
+function pgSaveCatalogEdits(v){return PourGridProductPersistence.saveVerified(PG_STORE,v||{});}
 function pgRequiresCaseBuildTo(product){
   return !!(product&&PG_CASE_BUILD_TO_PRODUCTS[product._catalogName||product.name]);
 }
@@ -870,7 +964,7 @@ function pgEnforceBuildToBasis(product,packaging){
 }
 function pgMigrateFloridaCaseBuildTos(){
   var migrationKey="pourgrid-migration-floridas-natural-case-build-to-v1";
-  if(localStorage.getItem(migrationKey)==="complete")return;
+  if(PG_STORE.getItem(migrationKey)==="complete")return;
   var all=pgCatalogEdits(),next=all,changed=false;
   PRODUCTS.filter(pgRequiresCaseBuildTo).forEach(function(product){
     var existing=PourGridProductPersistence.resolve(all,product);
@@ -879,11 +973,11 @@ function pgMigrateFloridaCaseBuildTos(){
     next=PourGridProductPersistence.withEdit(next,product,corrected);changed=true;
   });
   if(changed&&!pgSaveCatalogEdits(next).ok)return;
-  localStorage.setItem(migrationKey,"complete");
+  PG_STORE.setItem(migrationKey,"complete");
 }
 function pgMigrateLimeJuiceUnits(){
   var migrationKey="pourgrid-migration-rc1.7.1-lime-units-v1";
-  if(localStorage.getItem(migrationKey)==="complete")return;
+  if(PG_STORE.getItem(migrationKey)==="complete")return;
   var product=PRODUCTS.find(function(x){return x._catalogName==="Lime Juice";});
   if(!product)return;
   var all=pgCatalogEdits(),existing=PourGridProductPersistence.resolve(all,product);
@@ -893,7 +987,7 @@ function pgMigrateLimeJuiceUnits(){
     var saved=pgSaveCatalogEdits(PourGridProductPersistence.withEdit(all,product,corrected));
     if(!saved.ok)return;
   }
-  localStorage.setItem(migrationKey,"complete");
+  PG_STORE.setItem(migrationKey,"complete");
 }
 function pgApplyCatalogEdits(){
   var edits=pgCatalogEdits();
@@ -925,9 +1019,33 @@ var PG_CANONICAL_ORDER_ROUTES={
 };
 PRODUCTS.forEach(function(product){var route=PG_CANONICAL_ORDER_ROUTES[product._catalogName];if(route)Object.assign(product,{catalogId:route.id,emailRoute:route.emailRoute,supplier:route.supplier||product.supplier});});
 
-var BAR=PRODUCTS.filter(function(p){return p.dist!=="Merchants";});
-var MER=PRODUCTS.filter(function(p){return p.dist==="Merchants";});
-var DC={"Bellows/WI":{bg:"rgba(52,104,216,0.18)",text:"#8FB2FF",dot:"#4FA8FF"},"CC1":{bg:"rgba(231,76,60,0.18)",text:"#FF8F85",dot:"#E10A17"},"Merchants":{bg:"rgba(30,145,85,0.18)",text:"#5FE0A0",dot:"#00B893"}};
+// Vendor groups are per property. Sapphire keeps Bellows/WI, CC1, and Merchants; a pilot
+// property defines its own during onboarding.
+var PG_VENDORS=PourGridPropertyCatalog.readVendors(PG_STORE,PG_PROPERTY);
+var DC=PourGridPropertyCatalog.vendorColors(PG_VENDORS);
+function pgVendors(){return PG_VENDORS;}
+function pgVendorNames(){return PourGridPropertyCatalog.vendorNames(PG_VENDORS);}
+function pgBarVendorNames(){return PourGridPropertyCatalog.barVendorNames(PG_VENDORS);}
+function pgMerchantVendorNames(){return PourGridPropertyCatalog.merchantVendorNames(PG_VENDORS);}
+function pgIsMerchantProduct(p){return PourGridPropertyCatalog.isMerchantVendor(PG_VENDORS,p&&p.dist);}
+function pgIsMerchantVendorName(name){return PourGridPropertyCatalog.isMerchantVendor(PG_VENDORS,name);}
+function pgVendorColor(name){return PourGridPropertyCatalog.colorFor(DC,name);}
+function pgHasVendor(name){return pgVendorNames().indexOf(name)>=0;}
+function pgSetVendors(list){
+  PG_VENDORS=PourGridPropertyCatalog.normalizeVendors(list);
+  PourGridPropertyCatalog.saveVendors(PG_STORE,PG_VENDORS);
+  DC=PourGridPropertyCatalog.vendorColors(PG_VENDORS);
+  return PG_VENDORS;
+}
+function pgBarFilterKeys(){return ["all"].concat(pgBarVendorNames());}
+var PG_SAPPHIRE_SIGNATURE="Josh\nSapphire Beach Bar - St. Thomas, USVI";
+function pgOrderSignature(){return PG_PROPERTY.seedCatalog==="sapphire-v12"?PG_SAPPHIRE_SIGNATURE:pgPropertyName();}
+var BAR=PRODUCTS.filter(function(p){return !pgIsMerchantProduct(p);});
+var MER=PRODUCTS.filter(function(p){return pgIsMerchantProduct(p);});
+function pgRefreshWorkspaces(){
+  BAR=PRODUCTS.filter(function(p){return !pgIsMerchantProduct(p);});
+  MER=PRODUCTS.filter(function(p){return pgIsMerchantProduct(p);});
+}
 var CI={Vodka:"🫙",Rum:"🏝",Tequila:"🌵",Gin:"🌿",Whiskey:"🥃",Bourbon:"🪵",Scotch:"🏔",Brandy:"🍇",Liqueur:"✨",Wine:"🍷",Beer:"🍺",Water:"💧","Non-Alc":"🥤",BIB:"🧃",Mixer:"🍹",Fruit:"🍋"};
 
 
@@ -975,7 +1093,7 @@ function pgPack(p){
   if(p&&p.unit==="Case"&&pgIsBulkFruit(p)){
     return {mode:"halfCase",unitLabel:"half cases"};
   }
-  if(p&&p.dist==="Merchants"){
+  if(p&&pgIsMerchantProduct(p)){
     var per=Number(p.pack);
     if(!Number.isFinite(per)||per<=0||Math.floor(per)!==per)return {mode:"invalid",validationMessage:"A valid whole-number pack size is required before counting this product."};
     return {mode:"caseLoose",unitsPerCase:per,largeUnit:"Case",largeUnitLabel:"cases",looseUnit:per===1?"Case":"Bottle",unitLabel:per===1?"cases":"bottles",countBasis:"units",buildToBasis:"units"};
@@ -1033,7 +1151,7 @@ function pgHasPhysicalCount(p){
   var normalized=pgPackParts(S.counts,p);return !!(normalized&&normalized.valid&&normalized.entered);
 }
 function pgSavePart(name,suffix,val){
-  var product=PRODUCTS.find(function(x){return x.name===name;}),type=product&&product.dist==="Merchants"?"merchants":"bar";
+  var product=PRODUCTS.find(function(x){return x.name===name;}),type=pgCountTypeForProduct(product);
   pgTouch(type,name);
   var nc=Object.assign({},S.counts);nc[pgCountKey(name,suffix)]=val;
   var p=PRODUCTS.find(function(x){return x.name===name;});
@@ -1132,7 +1250,7 @@ function pgHalfCaseCountDetails(type){
 
 var PG_DRAFT_KEY="pourgrid-order-drafts-v2";
 function pgDrafts(){var value=lsGet(PG_DRAFT_KEY);return value&&typeof value==="object"?value:{};}
-function pgDraftTypeForProduct(product){return product&&product.dist==="Merchants"?"merchants":"bar";}
+function pgDraftTypeForProduct(product){return pgIsMerchantProduct(product)?"merchants":"bar";}
 function pgDraftNoteKey(type){return type==="merchants"?"mer":"bar";}
 function pgDraftId(type){return type+"-"+Date.now()+"-"+Math.random().toString(36).slice(2,9);}
 function pgNormalSeasonalSnapshot(){return {id:null,name:"Normal",profileType:"Normal",percentageMultiplier:100,calculationVersion:"seasonal-build-to-v1.0.0",pinnedAt:new Date().toISOString()};}
@@ -1178,7 +1296,7 @@ function pgMigrateCurrentProductName(oldName,newName){
 }
 pgMigrateCurrentProductName("Bud Light","Bud Light Cans");
 var PG_BOOT_DRAFTS=pgHydrateDrafts();
-var S={screen:"home",tab:"bar",bSub:"count",mSub:"count",bCat:null,mCat:null,countFilter:"all",merchantView:"Mixer",countCat:null,counts:lsGet("sbb-counts")||{},history:[],histDet:null,toast:null,tt:null,sync:"loading",connectivity:"checking",eDist:{bar:"Bellows/WI",mer:"Merchants"},notes:PG_BOOT_DRAFTS.notes,ordered:lsGet("sbb-ordered")||{},adjustments:PG_BOOT_DRAFTS.adjustments,adjustmentMeta:PG_BOOT_DRAFTS.adjustmentMeta};
+var S={screen:PG_PROPERTY_STATE.needsOnboarding?"setup":"home",tab:"bar",bSub:"count",mSub:"count",bCat:null,mCat:null,countFilter:"all",merchantView:"Mixer",countCat:null,counts:lsGet("sbb-counts")||{},history:[],histDet:null,toast:null,tt:null,sync:"loading",connectivity:"checking",eDist:{bar:pgBarVendorNames()[0]||"",mer:pgMerchantVendorNames()[0]||""},notes:PG_BOOT_DRAFTS.notes,ordered:lsGet("sbb-ordered")||{},adjustments:PG_BOOT_DRAFTS.adjustments,adjustmentMeta:PG_BOOT_DRAFTS.adjustmentMeta};
 
 function pgCorrectedPackagingCounts(counts){
   var nc=Object.assign({},counts||{}),changed=false;
@@ -1202,7 +1320,7 @@ pgMigrateCorrectedProductPackaging();
 function pgMigrateMerchantPackaging(){
   var nc=Object.assign({},S.counts),changed=false;
   PRODUCTS.forEach(function(product){
-    if(product.dist!=="Merchants")return;
+    if(!pgIsMerchantProduct(product))return;
     var cfg=pgPack(product);
     if(!cfg)return;
     var caseKey=pgCountKey(product.name,"cases");
@@ -1259,7 +1377,7 @@ function pgRouteSnapshot(){return {screen:S.screen,tab:S.tab,bSub:S.bSub,mSub:S.
 function pgSafeRouteState(route){
   route=route||{};var next=Object.assign({},route);
   if(next.tab==="merchants"){next.countFilter=S.countFilter;next.countCat=null;next.merchantView=next.merchantView==="Fruit"?"Fruit":"Mixer";}
-  if(next.tab==="bar"){next.countFilter=["all","Bellows/WI","CC1"].indexOf(next.countFilter)>=0?next.countFilter:"all";next.merchantView=S.merchantView;}
+  if(next.tab==="bar"){next.countFilter=pgBarFilterKeys().indexOf(next.countFilter)>=0?next.countFilter:"all";next.merchantView=S.merchantView;}
   return next;
 }
 function pgApplyRoute(destination,options){
@@ -1269,15 +1387,18 @@ function pgApplyRoute(destination,options){
   else if(destination==="merchants")Object.assign(patch,{screen:"app",tab:"merchants",mSub:"count",merchantView:"Mixer",histDet:null,s8Dist:null});
   else if(destination==="mixers")Object.assign(patch,{screen:"app",tab:"merchants",mSub:"count",merchantView:"Mixer",histDet:null,s8Dist:null});
   else if(destination==="fruit")Object.assign(patch,{screen:"app",tab:"merchants",mSub:"count",merchantView:"Fruit",histDet:null,s8Dist:null});
-  else if(destination==="bellows")Object.assign(patch,{screen:"app",tab:"bar",bSub:"count",countFilter:"Bellows/WI",histDet:null,s8Dist:"Bellows/WI"});
-  else if(destination==="cc1")Object.assign(patch,{screen:"app",tab:"bar",bSub:"count",countFilter:"CC1",histDet:null,s8Dist:"CC1"});
   else if(destination==="history")Object.assign(patch,{screen:"app",tab:"history",histDet:null,s8Dist:null});
+  else if(destination&&destination.indexOf("vendor:")===0){
+    var vendor=destination.slice(7);
+    if(!pgHasVendor(vendor))return;
+    Object.assign(patch,{screen:"app",tab:"bar",bSub:"count",countFilter:vendor,histDet:null,s8Dist:vendor});
+  }
   else return;
   Object.assign(S,patch);render();
   if(!options.fromHistory&&window.history&&history.pushState)history.pushState({pourgridRoute:pgRouteSnapshot()},document.title,location.href);
   window.scrollTo({top:0,behavior:options.instant?"auto":"smooth"});
 }
-function pgOpenBarView(filter){var routes={all:"full","Bellows/WI":"bellows",CC1:"cc1"};pgApplyRoute(routes[filter]||"full");}
+function pgOpenBarView(filter){pgApplyRoute(filter&&filter!=="all"?"vendor:"+filter:"full");}
 function pgOpenMerchantsView(category){pgApplyRoute(category==="Fruit"?"fruit":"mixers");}
 window.addEventListener("popstate",function(event){var route=event.state&&event.state.pourgridRoute;if(route){Object.assign(S,pgSafeRouteState(route));render();window.scrollTo(0,0);}else if(S.screen==="app")pgApplyRoute("home",{fromHistory:true,instant:true});});
 
@@ -1364,7 +1485,7 @@ var LOGO_DATA_URI="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMsAAAB4CAYAAAB
 function rHdr(){
   var titles={bar:{count:"Bar Count",order:"Bar Order & Send"},merchants:{count:"Merchants Count",order:"Merchants Order & Send"},history:{count:"Order History",order:"Order History"}};
   var sub=S.tab==="bar"?S.bSub:S.tab==="merchants"?S.mSub:"count";
-  var title=(titles[S.tab]&&titles[S.tab][sub])||"Sapphire Beach Bar";
+  var title=(titles[S.tab]&&titles[S.tab][sub])||pgPropertyName();
   if(S.tab==="bar"&&sub==="count"&&S.countFilter)title=pgCountFilterLabel(S.countFilter);
   if(S.tab==="merchants"&&sub==="count")title="Merchants · "+(S.merchantView==="Fruit"?"Fruit":"Mixers");
   var hcls="hdr "+(S.tab==="merchants"?"green":S.tab==="history"?"purple":"blue");
@@ -1373,25 +1494,28 @@ function rHdr(){
   var dot=mk("div","sdot");dot.style.cssText="background:"+sc+";color:"+sc+";";
   var pill=d("sync-pill");ap(pill,dot,sp("sync-lbl",sl));
   var mark=d("brand-mark");
-  var logoImg=document.createElement("img");
-  logoImg.src=LOGO_DATA_URI;
-  logoImg.style.cssText="width:100%;height:100%;object-fit:contain;";
-  logoImg.alt="Sapphire Beach Bar";
-  mark.appendChild(logoImg);
+  if(pgUsesSapphireBranding()){
+    var logoImg=document.createElement("img");
+    logoImg.src=LOGO_DATA_URI;
+    logoImg.style.cssText="width:100%;height:100%;object-fit:contain;";
+    logoImg.alt=pgPropertyName();
+    mark.appendChild(logoImg);
+  }else{
+    mark.appendChild(d("pg-property-monogram",pgPropertyInitials()));
+  }
   var right=mk("div","");right.style.cssText="display:flex;align-items:center;gap:9px;";
   ap(right,pill,mark);
   var left=mk("div","");
   var brandRow=mk("div","");brandRow.style.cssText="display:flex;align-items:center;gap:7px;margin-bottom:5px;";
-  var wordmark=mk("div","");wordmark.style.cssText="font-size:10.5px;letter-spacing:3.2px;color:rgba(255,255,255,0.55);text-transform:uppercase;font-weight:700;";
-  wordmark.textContent="Sapphire Beach Bar";
-  brandRow.appendChild(wordmark);
+  brandRow.appendChild(rPropertySwitcher("hdr"));
   ap(left,brandRow,d("hdr-title",title));
   var row=d("hdr-row");ap(row,left,right);
   return ap(d(hcls),row);
 }
 
 function rNav(){
-  var tabs=[{id:"home",lbl:"Home"},{id:"bar",lbl:"Bar"},{id:"merchants",lbl:"Merchants"},{id:"profit",lbl:"Profit Lab"},{id:"history",lbl:"History"}];
+  var tabs=[{id:"home",lbl:"Home"},{id:"bar",lbl:"Bar"},{id:"merchants",lbl:"Merchants"},{id:"profit",lbl:"Profit Lab"},{id:"history",lbl:"History"}]
+    .filter(function(tab){return tab.id!=="merchants"||pgMerchantVendorNames().length>0;});
   var icons={
     home:'<svg viewBox="0 0 24 24" fill="none"><path d="M3.5 10.5 12 3l8.5 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-5v-6h-4v6H5a1.5 1.5 0 0 1-1.5-1.5v-9Z" stroke-width="1.65" stroke-linejoin="round"/></svg>',
     bar:'<svg viewBox="0 0 24 24" fill="none"><path d="M5 4h14l-5.5 7v6.5M10.5 21h6M7 8h10" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -1415,11 +1539,16 @@ function rNav(){
 function rSplash(){
   var wrap=d("splash");
   var mark=d("splash-mark");
-  var logoImg=document.createElement("img");
-  logoImg.src=LOGO_DATA_URI;
-  logoImg.alt="Sapphire Beach Bar";
-  mark.appendChild(logoImg);
-  ap(wrap,mark,sp("splash-word","Sapphire Beach Bar"),d("splash-title","SAPPHIRE"),d("splash-rule",""),sp("splash-tag","Inventory & Ordering · St. Thomas"));
+  if(pgUsesSapphireBranding()){
+    var logoImg=document.createElement("img");
+    logoImg.src=LOGO_DATA_URI;
+    logoImg.alt=pgPropertyName();
+    mark.appendChild(logoImg);
+  }else{
+    mark.appendChild(d("pg-property-monogram",pgPropertyInitials()));
+  }
+  var name=pgPropertyName();
+  ap(wrap,mark,sp("splash-word",name),d("splash-title",pgUsesSapphireBranding()?"SAPPHIRE":name.toUpperCase()),d("splash-rule",""),sp("splash-tag","Inventory & Ordering · "+(PG_PROPERTY.organizationName||"PourGrid")));
   return wrap;
 }
 
@@ -1472,12 +1601,12 @@ function s71Stats(name){
 }
 
 function pgGetPourOz(){
-  var v=Number(localStorage.getItem("pourgrid-pour-oz")||2);
+  var v=Number(PG_STORE.getItem("pourgrid-pour-oz")||2);
   return isFinite(v)&&v>0?v:2;
 }
 function pgSetPourOz(v){
   var n=Number(v);if(!isFinite(n)||n<=0)return;
-  localStorage.setItem("pourgrid-pour-oz",String(n));
+  PG_STORE.setItem("pourgrid-pour-oz",String(n));
 }
 function pgPourOptions(){return [1,1.25,1.5,1.75,2];}
 
@@ -1576,7 +1705,7 @@ function s71Open(name){
 
 function pgEsc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
 function pgEditorCategories(){return Array.from(new Set(PRODUCTS.map(function(x){return x.cat;}).filter(Boolean))).sort();}
-function pgEditorVendors(){return ["Bellows/WI","CC1","Merchants"];}
+function pgEditorVendors(){return pgVendorNames();}
 function pgEditorPackMode(p){var cfg=pgPack(p);return cfg?cfg.mode:"standard";}
 
 function pgLooseUnitFromConfig(product,cfg){
@@ -1736,9 +1865,9 @@ function pgTodayKey(){
   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 }
 function pgSession(){
-  try{return JSON.parse(localStorage.getItem("pourgrid-session")||"{}");}catch(e){return {};}
+  try{return JSON.parse(PG_STORE.getItem("pourgrid-session")||"{}");}catch(e){return {};}
 }
-function pgSaveSession(s){localStorage.setItem("pourgrid-session",JSON.stringify(s));}
+function pgSaveSession(s){PG_STORE.setItem("pourgrid-session",JSON.stringify(s));}
 function pgProductSet(type){return type==="merchants"?MER:BAR;}
 function pgClearProductCounts(type){
   var prods=pgProductSet(type),nc=Object.assign({},S.counts);
@@ -1809,7 +1938,7 @@ function pgResetToday(type){
 
 function pgAdjustmentCapability(product){
   var cfg=pgPack(product)||{},rawPer=cfg.unitsPerCase!==undefined?cfg.unitsPerCase:product.pack,per=Number(rawPer),validPack=Number.isFinite(per)&&per>0&&Math.floor(per)===per,unit=product.unit||"Case";
-  if(product.dist!=="Merchants"){
+  if(!pgIsMerchantProduct(product)){
     var looseNoun=Number(product.bottleMl)>0?"bottles":"loose units";
     if(!validPack)return {rule:"barLooseOnlyMissingPack",allowCases:false,allowLoose:true,missingCaseConfig:true,unitsPerCase:null,largeLabel:"Cases (package quantity required)",looseLabel:looseNoun.charAt(0).toUpperCase()+looseNoun.slice(1),orderUnit:unit,canonicalUnit:"loose"};
     if(product.purchaseRule==="caseOnly")return {rule:"caseOnly",allowCases:true,allowLoose:false,missingCaseConfig:false,unitsPerCase:per,largeLabel:"Cases",looseLabel:"Bottles (inventory only)",orderUnit:"Case",canonicalUnit:"case"};
@@ -1945,7 +2074,7 @@ function pgOpenAdjustmentPicker(type,trigger){
   setTimeout(function(){var select=document.getElementById("pgAdjProduct"),next=document.getElementById("pgAdjContinue"),cancel=document.getElementById("pgAdjPickerCancel");cancel.onclick=function(){s4CloseSheet();};if(next)next.onclick=function(){var name=select.value;s4CloseSheet();setTimeout(function(){pgOpenManualAdjustment(name,trigger);},0);};},0);
 }
 
-function pgCountTypeForProduct(product){return product&&product.dist==="Merchants"?"merchants":"bar";}
+function pgCountTypeForProduct(product){return pgIsMerchantProduct(product)?"merchants":"bar";}
 function pgCountFilterLabel(filter){return filter==="all"?"Full Count":filter;}
 function pgBarViewProducts(filter){return filter==="all"?BAR:BAR.filter(function(p){return p.dist===filter;});}
 function pgSharedProgress(products){
@@ -1958,6 +2087,248 @@ function pgOpenFullCount(){
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
+// --- Property switcher, pilot onboarding, and per-property setup ------------------
+
+function pgUsesSapphireBranding(){return PG_PROPERTY.seedCatalog==="sapphire-v12";}
+function pgPropertyInitials(){
+  var words=String(pgPropertyName()).split(/\s+/).filter(Boolean);
+  if(!words.length)return "PG";
+  return (words[0].charAt(0)+(words.length>1?words[words.length-1].charAt(0):"")).toUpperCase();
+}
+function pgNeedsOnboarding(){return PourGridPropertyContext.needsOnboarding(PG_PROPERTY);}
+function pgSetupComplete(){return pgVendorNames().length>0&&PRODUCTS.length>0;}
+
+function pgRebuildCatalog(){
+  PG_CUSTOM_ITEMS=PourGridPropertyCatalog.readItems(PG_STORE);
+  var next=PourGridPropertyCatalog.buildCatalog(PG_SEED_PRODUCTS,PG_CUSTOM_ITEMS).map(function(x){
+    var product=Object.assign({},x);product._catalogName=x.name;product.catalogId=PourGridProductPersistence.stableId(product);return product;
+  });
+  next.forEach(function(product){
+    var units=PG_HALF_CASE_BEER[product.name];if(!units)return;
+    product.allow_half_case_count=true;product.purchaseRule="caseOnly";
+    product.packaging={mode:"caseLoose",allowHalfCaseCount:true,unitsPerCase:units,largeUnit:"Case",largeUnitLabel:"cases",looseUnit:"Can",unitLabel:"cans",countBasis:"units",buildToBasis:"cases",calculationVersion:"half-case-beer-v1.0.0"};
+  });
+  next.forEach(function(product){var route=PG_CANONICAL_ORDER_ROUTES[product._catalogName];if(route)Object.assign(product,{catalogId:route.id,emailRoute:route.emailRoute,supplier:route.supplier||product.supplier});});
+  PRODUCTS.length=0;next.forEach(function(product){PRODUCTS.push(product);});
+  pgApplyCatalogEdits();
+  pgRefreshWorkspaces();
+}
+
+function rPropertySwitcher(variant){
+  var properties=pgAuthorizedProperties(),multiple=properties.length>1;
+  var button=mk("button","pg-property-switch"+(variant==="home"?" home":""),{type:"button",onclick:function(){pgOpenPropertySwitcher();}});
+  button.setAttribute("aria-haspopup","dialog");
+  button.setAttribute("aria-label","Current property "+pgPropertyName()+(multiple?". Switch property":""));
+  ap(button,sp("pg-property-switch-name",pgPropertyName()),multiple?sp("pg-property-switch-caret","⌄"):null);
+  if(!multiple)button.disabled=true;
+  return button;
+}
+
+function pgOpenPropertySwitcher(){
+  var properties=pgAuthorizedProperties();
+  var rows=properties.map(function(item){
+    var sub=[item.organizationName,item.locationName].filter(Boolean).join(" · ");
+    return '<button class="pg-property-option'+(item.current?' current':'')+'" data-property="'+pgEsc(item.id)+'">'+
+      '<span><strong>'+pgEsc(item.name)+'</strong><small>'+pgEsc(sub)+'</small></span>'+
+      '<b aria-hidden="true">'+(item.current?'✓':'›')+'</b></button>';
+  }).join("");
+  var message=properties.length>1
+    ?"Counts, vendors, and order history stay separate for each property."
+    :"You are signed in to one property. Ask an administrator for access to add another.";
+  s4Sheet("Property",message,'<div class="pg-property-list">'+rows+'</div>');
+  setTimeout(function(){
+    document.querySelectorAll("[data-property]").forEach(function(node){
+      node.onclick=function(){
+        var id=node.getAttribute("data-property");
+        if(id===PG_PROPERTY.id){s4CloseSheet();return;}
+        s4CloseSheet();pgSwitchProperty(id);
+      };
+    });
+  },0);
+}
+
+function rPilotBanner(){
+  var days=pgPropertyTrialDays();
+  if(days===null)return null;
+  var card=d("pg-pilot-banner");
+  ap(card,d("pg-pilot-title",days>0?"Pilot · "+days+" day"+(days===1?"":"s")+" left":"Pilot period complete"),
+     sp("pg-pilot-sub",days>0?"Free 60-day PourGrid trial for "+pgPropertyName()+".":"Talk to PourGrid about continuing at "+pgPropertyName()+"."));
+  return card;
+}
+
+function rSetupEntry(){
+  var button=mk("button","pg-estimator-trigger",{type:"button",onclick:function(){ss({screen:"setup"});}});
+  button.innerHTML='<div><strong>Items &amp; vendors</strong><span>Add or edit this property’s own SKUs and vendor list</span></div><b aria-hidden="true">›</b>';
+  return button;
+}
+
+function pgSetupError(message){
+  var box=document.getElementById("pgSetupError");
+  if(box){box.textContent=message||"";box.classList.toggle("show",!!message);}
+}
+
+function pgAddVendorFromForm(){
+  function v(id){var e=document.getElementById(id);return e?e.value:"";}
+  var result=PourGridPropertyCatalog.addVendor(pgVendors(),{name:v("pgs-vendor-name").trim(),workspace:v("pgs-vendor-workspace"),email:v("pgs-vendor-email").trim()});
+  if(!result.ok){pgSetupError(result.error);return;}
+  pgSetVendors(result.vendors);pgRefreshWorkspaces();pgSetupError("");
+  toast("Vendor added");render();
+}
+
+function pgRemoveVendorByName(name){
+  // Guard the whole catalog, not just custom items: a seeded property would otherwise
+  // orphan published guide products behind a deleted vendor.
+  var result=PourGridPropertyCatalog.removeVendor(pgVendors(),name,PRODUCTS);
+  if(!result.ok){pgSetupError(result.error);return;}
+  pgSetVendors(result.vendors);pgRefreshWorkspaces();pgSetupError("");
+  toast("Vendor removed");render();
+}
+
+function pgAddItemFromForm(){
+  function v(id){var e=document.getElementById(id);return e?e.value:"";}
+  var reserved=PRODUCTS.map(function(p){return p.name;});
+  var result=PourGridPropertyCatalog.addItem(PG_CUSTOM_ITEMS,{
+    name:v("pgs-item-name").trim(),
+    dist:v("pgs-item-vendor"),
+    cat:v("pgs-item-cat").trim(),
+    pack:v("pgs-item-pack"),
+    unit:v("pgs-item-unit"),
+    buildTo:v("pgs-item-build"),
+    bottleMl:v("pgs-item-ml")
+  },pgVendors(),reserved);
+  if(!result.ok){pgSetupError(result.error);return;}
+  if(!PourGridPropertyCatalog.saveItems(PG_STORE,result.items)){pgSetupError("Item could not be saved on this device. Try again.");return;}
+  pgRebuildCatalog();pgSetupError("");
+  toast("Item added");render();
+}
+
+function pgRemoveCustomItem(id){
+  var next=PourGridPropertyCatalog.removeItem(PG_CUSTOM_ITEMS,id);
+  if(!PourGridPropertyCatalog.saveItems(PG_STORE,next)){pgSetupError("Item could not be removed on this device. Try again.");return;}
+  pgRebuildCatalog();pgSetupError("");
+  toast("Item removed");render();
+}
+
+function pgRenamePropertyFromForm(){
+  var input=document.getElementById("pgs-property-name"),name=input?input.value.trim():"";
+  if(!name){pgSetupError("Give this property a name.");return;}
+  pgUpdateRegistry(PourGridPropertyContext.renameProperty(PG_PROPERTY_STATE.registry,PG_PROPERTY.id,name));
+  pgSetupError("");document.title=pgPropertyName()+" · Inventory & Ordering";
+  toast("Property name saved");render();
+}
+
+function pgFinishOnboarding(){
+  if(!pgSetupComplete()){pgSetupError("Add at least one vendor and one item before finishing setup.");return;}
+  pgUpdateRegistry(PourGridPropertyContext.markOnboarded(PG_PROPERTY_STATE.registry,PG_PROPERTY.id));
+  PG_PROPERTY_STATE.needsOnboarding=false;pgSetupError("");
+  toast("Setup complete");ss({screen:"home"});
+}
+
+function rSetupField(label,control){
+  var field=d("pg-setup-field"),tag=mk("label","");tag.textContent=label;
+  if(control&&control.id)tag.setAttribute("for",control.id);
+  return ap(field,tag,control);
+}
+
+function rSetup(){
+  var onboarding=pgNeedsOnboarding(),wrap=d("pg-setup"),vendors=pgVendors();
+  var head=d("pg-setup-head");
+  ap(head,d("pg-setup-kicker",onboarding?"NEW PROPERTY":"SETUP"),
+     d("pg-setup-title",onboarding?"Welcome to PourGrid":"Items & vendors"),
+     sp("pg-setup-sub",onboarding
+       ?"Set up "+pgPropertyName()+" from scratch. Nothing is shared with any other property."
+       :"Everything here belongs to "+pgPropertyName()+" only."));
+  wrap.appendChild(head);
+
+  var nameInput=mk("input","",{id:"pgs-property-name",value:pgPropertyName()});
+  nameInput.setAttribute("maxlength","60");
+  var nameCard=d("pg-setup-card");
+  ap(nameCard,d("pg-setup-step","1 · Property name"),rSetupField("What should PourGrid call this property?",nameInput),
+     btn("pg-setup-secondary","Save name",pgRenamePropertyFromForm));
+  wrap.appendChild(nameCard);
+
+  var vendorCard=d("pg-setup-card");
+  vendorCard.appendChild(d("pg-setup-step","2 · Vendors"));
+  if(vendors.length){
+    var vlist=d("pg-setup-list");
+    vendors.forEach(function(vendor){
+      var row=d("pg-setup-row"),col=pgVendorColor(vendor.name),dot=mk("i","pg-setup-dot");
+      dot.style.background=col.dot;
+      var info=d("");ap(info,d("pg-setup-row-name",vendor.name),sp("pg-setup-row-sub",(vendor.workspace==="merchants"?"Merchants workspace":"Bar workspace")+(vendor.email?" · "+vendor.email:"")));
+      ap(row,dot,info,btn("pg-setup-remove","Remove",function(){pgRemoveVendorByName(vendor.name);}));
+      vlist.appendChild(row);
+    });
+    vendorCard.appendChild(vlist);
+  }else{
+    vendorCard.appendChild(sp("pg-setup-empty","No vendors yet. Add the distributors this property orders from."));
+  }
+  var vendorName=mk("input","",{id:"pgs-vendor-name"});vendorName.setAttribute("placeholder","e.g. Bellows");
+  var vendorWorkspace=mk("select","",{id:"pgs-vendor-workspace"});
+  [["bar","Bar workspace"],["merchants","Food & produce workspace"]].forEach(function(pair){
+    var option=mk("option","");option.value=pair[0];option.textContent=pair[1];vendorWorkspace.appendChild(option);
+  });
+  var vendorEmail=mk("input","",{id:"pgs-vendor-email"});vendorEmail.setAttribute("placeholder","Optional order email");
+  var vendorGrid=d("pg-setup-grid");
+  ap(vendorGrid,rSetupField("Vendor name",vendorName),rSetupField("Workspace",vendorWorkspace),rSetupField("Order email",vendorEmail));
+  ap(vendorCard,vendorGrid,btn("pg-setup-primary","Add vendor",pgAddVendorFromForm));
+  wrap.appendChild(vendorCard);
+
+  var itemCard=d("pg-setup-card");
+  itemCard.appendChild(d("pg-setup-step","3 · Items"));
+  if(!vendors.length)itemCard.appendChild(sp("pg-setup-empty","Add a vendor first — every item is ordered from one."));
+  if(PG_CUSTOM_ITEMS.length){
+    var ilist=d("pg-setup-list");
+    PG_CUSTOM_ITEMS.forEach(function(item){
+      var row=d("pg-setup-row"),col=pgVendorColor(item.dist),dot=mk("i","pg-setup-dot");
+      dot.style.background=col.dot;
+      var info=d("");ap(info,d("pg-setup-row-name",item.name),sp("pg-setup-row-sub",item.dist+" · "+item.cat+" · "+item.pack+" per "+item.unit.toLowerCase()+" · build-to "+item.buildTo));
+      ap(row,dot,info,btn("pg-setup-remove","Remove",function(){pgRemoveCustomItem(item.id);}));
+      ilist.appendChild(row);
+    });
+    itemCard.appendChild(ilist);
+  }else if(vendors.length){
+    itemCard.appendChild(sp("pg-setup-empty","No items yet. Add this property's own SKUs one at a time."));
+  }
+  if(PG_SEED_PRODUCTS.length)itemCard.appendChild(sp("pg-setup-empty",PG_SEED_PRODUCTS.length+" items come from the published order guide and are edited from the count screens."));
+  var itemName=mk("input","",{id:"pgs-item-name"});itemName.setAttribute("placeholder","e.g. House Chardonnay");
+  var itemVendor=mk("select","",{id:"pgs-item-vendor"});
+  pgVendorNames().forEach(function(name){var option=mk("option","");option.value=name;option.textContent=name;itemVendor.appendChild(option);});
+  var itemCat=mk("input","",{id:"pgs-item-cat",value:""});itemCat.setAttribute("placeholder","e.g. Wine");
+  itemCat.setAttribute("list","pgs-item-cats");
+  var cats=mk("datalist","",{id:"pgs-item-cats"});
+  pgEditorCategories().forEach(function(name){var option=mk("option","");option.value=name;cats.appendChild(option);});
+  var itemPack=mk("input","",{id:"pgs-item-pack",type:"number",value:"12"});itemPack.setAttribute("min","1");itemPack.setAttribute("step","1");
+  var itemUnit=mk("select","",{id:"pgs-item-unit"});
+  PourGridPropertyCatalog.ORDER_UNITS.forEach(function(name){var option=mk("option","");option.value=name;option.textContent=name;itemUnit.appendChild(option);});
+  var itemBuild=mk("input","",{id:"pgs-item-build",type:"number",value:"0"});itemBuild.setAttribute("min","0");itemBuild.setAttribute("step","0.01");
+  var itemMl=mk("input","",{id:"pgs-item-ml",type:"number",value:""});itemMl.setAttribute("min","0");itemMl.setAttribute("step","1");itemMl.setAttribute("placeholder","Optional");
+  var itemGrid=d("pg-setup-grid");
+  ap(itemGrid,rSetupField("Item name",itemName),rSetupField("Vendor",itemVendor),rSetupField("Category",itemCat),
+     rSetupField("Units per case",itemPack),rSetupField("Order unit",itemUnit),rSetupField("Build-to / par",itemBuild),
+     rSetupField("Bottle size (mL)",itemMl));
+  itemGrid.appendChild(cats);
+  var addItem=btn("pg-setup-primary","Add item",pgAddItemFromForm);
+  if(!vendors.length)addItem.disabled=true;
+  ap(itemCard,itemGrid,addItem);
+  wrap.appendChild(itemCard);
+
+  wrap.appendChild(mk("div","pg-setup-validation",{id:"pgSetupError"}));
+
+  var actions=d("pg-setup-actions");
+  if(onboarding){
+    var counts=d("pg-setup-progress");
+    ap(counts,sp("",vendors.length+" vendor"+(vendors.length===1?"":"s")+" · "+PRODUCTS.length+" item"+(PRODUCTS.length===1?"":"s")));
+    actions.appendChild(counts);
+    var finish=btn("pg-setup-primary","Finish setup",pgFinishOnboarding);
+    if(!pgSetupComplete())finish.disabled=true;
+    actions.appendChild(finish);
+  }else{
+    actions.appendChild(btn("pg-setup-primary","Done",function(){ss({screen:"home"});}));
+  }
+  wrap.appendChild(actions);
+  return wrap;
+}
+
 function rHome(){
   var wrap=mk("div",""),hdr=d("pg-home-hero"),top=mk("div","pg-home-top");
   top.appendChild(d("pg-home-brand","POURGRID"));
@@ -1966,9 +2337,12 @@ function rHome(){
   dot.style.cssText="background:"+(online?"#4AD3B0":checking?"#E2AD4A":"#FF6259")+";";
   ap(connection,dot,sp("sync-lbl",online?"Online":checking?"Checking":"Offline"));top.appendChild(connection);
   var question=mk("div","pg-home-question");question.innerHTML="Inventory and ordering.<em>Ready when you are.</em>";
-  ap(hdr,top,question,d("pg-home-answer","Sapphire Beach Bar"));wrap.appendChild(hdr);
+  ap(hdr,top,question,d("pg-home-answer",pgPropertyName()));wrap.appendChild(hdr);
   var body=d("pg-home-body"),venue=d("pg-venue-lockup"),copy=d("venue-copy");
-  ap(copy,d("venue-name","Sapphire Beach Bar"),d("venue-sub","Powered by PourGrid"));venue.appendChild(copy);body.appendChild(venue);
+  ap(copy,d("venue-name",pgPropertyName()),d("venue-sub",PG_PROPERTY.organizationName?"Powered by PourGrid · "+PG_PROPERTY.organizationName:"Powered by PourGrid"));venue.appendChild(copy);body.appendChild(venue);
+  body.appendChild(rPropertySwitcher("home"));
+  var pilotBanner=rPilotBanner();if(pilotBanner)body.appendChild(pilotBanner);
+  body.appendChild(rSetupEntry());
   var full=mk("button","pg-full-count-launcher",{type:"button",onclick:pgOpenFullCount}),fullCopy=mk("div","");
   ap(fullCopy,d("","Full Count"),sp("","All current products · saved draft"));var arrow=mk("i","",{"aria-hidden":"true"});arrow.textContent="→";ap(full,fullCopy,arrow);body.appendChild(full);
   var estimator=mk("button","pg-estimator-trigger",{id:"pgEstimatorHomeTrigger",type:"button",onclick:function(){if(window.pgOpenDrinkPriceEstimator)window.pgOpenDrinkPriceEstimator();}});
@@ -1993,11 +2367,11 @@ function rStabs(active,fn,isG){
 }
 
 function rBarCountWorkspace(){
-  var filter=["all","Bellows/WI","CC1"].indexOf(S.countFilter)>=0?S.countFilter:"all",products=pgBarViewProducts(filter),wrap=d("pg-count-workspace");
+  var filterKeys=pgBarFilterKeys(),filter=filterKeys.indexOf(S.countFilter)>=0?S.countFilter:"all",products=pgBarViewProducts(filter),wrap=d("pg-count-workspace");
   var toolbar=d("pg-count-toolbar"),intro=d("pg-count-intro");ap(intro,d("",pgCountFilterLabel(filter)),sp("","One shared count. Switch views without losing entries."));
   var home=mk("button","pg-count-home",{type:"button",onclick:function(){pgApplyRoute("home");}});home.textContent="Home";ap(toolbar,intro,home);wrap.appendChild(toolbar);
   var filters=d("pg-count-filters");
-  ["all","Bellows/WI","CC1"].forEach(function(key){
+  filterKeys.forEach(function(key){
     var progress=pgSharedProgress(pgBarViewProducts(key));
     var button=mk("button","pg-count-filter"+(filter===key?" active":""),{type:"button",onclick:function(){pgOpenBarView(key);}});
     ap(button,d("",pgCountFilterLabel(key)),mk("small",""));button.querySelector("small").textContent=progress.counted+" / "+progress.total+" · "+progress.pct+"%";
@@ -2123,7 +2497,7 @@ function rCatCount(cat,prods,isG,unified){
     var val=getVal();
     var qty=cq(p,val);
     var has=pgHasPhysicalCount(p);
-    var col=DC[p.dist];
+    var col=pgVendorColor(p.dist);
     var card=d("icard pg-count-card");
     if(has)card.style.border="1.5px solid "+(qty===0?"#3DDC84":accent);
     var top=d("itop");top.onclick=function(pn){return function(e){if(e&&e.target&&e.target.tagName==="INPUT")return;s71Open(pn);};}(p.name);
@@ -2253,10 +2627,10 @@ function pgOrderLine(p,qty){
   return qty+" "+pgPlural(qty,unit,unit==="Case"?"Cases":unit+"s")+" - "+p.name;
 }
 function pgStoliFlavor(){
-  return localStorage.getItem("pourgrid-stoli-free-flavor")||"Stoli Blu";
+  return PG_STORE.getItem("pourgrid-stoli-free-flavor")||"Stoli Blu";
 }
 function pgSetStoliFlavor(v){
-  localStorage.setItem("pourgrid-stoli-free-flavor",v);
+  PG_STORE.setItem("pourgrid-stoli-free-flavor",v);
 }
 function pgCopyPlainText(body){
   var normalized=String(body||"").replace(/\r?\n/g,"\r\n");
@@ -2310,27 +2684,27 @@ function pgCloseSession(type){
 function rOrderList(prods,dists){
   var requested=S.s8Dist||null;
   var effectiveProds=prods;
-  if(requested&&requested!=="Merchants")effectiveProds=prods.filter(function(p){return p.dist===requested;});
+  if(requested&&!pgIsMerchantVendorName(requested))effectiveProds=prods.filter(function(p){return p.dist===requested;});
   var items=effectiveProds.map(pgOrderItem).filter(pgOrderItemVisible);
   if(!items.length)return rEmpty("📋","No order yet","Enter on-hand counts to generate an order.");
   var hasAdj=Object.keys(S.adjustments).some(function(k){return S.adjustments[k]!==0;});
   var sec=d("osec");
   if(requested){
-    var fb=d("s8-filter");ap(fb,sp("",requested==="Merchants"?"Merchants order":requested+" only"));
+    var fb=d("s8-filter");ap(fb,sp("",pgIsMerchantVendorName(requested)?requested+" order":requested+" only"));
     var clear=mk("button","",{onclick:function(e){if(e&&e.stopPropagation)e.stopPropagation();s8ClearDist();}});clear.textContent="Show all";fb.appendChild(clear);sec.appendChild(fb);
   }
   if(hasAdj){
     var resetRow=mk("div","");resetRow.style.cssText="display:flex;justify-content:flex-end;margin-bottom:8px;";
-    var resetBtn=btn("rfbtn","Reset adjustments",function(){s6ResetAdjustments(dists.indexOf("Merchants")>=0?"merchants":"bar");});
+    var resetBtn=btn("rfbtn","Reset adjustments",function(){s6ResetAdjustments(dists.some(pgIsMerchantVendorName)?"merchants":"bar");});
     resetBtn.style.color="#E74C3C";resetBtn.style.borderColor="#ffcdd2";
     resetRow.appendChild(resetBtn);sec.appendChild(resetRow);
   }
   var sum=d("dsum");
   dists.forEach(function(dd){
-    if(requested&&requested!=="Merchants"&&dd!==requested)return;
+    if(requested&&!pgIsMerchantVendorName(requested)&&dd!==requested)return;
     var cnt=items.filter(function(i){return i.dist===dd;}).length;
     if(!cnt)return;
-    var col=DC[dd];
+    var col=pgVendorColor(dd);
     var pill=d("dpill");pill.style.background=col.bg;
     var pn=d("dpnum",String(cnt));pn.style.color=col.text;
     var pname2=d("dpnm",dd);pname2.style.color=col.text;
@@ -2338,10 +2712,10 @@ function rOrderList(prods,dists){
   });
   sec.appendChild(sum);
   dists.forEach(function(dist){
-    if(requested&&requested!=="Merchants"&&dist!==requested)return;
+    if(requested&&!pgIsMerchantVendorName(requested)&&dist!==requested)return;
     var di=items.filter(function(p){return p.dist===dist;});
     if(!di.length)return;
-    var col=DC[dist];
+    var col=pgVendorColor(dist);
     var blk=d("dblk");
     var lrow=d("dlrow");
     var dot=mk("div","ddot");dot.style.background=col.dot;
@@ -2405,7 +2779,8 @@ function pgAppendBellowsWiSections(body,sharedLines,bellowsLines,westIndiesLines
 }
 
 function rEmailPanel(prods,dists,dk){
-  var active=S.eDist[dk]||dists[0];
+  if(!dists.length)return rEmpty("📭","No vendors yet","Add a vendor in Items & vendors before sending an order.");
+  var active=dists.indexOf(S.eDist[dk])>=0?S.eDist[dk]:dists[0];
   var WI_PRODS=["Finest Call Grenadine","Finest Call Margarita Mix","Finest Call Sweet & Sour","Stoli Vodka","Stoli Oranj","Stoli Raz","Stoli Blu","Bacardi Superior","Bacardi Gold","Bacardi Pineapple","Bombay Sapphire Gin","Hendrick's Gin","Jack Daniel's Old No. 7","Dewars White Label","Milagro Silver","Hennessy VS","Sabroso Coffee Liqueur","Blue Curacao","Manon Rose","Soca cans","Reef Life cans","Beach Life cans","White Claw - Black Cherry","Florida's Natural OJ","Florida's Natural Fruit Splash","Florida's Natural Cranberry","Florida's Natural Kiwi","Gatorade Fruit Punch 20oz","Gatorade Glacier Freeze","Gatorade Fierce Grape","Gatorade Lemon Lime","Gatorade Orange 20oz","Mountain Dew 20oz Btl","Pepsi 20oz Btl","Diet Pepsi 20oz Btl","Cherry Pepsi 20oz Btl","A&W Root Beer can","Canada Dry Tonic Water","Canada Dry Club Soda","Canada Dry Ginger Ale","Dr. Pepper can","Diet Dr. Pepper can","Sunkist Orange can","Brisk Ice Tea 20oz","Bubly Blackberry","Bubly Strawberry","Bubly Lime","Aquafina 16.9oz"];
   function buildEmail(dist){
     if(dist==="Bellows/WI"){
@@ -2426,20 +2801,20 @@ function rEmailPanel(prods,dists,dk){
       if(!sharedLines.length&&!bellowsLines.length&&!wiLines.length)return null;
       var body="Subject: Liquor Order - Bellows/WI\n\nGood afternoon,\n\nPlease see our order for this week:\n\n";
       body=pgAppendBellowsWiSections(body,sharedLines,bellowsLines,wiLines);
-      body+="\n\nThank you,\nJosh\nSapphire Beach Bar - St. Thomas, USVI";
+      body+="\n\nThank you,\n"+pgOrderSignature();
       return body;
     }
     var lines=prods.filter(function(p){return p.dist===dist;}).map(function(p){var base=cq(p,pgEffectiveCount(p)||"");var adj=S.adjustments[p.name]||0;var q=base!==null?Math.max(0,base+adj):null;return q&&q>0?(q+" "+p.unit+" - "+p.name):null;}).filter(Boolean);
     if(!lines.length)return null;
     var subj="Order - "+dist;
-    return "Subject: "+subj+"\n\nGood afternoon,\n\nPlease see our order for this week:\n\n"+lines.join("\n")+"\n\nThank you,\nJosh\nSapphire Beach Bar - St. Thomas, USVI";
+    return "Subject: "+subj+"\n\nGood afternoon,\n\nPlease see our order for this week:\n\n"+lines.join("\n")+"\n\nThank you,\n"+pgOrderSignature();
   }
   var body=buildEmail(active);
-  var col=DC[active];
+  var col=pgVendorColor(active);
   var wrap=mk("div","");wrap.style.padding="0 16px";
   var etabs=d("etabs");
   dists.forEach(function(dd){
-    var c=DC[dd];var isA=active===dd;
+    var c=pgVendorColor(dd);var isA=active===dd;
     var has=prods.filter(function(p){return p.dist===dd;}).some(function(p){var q=cq(p,pgEffectiveCount(p)||"");return q&&q>0;});
     var b=mk("button","etab",{onclick:function(ddd){return function(){var nd=Object.assign({},S.eDist);nd[dk]=ddd;ss({eDist:nd});};}(dd)});
     b.textContent=dd;b.style.background=isA?c.dot:"#fff";b.style.color=isA?"#fff":c.text;b.style.opacity=has?"1":"0.5";
@@ -2537,7 +2912,7 @@ function rHistory(){
   // ── Insights view: tap a tile to drill into that report ──────────────────
   var allProds=BAR.concat(MER);
   var predResult=calcPredictiveOrder(S.history,allProds);
-  var barOrdersCount=S.history.filter(function(e){return e.items&&e.items.some(function(i){return i.dist!=="Merchants";});}).length;
+  var barOrdersCount=S.history.filter(function(e){return e.items&&e.items.some(function(i){return !pgIsMerchantProduct(i);});}).length;
   var suggestions=calcSuggestedBuildTos(S.history,allProds);
   var varianceData=rVarianceReport(S.history);
   var freqData=rFrequency(S.history);
@@ -2749,7 +3124,9 @@ function toggleShortShip(entry,productName){
 function pgCanMutateHistory(){return !!(window.POURGRID_AUTH_CONTEXT&&window.POURGRID_AUTH_CONTEXT.capabilities&&window.POURGRID_AUTH_CONTEXT.capabilities.approve);}
 
 function rHistDet(entry){
-  var dists=["Bellows/WI","CC1","Merchants"];
+  // Current vendors first, then any historical vendor this property has since retired.
+  var dists=pgVendorNames();
+  (entry.items||[]).forEach(function(item){var name=item&&item.dist;if(name&&dists.indexOf(name)<0)dists.push(name);});
   var shortShipped=entry.shortShipped||[];
   var wrap=mk("div","");wrap.style.padding="0 16px";
   var hdr=d("dethdr");
@@ -2784,7 +3161,7 @@ function rHistDet(entry){
   dists.forEach(function(dist){
     var items=entry.items.filter(function(i){return i.dist===dist;});
     if(!items.length)return;
-    var col=DC[dist];
+    var col=pgVendorColor(dist);
     var blk=mk("div","");blk.style.marginBottom="14px";
     var lrow=d("dlrow");
     var dot=mk("div","ddot");dot.style.background=col.dot;
@@ -2871,13 +3248,13 @@ function rContent(){
     // Order Deadlines panel now lives on the Home dashboard, not here.
     ap(wrap,mk("div","",{style:{height:"12px"}}));
     if(S.bSub==="count")wrap.appendChild(rBarCountWorkspace());
-    if(S.bSub==="order")wrap.appendChild(rOrderTab(BAR,["Bellows/WI","CC1"],"bar",false));
+    if(S.bSub==="order")wrap.appendChild(rOrderTab(BAR,pgBarVendorNames(),"bar",false));
   } else if(S.tab==="merchants"){
     wrap.appendChild(rTabs2(S.mSub,function(v){if(v==="count")pgStartSession("merchants");ss({mSub:v,mCat:null});},true));
     wrap.appendChild(rS6Journey(S.mSub==="count"?"count":"order",MER));
     ap(wrap,mk("div","",{style:{height:"12px"}}));
     if(S.mSub==="count")wrap.appendChild(rMerchantsCountWorkspace());
-    if(S.mSub==="order")wrap.appendChild(rOrderTab(MER,["Merchants"],"mer",true));
+    if(S.mSub==="order")wrap.appendChild(rOrderTab(MER,pgMerchantVendorNames(),"mer",true));
   } else if(S.tab==="history"){
     wrap.appendChild(rHistory());
   }
@@ -2949,7 +3326,7 @@ function rOrderTab(prods,dists,dk,isG){
   dists.forEach(function(dd){
     var cnt=items.filter(function(i){return i.dist===dd;}).length;
     if(!cnt)return;
-    var col=DC[dd];
+    var col=pgVendorColor(dd);
     var pill=d("dpill");pill.style.background=col.bg;
     var pn=d("dpnum",String(cnt));pn.style.color=col.text;
     var pnm=d("dpnm",dd);pnm.style.color=col.text;
@@ -2959,7 +3336,7 @@ function rOrderTab(prods,dists,dk,isG){
   dists.forEach(function(dist){
     var di=items.filter(function(p){return p.dist===dist;});
     if(!di.length)return;
-    var col=DC[dist];
+    var col=pgVendorColor(dist);
     var blk=d("dblk");
     var lrow=d("dlrow");
     var dot=mk("div","ddot");dot.style.background=col.dot;
@@ -3039,12 +3416,12 @@ function rOrderTab(prods,dists,dk,isG){
       if(!sharedLines.length&&!bLines.length&&!wLines.length)return null;
       var body="Subject: Liquor Order - Bellows/WI\n\nGood afternoon,\n\nPlease see our order for this week:\n\n";
       body=pgAppendBellowsWiSections(body,sharedLines,bLines,wLines);
-      body+="\n\nThank you,\nJosh\nSapphire Beach Bar - St. Thomas, USVI";
+      body+="\n\nThank you,\n"+pgOrderSignature();
       return body;
     }
     var lines=items.filter(function(p){return p.dist===dist&&p.adjQty>0;}).map(function(p){return pgOrderLine(p,p.adjQty);});
     if(!lines.length)return null;
-    return "Subject: Order - "+dist+"\n\nGood afternoon,\n\nPlease see our order for this week:\n\n"+lines.join("\n")+"\n\nThank you,\nJosh\nSapphire Beach Bar - St. Thomas, USVI";
+    return "Subject: Order - "+dist+"\n\nGood afternoon,\n\nPlease see our order for this week:\n\n"+lines.join("\n")+"\n\nThank you,\n"+pgOrderSignature();
   }
 
   var stoliProdCard=prods.find(function(p){return p.name==="Stoli Vodka";});
@@ -3067,7 +3444,7 @@ function rOrderTab(prods,dists,dk,isG){
   if(dists.length>1){
     var dtabs=mk("div","");dtabs.style.cssText="display:flex;gap:6px;margin-bottom:10px;";
     dists.forEach(function(dd){
-      var c=DC[dd];
+      var c=pgVendorColor(dd);
       var tb=mk("button","");
       tb.dataset={};
       tb.style.cssText="flex:1;padding:8px 4px;border-radius:7px;border:1px solid var(--stroke);font-size:12px;font-weight:700;cursor:pointer;transition:all 0.15s;background:"+(activeDist===dd?c.dot:"linear-gradient(155deg,var(--panel2),var(--panel-lo))")+";color:"+(activeDist===dd?"#fff":c.text)+";";
@@ -3076,7 +3453,7 @@ function rOrderTab(prods,dists,dk,isG){
         activeDist=ddd;
         var allBtns=dtabs.querySelectorAll("button");
         allBtns.forEach(function(b2,i){
-          var dd2=dists[i];var c2=DC[dd2];
+          var dd2=dists[i];var c2=pgVendorColor(dd2);
           b2.style.background=dd2===ddd?c2.dot:"linear-gradient(155deg,var(--panel2),var(--panel-lo))";
           b2.style.color=dd2===ddd?"#fff":c2.text;
         });
@@ -3378,7 +3755,7 @@ function pgLastMerchantsOrder(){
   var hist=S.history||[];
   for(var i=0;i<hist.length;i++){
     var h=hist[i],items=h.items||[];
-    if(items.some(function(x){return x.dist==="Merchants";}))return h;
+    if(items.some(function(x){return pgIsMerchantProduct(x);}))return h;
   }
   return null;
 }
@@ -3521,7 +3898,7 @@ function rOrderNotes(currentNotes,onSave){
 function rFrequency(history){
   if(history.length<2)return null;
   var wrap=mk("div","");
-  var dists=[{n:"Bellows/WI",c:"#8FB2FF",dot:"#4FA8FF"},{n:"CC1",c:"#FF8F85",dot:"#E10A17"},{n:"Merchants",c:"#5FE0A0",dot:"#00B893"}];
+  var dists=pgVendorNames().map(function(name){var col=pgVendorColor(name);return {n:name,c:col.text,dot:col.dot};});
   dists.forEach(function(dd){
     var cnt=history.filter(function(e){return e.items.some(function(i){return i.dist===dd.n;});}).length;
     if(!cnt)return;
@@ -3597,7 +3974,7 @@ function rVarianceReport(history){
   if(history.length<2)return null;
 
   // Find two consecutive Saturday-ish counts to compare
-  var barOrders=history.filter(function(e){return e.items.some(function(i){return i.dist!=="Merchants";});});
+  var barOrders=history.filter(function(e){return e.items.some(function(i){return !pgIsMerchantProduct(i);});});
   if(barOrders.length<2)return null;
 
   var latest=barOrders[0];
@@ -3897,7 +4274,7 @@ async function syncCounts(showToast2){
 
 
 function calcPredictiveOrder(history,products){
-  var barOrders=history.filter(function(e){return e.items&&e.items.some(function(i){return i.dist!=="Merchants";});});
+  var barOrders=history.filter(function(e){return e.items&&e.items.some(function(i){return !pgIsMerchantProduct(i);});});
   if(barOrders.length<4)return {suggestions:null,weeks:barOrders.length};
   var recent=barOrders.slice(0,12);
   var suggestions=[];
@@ -4282,7 +4659,7 @@ async function countCategoryViaAI(images,products,onProgress,retryAttempts,compr
 function pgCommitVisionReviewed(products,result,isG){
   if(!result)return false;var prepared=pgVisionProducts(products),applied=PourGridVision.applyReviewedCounts(S.counts,result.reviewedResults,prepared);if(!applied.updatedNames.length){toast("No reviewed catalog products were changed");return false;}try{applied.updatedNames.forEach(function(name){var product=PRODUCTS.find(function(p){return p.name===name;});pgTouch(pgCountTypeForProduct(product),name);});lsSet("sbb-counts",applied.counts);schedulePush(applied.counts);ss({counts:applied.counts});toast(applied.updatedNames.length+" reviewed product"+(applied.updatedNames.length===1?"":"s")+" updated");return true;}catch(error){console.error("[PourGrid] inventory confirmation failed",error);return false;}
 }
-function pgOpenProductVision(name){var product=PRODUCTS.find(function(x){return x.name===name;});if(!product)return;var isG=product.dist==="Merchants",args={products:[product],isG:isG,onDone:function(result){return pgCommitVisionReviewed([product],result,isG);}};if(pgSmartCountLauncher)pgSmartCountLauncher.open(args);else pgShowSmartCountError("PourGrid Vision could not initialize. Continue with Manual Count and refresh the staging app.");}
+function pgOpenProductVision(name){var product=PRODUCTS.find(function(x){return x.name===name;});if(!product)return;var isG=pgIsMerchantProduct(product),args={products:[product],isG:isG,onDone:function(result){return pgCommitVisionReviewed([product],result,isG);}};if(pgSmartCountLauncher)pgSmartCountLauncher.open(args);else pgShowSmartCountError("PourGrid Vision could not initialize. Continue with Manual Count and refresh the staging app.");}
 
 function pgShowSmartCountError(message,error){
   console.error("[PourGrid] PourGrid Vision initialization failed",error||message);
@@ -4313,6 +4690,12 @@ function render(){
   app.innerHTML="";
   if(S.screen==="splash"){
     app.appendChild(rSplash());
+    return;
+  }
+  if(S.screen==="setup"){
+    app.appendChild(rSetup());
+    if(!pgNeedsOnboarding())app.appendChild(rNav());
+    if(S.toast){ap(app,d("toast",S.toast));}
     return;
   }
   if(S.screen==="home"){
@@ -4399,6 +4782,7 @@ if(window.screen&&window.screen.orientation&&window.screen.orientation.addEventL
   },true);
 })();
 
+document.title=pgPropertyName()+" · Inventory & Ordering";
 render();
 
 window.addEventListener("online",pgProbeConnectivity);

@@ -52,7 +52,9 @@ test('legacy device recipes import once without replacing shared recipes',()=>{
   assert.match(source,/MIGRATED_KEY='pourgrid-profit-lab-migrated-v1'/);
   assert.match(source,/known=new Set/);
   assert.match(source,/if\(!old\.name\|\|known\.has/);
-  assert.match(source,/localStorage\.setItem\(MIGRATED_KEY,'1'\)/);
+  assert.match(source,/store\(\)\.setItem\(MIGRATED_KEY,'1'\)/);
+  assert.match(source,/function store\(\)\{return window\.PG_STORE\|\|localStorage;\}/);
+  assert.doesNotMatch(source,/localStorage\.(get|set|remove)Item\(/);
 });
 
 test('Bottle Intelligence can seed a Profit Lab recipe',()=>{

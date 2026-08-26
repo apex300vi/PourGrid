@@ -2,11 +2,13 @@
 "use strict";
 var BACKUP="pourgrid-local-draft-backup-v1",QUEUE="pourgrid-shared-draft-queue-v1",SESSION="pourgrid-shared-session-v1";
 var states={},sessionId=sessionStorage.getItem(SESSION)||crypto.randomUUID();sessionStorage.setItem(SESSION,sessionId);
-function read(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback}catch(_){return fallback}}
-function write(key,value){localStorage.setItem(key,JSON.stringify(value))}
-function backupOnce(){if(localStorage.getItem(BACKUP))return;var keys=["sbb-counts","pourgrid-drafts-v1","sbb-notes","sbb-adjustments","sbb-adjustment-meta","pourgrid-session"];
- var data={version:1,createdAt:new Date().toISOString(),values:{}};keys.forEach(function(k){if(localStorage.getItem(k)!==null)data.values[k]=localStorage.getItem(k)});write(BACKUP,data)}
-function downloadBackup(){backupOnce();var a=document.createElement("a"),blob=new Blob([localStorage.getItem(BACKUP)],{type:"application/json"});a.href=URL.createObjectURL(blob);a.download="pourgrid-local-draft-backup.json";a.click();setTimeout(function(){URL.revokeObjectURL(a.href)},0)}
+// Local draft state belongs to the active property, never the device.
+function store(){return window.PG_STORE||localStorage}
+function read(key,fallback){try{return JSON.parse(store().getItem(key))??fallback}catch(_){return fallback}}
+function write(key,value){store().setItem(key,JSON.stringify(value))}
+function backupOnce(){if(store().getItem(BACKUP))return;var keys=["sbb-counts","pourgrid-drafts-v1","sbb-notes","sbb-adjustments","sbb-adjustment-meta","pourgrid-session"];
+ var data={version:1,createdAt:new Date().toISOString(),values:{}};keys.forEach(function(k){if(store().getItem(k)!==null)data.values[k]=store().getItem(k)});write(BACKUP,data)}
+function downloadBackup(){backupOnce();var a=document.createElement("a"),blob=new Blob([store().getItem(BACKUP)],{type:"application/json"});a.href=URL.createObjectURL(blob);a.download="pourgrid-local-draft-backup.json";a.click();setTimeout(function(){URL.revokeObjectURL(a.href)},0)}
 function api(){if(!window.POURGRID_SHARED_DRAFT_API)throw new Error("Shared draft service unavailable");return window.POURGRID_SHARED_DRAFT_API}
 function notify(type){window.dispatchEvent(new CustomEvent("pourgrid:shared-draft",{detail:status(type)}))}
 function set(type,patch){states[type]=Object.assign(states[type]||{type:type,status:"connecting",fields:{},queue:[],conflicts:[]},patch);notify(type);return states[type]}
