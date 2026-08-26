@@ -828,6 +828,19 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 .pg-setup-validation.show{display:block}
 .pg-setup-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .pg-setup-progress{font-size:11.5px;color:var(--text-faint);font-weight:700}
+.pg-sheet-buttons{display:flex;gap:10px;flex-wrap:wrap}
+.pg-sheet-buttons>button{flex:1 1 150px}
+.pg-sheet-steps{display:flex;flex-direction:column;gap:6px;margin:0;padding-left:17px}
+.pg-sheet-steps li{font-size:12px;color:var(--text-faint);font-weight:600;line-height:1.45}
+.pg-sheet-preview{padding:13px;border:1px solid rgba(110,190,220,.2);border-radius:15px;background:rgba(89,199,234,.06);display:flex;flex-direction:column;gap:9px}
+.pg-sheet-preview.bad{border-color:rgba(231,76,60,.32);background:rgba(231,76,60,.08)}
+.pg-sheet-file{font-size:10px;letter-spacing:1.8px;text-transform:uppercase;font-weight:800;color:var(--text-faint);word-break:break-all}
+.pg-sheet-summary{font-size:14.5px;font-weight:850;color:var(--text)}
+.pg-sheet-note{font-size:12px;color:var(--text-faint);font-weight:650;line-height:1.5}
+.pg-sheet-issues{display:flex;flex-direction:column;gap:5px;margin:0;padding-left:17px}
+.pg-sheet-issues li{font-size:11.5px;font-weight:650;line-height:1.45}
+.pg-sheet-issues.errors li{color:#FF8F85}
+.pg-sheet-issues.warnings li{color:#F2C879}
 </style><link rel="stylesheet" href="/auth-recovery.css">
 </head>
 <body class="pg-auth-pending"><div id="pgAuthRoot"><main class="pg-auth"><section class="pg-auth-card"><div class="pg-auth-kicker">POURGRID</div><h1>Sign in to PourGrid</h1><p class="pg-auth-copy">Sign in with your work email and password.</p><form id="pgAuthForm" novalidate><label for="pgAuthEmail">Work email</label><input id="pgAuthEmail" name="username" type="email" inputmode="email" autocomplete="username" required placeholder="name@example.com"><label for="pgAuthPassword">Password</label><input id="pgAuthPassword" name="password" type="password" autocomplete="current-password" required><div id="pgAuthMessage" class="pg-auth-message" role="alert" aria-live="polite">Session restoration runs in the background. You can sign in now.</div><button id="pgAuthSubmit" type="submit">Sign in</button></form></section></main></div><div class="app" id="app" hidden></div>
@@ -835,6 +848,7 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 <script src="/runtime-config.js"></script><script src="/auth-gate.js" defer></script><!-- data-pg-auth-boundary -->
 <script type="text/pourgrid-protected" data-pg-protected src="property-context.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="property-catalog.js?v=1"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="order-guide-template.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="bottle-intelligence.js?v=1.7.1.1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="smart-count-launcher.js?v=1.7.1.1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="pourgrid-vision.js?v=1.7.1.1"></script>
@@ -2296,6 +2310,137 @@ function rSetupField(label,control){
   return ap(field,tag,control);
 }
 
+// --- Order guide spreadsheet ------------------------------------------------
+// A new location should not have to type its guide in one SKU at a time. It downloads a
+// template covering beer, liquor, wine, and N/A, fills in its own SKUs and build-tos, and
+// uploads it back. The sheet only ever builds the active property's catalog: it is parsed
+// against this property's vendors and written through PG_STORE, which is namespaced per
+// property, so nothing merges with Sapphire's guide in either direction.
+
+var PG_GUIDE_IMPORT=null,PG_GUIDE_RESULT=null;
+
+function pgDownloadGuideTemplate(){
+  var csv=PourGridOrderGuideTemplate.buildTemplate({propertyName:pgPropertyName(),vendors:pgVendors()});
+  // The BOM keeps Excel from mangling accented product names when it opens the file.
+  var blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"}),url=URL.createObjectURL(blob);
+  var link=document.createElement("a");
+  link.href=url;link.download=PourGridOrderGuideTemplate.templateFilename(pgPropertyName());link.rel="noopener";
+  document.body.appendChild(link);link.click();document.body.removeChild(link);
+  setTimeout(function(){URL.revokeObjectURL(url);},4000);
+  toast("Template downloaded");
+}
+
+function pgPickGuideSheet(){
+  var input=document.createElement("input");
+  input.type="file";input.accept=".csv,text/csv,text/plain";input.style.display="none";
+  input.onchange=function(){
+    var file=input.files&&input.files[0];
+    if(input.parentNode)input.parentNode.removeChild(input);
+    if(!file)return;
+    var reader=new FileReader();
+    reader.onerror=function(){pgSetupError("That file could not be read. Save it as CSV and try again.");render();};
+    reader.onload=function(){pgReviewGuideSheet(String(reader.result||""),file.name);};
+    reader.readAsText(file);
+  };
+  document.body.appendChild(input);input.click();
+}
+
+function pgReviewGuideSheet(csv,filename){
+  PG_GUIDE_IMPORT={filename:filename||"order-guide.csv",parsed:PourGridOrderGuideTemplate.parseTemplate(csv)};
+  PG_GUIDE_RESULT=null;pgSetupError("");render();
+}
+
+function pgClearGuideImport(){PG_GUIDE_IMPORT=null;PG_GUIDE_RESULT=null;pgSetupError("");render();}
+
+function pgApplyGuideSheet(mode){
+  var pending=PG_GUIDE_IMPORT;
+  if(!pending||!pending.parsed.ok)return;
+  var result=PourGridOrderGuideTemplate.applyTemplate(pending.parsed,{
+    existingVendors:pgVendors(),
+    existingItems:PG_CUSTOM_ITEMS,
+    // Published guide products belong to whichever property owns them; a sheet can add
+    // alongside them but never shadow or replace one.
+    reservedNames:PG_SEED_PRODUCTS.map(function(p){return p.name;}),
+    mode:mode==="append"?"append":"replace"
+  });
+  if(!PourGridPropertyCatalog.saveItems(PG_STORE,result.items)){pgSetupError("The order guide could not be saved on this device. Free up space and try again.");return;}
+  pgSetVendors(result.vendors);pgRebuildCatalog();
+  // Kept in state, not in the validation box: render() rebuilds the screen underneath it.
+  PG_GUIDE_IMPORT=null;PG_GUIDE_RESULT={added:result.added.length,skipped:result.skipped};
+  pgSetupError("");
+  toast(result.added.length+" item"+(result.added.length===1?"":"s")+" imported for "+pgPropertyName());
+  render();
+}
+
+function rGuideIssues(kind,list){
+  var ul=mk("ul","pg-sheet-issues "+kind),shown=list.slice(0,8);
+  shown.forEach(function(message){var li=mk("li","");li.textContent=message;ul.appendChild(li);});
+  if(list.length>shown.length){var more=mk("li","");more.textContent="…and "+(list.length-shown.length)+" more.";ul.appendChild(more);}
+  return ul;
+}
+
+function rGuideSheetResult(){
+  var result=PG_GUIDE_RESULT;
+  if(!result)return null;
+  var box=d("pg-sheet-preview"+(result.skipped.length?" bad":""));
+  box.appendChild(d("pg-sheet-summary",result.added+" item"+(result.added===1?"":"s")+" imported"));
+  if(result.skipped.length){
+    ap(box,sp("pg-sheet-note",result.skipped.length+" row"+(result.skipped.length===1?"":"s")+" could not be added:"),
+       rGuideIssues("errors",result.skipped.map(function(row){return row.name+" — "+row.reason;})));
+  }
+  box.appendChild(ap(d("pg-sheet-buttons"),btn("pg-setup-secondary","Dismiss",pgClearGuideImport)));
+  return box;
+}
+
+function rGuideSheetPreview(){
+  var pending=PG_GUIDE_IMPORT;
+  if(!pending)return rGuideSheetResult();
+  var parsed=pending.parsed,box=d("pg-sheet-preview"+(parsed.ok?"":" bad"));
+  box.appendChild(d("pg-sheet-file",pending.filename));
+  if(parsed.fatal){
+    ap(box,d("pg-sheet-summary","Nothing imported"),sp("pg-sheet-note",parsed.fatal));
+  }else{
+    box.appendChild(d("pg-sheet-summary",PourGridOrderGuideTemplate.summary(parsed)));
+    if(parsed.skippedExamples)box.appendChild(sp("pg-sheet-note","Skipped "+parsed.skippedExamples+" example row"+(parsed.skippedExamples===1?"":"s")+" left in the template."));
+  }
+  if(parsed.errors.length){
+    ap(box,sp("pg-sheet-note","Fix these rows in the sheet and upload it again — nothing has been saved."),rGuideIssues("errors",parsed.errors));
+  }else if(parsed.warnings.length){
+    box.appendChild(rGuideIssues("warnings",parsed.warnings));
+  }
+  var actions=d("pg-sheet-buttons"),existing=PG_CUSTOM_ITEMS.length;
+  if(parsed.ok&&existing){
+    box.appendChild(sp("pg-sheet-note","This property already has "+existing+" item"+(existing===1?"":"s")+" of its own. Replacing swaps them for the sheet; adding keeps both."));
+    ap(actions,btn("pg-setup-primary","Replace with sheet",function(){pgApplyGuideSheet("replace");}),
+               btn("pg-setup-secondary","Add to current list",function(){pgApplyGuideSheet("append");}));
+  }else if(parsed.ok){
+    actions.appendChild(btn("pg-setup-primary","Import "+parsed.count+" item"+(parsed.count===1?"":"s"),function(){pgApplyGuideSheet("replace");}));
+  }
+  actions.appendChild(btn("pg-setup-secondary",parsed.ok?"Cancel":"Close",pgClearGuideImport));
+  box.appendChild(actions);
+  return box;
+}
+
+function rGuideSheetCard(step){
+  var card=d("pg-setup-card");
+  ap(card,d("pg-setup-step",step+" · Order guide sheet"),
+     sp("pg-setup-empty","The fastest way to build "+pgPropertyName()+"'s guide. The template covers beer, liquor, wine, and N/A — fill in your own SKUs and build-to levels, then upload it back. It only ever builds this property's guide; no other property's items are merged in."));
+  var steps=mk("ol","pg-sheet-steps");
+  ["Download the template — the columns and an example row for each section are already in it.",
+   "Fill in one row per SKU: section, item name, vendor, units per case, and build-to (par).",
+   "Save it as CSV and upload it here. Every row is checked before anything is saved."].forEach(function(line){
+    var li=mk("li","");li.textContent=line;steps.appendChild(li);
+  });
+  card.appendChild(steps);
+  var buttons=d("pg-sheet-buttons");
+  ap(buttons,btn("pg-setup-primary","Download template",pgDownloadGuideTemplate),
+             btn("pg-setup-secondary","Upload filled sheet",pgPickGuideSheet));
+  card.appendChild(buttons);
+  var preview=rGuideSheetPreview();
+  if(preview)card.appendChild(preview);
+  return card;
+}
+
 function rSetup(){
   var onboarding=pgNeedsOnboarding(),wrap=d("pg-setup"),vendors=pgVendors();
   var head=d("pg-setup-head");
@@ -2313,8 +2458,10 @@ function rSetup(){
      btn("pg-setup-secondary","Save name",pgRenamePropertyFromForm));
   wrap.appendChild(nameCard);
 
+  wrap.appendChild(rGuideSheetCard(2));
+
   var vendorCard=d("pg-setup-card");
-  vendorCard.appendChild(d("pg-setup-step","2 · Vendors"));
+  vendorCard.appendChild(d("pg-setup-step","3 · Vendors"));
   if(vendors.length){
     var vlist=d("pg-setup-list");
     vendors.forEach(function(vendor){
@@ -2340,7 +2487,7 @@ function rSetup(){
   wrap.appendChild(vendorCard);
 
   var itemCard=d("pg-setup-card");
-  itemCard.appendChild(d("pg-setup-step","3 · Items"));
+  itemCard.appendChild(d("pg-setup-step","4 · Items"));
   if(!vendors.length)itemCard.appendChild(sp("pg-setup-empty","Add a vendor first — every item is ordered from one."));
   if(PG_CUSTOM_ITEMS.length){
     var ilist=d("pg-setup-list");

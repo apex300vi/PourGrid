@@ -17,7 +17,7 @@ organization/location model that Phase 3 already put in place.
 | Profit Lab recipes | Supabase | `list/save/delete_profit_lab_recipe(p_organization, p_location, …)` |
 | On-device counts, drafts, notes, adjustments | `localStorage` | key namespacing, below |
 | Vendor list | `localStorage` (`pourgrid-property-vendors-v1`) | key namespacing |
-| Property-added SKUs | `localStorage` (`pourgrid-property-catalog-v1`) | key namespacing |
+| Property-added SKUs, including anything imported from an order guide sheet | `localStorage` (`pourgrid-property-catalog-v1`) | key namespacing |
 | Product/packaging edits | `localStorage` (`pourgrid-product-edits`) | key namespacing |
 
 Server-side separation was already enforced by row-level security and the location-scoped
@@ -59,9 +59,15 @@ Users with access to only one property see the property name, and no switch cont
    p_role, p_location)` or the in-app **Manage team** invitations for that location.
 3. **Sign in as the lead.** PourGrid opens the onboarding screen because the property has no
    catalog yet.
-4. **Onboard.** Name the property, add its vendors (each routed to the Bar or the food and
-   produce workspace), then add its SKUs one at a time. Finish setup is enabled once the
-   property has at least one vendor and one item.
+4. **Onboard.** Name the property, then build its guide either way:
+   - **From a spreadsheet (the fast path).** Download the order guide template, fill in the
+     property's own beer, liquor, wine, and N/A SKUs with their build-to levels, and upload
+     it back. Vendors and items are created together from the sheet. See
+     [ORDER_GUIDE_TEMPLATE.md](ORDER_GUIDE_TEMPLATE.md).
+   - **By hand.** Add its vendors (each routed to the Bar or the food and produce
+     workspace), then add its SKUs one at a time.
+
+   Finish setup is enabled once the property has at least one vendor and one item.
 5. **Count and order as normal.** The pilot property never sees Sapphire's Bellows SKU list,
    Sapphire's order guide, or Sapphire's history.
 
@@ -76,7 +82,9 @@ never blocks any feature.
 
 ## Adding items and vendors later
 
-**Home → Items & vendors** reopens the same screen after onboarding. Sapphire can use it to
-add SKUs that are not in the published v12 guide; existing guide items are still edited from
-the count screens (Bottle Intelligence → Edit product & packaging). A vendor cannot be
-removed while any item is still assigned to it.
+**Home → Items & vendors** reopens the same screen after onboarding, including the order
+guide sheet card — a property can re-upload a corrected sheet at any time, replacing its
+catalog or adding to it. Sapphire can use the screen to add SKUs that are not in the
+published v12 guide; existing guide items are reserved names that no sheet can overwrite,
+and are still edited from the count screens (Bottle Intelligence → Edit product &
+packaging). A vendor cannot be removed while any item is still assigned to it.

@@ -8,6 +8,7 @@ const path=require('node:path');
 const vm=require('node:vm');
 const Catalog=require('../property-catalog.js');
 const Context=require('../property-context.js');
+const Template=require('../order-guide-template.js');
 
 const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
 function slice(from,to){
@@ -24,7 +25,9 @@ function element(tag){
     set textContent(value){node._text=String(value);node.childNodes.length=0;},
     set innerHTML(value){node._html=String(value);},
     get innerHTML(){return node._html||'';},
-    appendChild(child){assert.ok(child&&child.tagName,'appendChild received '+child);node.childNodes.push(child);return child;},
+    appendChild(child){assert.ok(child&&child.tagName,'appendChild received '+child);node.childNodes.push(child);child.parentNode=node;return child;},
+    removeChild(child){node.childNodes=node.childNodes.filter(x=>x!==child);child.parentNode=null;return child;},
+    click(){node._clicked=(node._clicked||0)+1;},
     insertAdjacentElement(){},
     setAttribute(name,value){node.attributes[name]=String(value);},
     getAttribute(name){return node.attributes[name];},
@@ -45,10 +48,19 @@ function harness(property,options){
   const store=(()=>{const values=new Map();return {getItem:k=>values.has(k)?values.get(k):null,setItem:(k,v)=>values.set(k,String(v)),removeItem:k=>values.delete(k)};})();
   Catalog.saveVendors(store,options.vendors||[]);
   Catalog.saveItems(store,options.items||[]);
-  const vendors=Catalog.readVendors(store,property),items=Catalog.readItems(store);
+  let vendors=Catalog.readVendors(store,property);
+  const items=Catalog.readItems(store);
+  const created=[],downloads=[],toasts=[];
+  const body=element('body');
   const context={
-    document:{createElement:element,createTextNode:value=>{const node=element('#text');node.textContent=value;return node;},getElementById:()=>null,body:{style:{}}},
+    document:{createElement:tag=>{const node=element(tag);created.push(node);return node;},createTextNode:value=>{const node=element('#text');node.textContent=value;return node;},getElementById:()=>null,body:body},
     window:{},
+    created:created,downloads:downloads,toasts:toasts,renders:0,
+    Blob:function(parts,opts){this.parts=parts;this.type=opts&&opts.type;downloads.push(this);},
+    URL:{createObjectURL:()=>'blob:stub',revokeObjectURL:()=>{}},
+    PourGridProductPersistence:{stableId:product=>'id:'+product.name},
+    PourGridOrderGuideTemplate:Template,
+    PG_HALF_CASE_BEER:{},PG_CANONICAL_ORDER_ROUTES:{},
     PourGridPropertyCatalog:Catalog,PourGridPropertyContext:Context,
     PG_PROPERTY:property,PG_STORE:store,
     PG_PROPERTY_STATE:{registry:{version:1,homePropertyId:'loc-sapphire',properties:{}},needsOnboarding:!property.onboardedAt,isHome:property.seedCatalog==='sapphire-v12'},
@@ -68,7 +80,8 @@ function harness(property,options){
     pgAuthorizedProperties:()=>options.properties||[{id:property.id,name:property.displayName,organizationName:property.organizationName,locationName:property.locationName,current:true}],
     pgEditorCategories:()=>['Wine','Beer'],
     pgApplyCatalogEdits:()=>{},pgRefreshWorkspaces:()=>{},
-    pgSwitchProperty:()=>true,ss:()=>{},render:()=>{},toast:()=>{},s4Sheet:()=>{},s4CloseSheet:()=>{},
+    pgSetVendors:list=>{vendors=Catalog.normalizeVendors(list);Catalog.saveVendors(store,vendors);context.PG_VENDORS=vendors;return vendors;},
+    pgSwitchProperty:()=>true,ss:()=>{},render:()=>{context.renders++;},toast:message=>{toasts.push(message);},s4Sheet:()=>{},s4CloseSheet:()=>{},
     setTimeout:()=>0,Object,Array,String,Number,Math,JSON,Date,console
   };
   Object.assign(context,{
@@ -82,7 +95,9 @@ function harness(property,options){
     +slice('function rHome()','window.addEventListener("pourgrid:shared-draft"')
     +slice('function rHdr()','function rNav()')
     +slice('function rSplash()','var SELL_PRICES=');
-  vm.runInNewContext(source+';this.rSetup=rSetup;this.rPropertySwitcher=rPropertySwitcher;this.rPilotBanner=rPilotBanner;this.rSetupEntry=rSetupEntry;this.pgPropertyInitials=pgPropertyInitials;this.pgSetupComplete=pgSetupComplete;this.rHome=rHome;this.rHdr=rHdr;this.rSplash=rSplash;',context);
+  vm.runInNewContext(source+';this.rSetup=rSetup;this.rPropertySwitcher=rPropertySwitcher;this.rPilotBanner=rPilotBanner;this.rSetupEntry=rSetupEntry;this.pgPropertyInitials=pgPropertyInitials;this.pgSetupComplete=pgSetupComplete;this.rHome=rHome;this.rHdr=rHdr;this.rSplash=rSplash;'
+    +'this.rGuideSheetCard=rGuideSheetCard;this.pgDownloadGuideTemplate=pgDownloadGuideTemplate;this.pgReviewGuideSheet=pgReviewGuideSheet;this.pgApplyGuideSheet=pgApplyGuideSheet;this.pgClearGuideImport=pgClearGuideImport;',context);
+  context.store=store;
   return context;
 }
 
@@ -178,4 +193,133 @@ test('Home, header, and splash carry the active property, not hard-coded Sapphir
   assert.match(textOf(sapphire.rHome()),/Sapphire Beach Bar/);
   assert.match(textOf(sapphire.rSplash()),/SAPPHIRE/);
   assert.equal(textOf(sapphire.rHome()).includes('Pilot ·'),false);
+});
+
+// --- Order guide spreadsheet onboarding -------------------------------------
+
+const GUIDE_HEADER='Section,Category,Item Name,Vendor,Vendor Workspace,Vendor Email,Order Unit,Units Per Case,Bottle Size (mL),Build-To (Par),Notes';
+function guideSheet(rows){return [GUIDE_HEADER].concat(rows).join('\r\n')+'\r\n';}
+
+test('the setup screen offers the order guide sheet before the one-at-a-time forms',()=>{
+  const screen=textOf(harness(PILOT,{}).rSetup());
+  assert.match(screen,/2 · Order guide sheet/);
+  assert.match(screen,/3 · Vendors/);
+  assert.match(screen,/4 · Items/);
+  assert.match(screen,/beer, liquor, wine, and N\/A/);
+  assert.match(screen,/no other property's items are merged in/);
+  assert.match(screen,/Download template/);
+  assert.match(screen,/Upload filled sheet/);
+});
+
+test('downloading the template hands back a CSV named for this property',()=>{
+  const app=harness(PILOT,{vendors:Catalog.addVendor([],{name:'Island Beverage'}).vendors});
+  app.pgDownloadGuideTemplate();
+  assert.equal(app.downloads.length,1);
+  assert.match(app.downloads[0].type,/text\/csv/);
+  const link=app.created.filter(node=>node.tagName==='A').pop();
+  assert.equal(link.download,'PourGrid-Order-Guide-Template-SeaSalt.csv');
+  assert.equal(link._clicked,1);
+  assert.equal(link.parentNode,null,'the anchor is cleaned up again');
+  const csv=String(app.downloads[0].parts[0]);
+  assert.equal(csv.charCodeAt(0),0xFEFF,'Excel gets a byte order mark');
+  const parsed=Template.parseTemplate(csv);
+  assert.equal(parsed.skippedExamples,8);
+  assert.match(csv,/Island Beverage/);
+  assert.deepEqual(app.toasts,['Template downloaded']);
+});
+
+test('uploading a filled sheet previews it and then builds the property’s own guide',()=>{
+  const app=harness(PILOT,{});
+  app.pgReviewGuideSheet(guideSheet([
+    'BEER,Beer,Carib Cans,Island Beverage,Bar,orders@island.example,Case,1,,20,',
+    'LIQUOR,Vodka,House Vodka,Island Beverage,Bar,,Case,12,1000,36,',
+    'WINE,Wine,House Chardonnay,Vintners,Bar,,Case,12,750,24,',
+    'NA,Mixer,Lime Juice,Produce Co,Food & produce,,Case,12,1000,8,'
+  ]),'seasalt-guide.csv');
+  const preview=textOf(app.rSetup());
+  assert.match(preview,/seasalt-guide\.csv/);
+  assert.match(preview,/4 items · 3 vendors · 1 beer, 1 liquor, 1 wine, 1 n\/a/);
+  assert.match(preview,/Import 4 items/);
+  assert.equal(app.pgSetupComplete(),false,'nothing is saved until the import is confirmed');
+
+  app.pgApplyGuideSheet('replace');
+  assert.deepEqual(Catalog.readItems(app.store).map(item=>item.name),['Carib Cans','House Vodka','House Chardonnay','Lime Juice']);
+  assert.deepEqual(Catalog.vendorNames(Catalog.readVendors(app.store,PILOT)),['Island Beverage','Vintners','Produce Co']);
+  assert.deepEqual(app.PRODUCTS.map(product=>product.name),['Carib Cans','House Vodka','House Chardonnay','Lime Juice']);
+  assert.equal(app.PG_GUIDE_IMPORT,null);
+  assert.equal(app.pgSetupComplete(),true,'Finish setup is now unlocked');
+  assert.deepEqual(app.toasts,['4 items imported for SeaSalt']);
+
+  const after=textOf(app.rSetup());
+  assert.match(after,/House Chardonnay/);
+  assert.match(after,/Vintners · Wine · 12 per case · build-to 24/);
+  assert.match(after,/Produce Co/);
+  assert.match(after,/Food & produce workspace/);
+});
+
+test('a sheet with bad rows shows every problem and saves nothing',()=>{
+  const app=harness(PILOT,{});
+  app.pgReviewGuideSheet(guideSheet([
+    'BEER,Beer,Carib Cans,,Bar,,Case,1,,20,',
+    'SNACKS,Chips,Plantain Chips,Produce Co,,,Case,1,,4,'
+  ]),'broken.csv');
+  const screen=textOf(app.rSetup());
+  assert.match(screen,/Fix these rows in the sheet and upload it again/);
+  assert.match(screen,/Row 2 \(Carib Cans\): add the vendor/);
+  assert.match(screen,/Row 3 \(Plantain Chips\): Section must be BEER, LIQUOR, WINE, or N\/A/);
+  assert.doesNotMatch(screen,/Import 2 items/);
+  app.pgApplyGuideSheet('replace');
+  assert.deepEqual(Catalog.readItems(app.store),[]);
+  assert.deepEqual(app.toasts,[]);
+
+  app.pgClearGuideImport();
+  assert.equal(app.PG_GUIDE_IMPORT,null);
+  assert.doesNotMatch(textOf(app.rSetup()),/broken\.csv/);
+});
+
+test('a file that is not the template is refused with an explanation',()=>{
+  const app=harness(PILOT,{});
+  app.pgReviewGuideSheet('sales,covers\n1200,88\n','last-week.csv');
+  const screen=textOf(app.rSetup());
+  assert.match(screen,/Nothing imported/);
+  assert.match(screen,/needs a header row with an "Item Name" column/);
+  assert.match(screen,/Close/);
+});
+
+test('a re-upload can replace or extend a property’s existing items',()=>{
+  const vendors=Catalog.addVendor([],{name:'Island Beverage',workspace:'bar'}).vendors;
+  const items=Catalog.addItem([],{name:'Hand Added Rum',dist:'Island Beverage',cat:'Rum',pack:12,unit:'Case',buildTo:6},vendors).items;
+  const app=harness(PILOT,{vendors,items});
+  app.pgReviewGuideSheet(guideSheet(['BEER,Beer,Carib Cans,Island Beverage,Bar,,Case,1,,20,']),'more.csv');
+  const screen=textOf(app.rSetup());
+  assert.match(screen,/This property already has 1 item of its own/);
+  assert.match(screen,/Replace with sheet/);
+  assert.match(screen,/Add to current list/);
+
+  app.pgApplyGuideSheet('append');
+  assert.deepEqual(Catalog.readItems(app.store).map(item=>item.name),['Hand Added Rum','Carib Cans']);
+
+  app.pgReviewGuideSheet(guideSheet(['WINE,Wine,House Chardonnay,Island Beverage,Bar,,Case,12,750,24,']),'fresh.csv');
+  app.pgApplyGuideSheet('replace');
+  assert.deepEqual(Catalog.readItems(app.store).map(item=>item.name),['House Chardonnay']);
+});
+
+test('an uploaded sheet can never overwrite a published guide product',()=>{
+  const app=harness(HOME,{vendors:Catalog.SAPPHIRE_VENDORS,seed:[{name:'Stoli Vodka',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',buildTo:125}]});
+  app.pgReviewGuideSheet(guideSheet([
+    'LIQUOR,Vodka,Stoli Vodka,Bellows/WI,Bar,,Case,12,1000,1,',
+    'LIQUOR,Vodka,New House Vodka,Bellows/WI,Bar,,Case,12,1000,24,'
+  ]),'sapphire-extras.csv');
+  app.pgApplyGuideSheet('replace');
+  assert.deepEqual(Catalog.readItems(app.store).map(item=>item.name),['New House Vodka']);
+  assert.equal(app.PRODUCTS.filter(product=>product.name==='Stoli Vodka')[0].buildTo,125);
+  assert.deepEqual(app.toasts,['1 item imported for Sapphire Beach Bar']);
+
+  // The outcome survives the re-render that follows the import.
+  const after=textOf(app.rSetup());
+  assert.match(after,/1 item imported/);
+  assert.match(after,/1 row could not be added/);
+  assert.match(after,/Stoli Vodka — An item with that name already exists\./);
+  app.pgClearGuideImport();
+  assert.doesNotMatch(textOf(app.rSetup()),/could not be added/);
 });
