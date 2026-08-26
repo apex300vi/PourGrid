@@ -4,7 +4,9 @@ PourGrid is an ordering and photo-counting application for bar and restaurant pr
 runs at Sapphire Beach Bar and supports a second pilot property alongside it — see
 [docs/MULTI_PROPERTY_PILOT.md](docs/MULTI_PROPERTY_PILOT.md). A new location builds its own
 order guide from a downloadable spreadsheet rather than by hand — see
-[docs/ORDER_GUIDE_TEMPLATE.md](docs/ORDER_GUIDE_TEMPLATE.md).
+[docs/ORDER_GUIDE_TEMPLATE.md](docs/ORDER_GUIDE_TEMPLATE.md). An order counts as saved only
+when the server confirms it, and an order held on a device is recoverable — see
+[docs/ORDER_SAVE_RECOVERY.md](docs/ORDER_SAVE_RECOVERY.md).
 
 ## Current baseline
 

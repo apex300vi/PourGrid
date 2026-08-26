@@ -58,14 +58,55 @@ test('database CI applies and executes the save migration',()=>{
 });
 
 test('network and session failures retain the draft and expose actionable feedback',()=>{
-  const submission=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));
-  assert.match(submission,/\.catch\(function\(error\)/);
-  assert.match(submission,/this draft is still saved on this device/i);
-  const clearIndex=submission.indexOf('pgClearWorkflowDraft(activeType');
-  const successIndex=submission.indexOf('if(dbId)');
-  const catchIndex=submission.indexOf('.catch(function(error)');
-  assert.ok(clearIndex>successIndex&&clearIndex<catchIndex);
-  assert.doesNotMatch(submission.slice(catchIndex),/pgClearWorkflowDraft/);
+  const orchestration=html.slice(html.indexOf('// ── Order save orchestration'),html.indexOf('function rOrderTab(prods,dists,dk,isG)'));
+  // History, the deadline stamp, and the count clear all sit behind a confirmed server id.
+  const completeIndex=orchestration.indexOf('function pgCompleteOrderSave');
+  const failureIndex=orchestration.indexOf('function pgReportOrderSaveFailure');
+  const clearIndex=orchestration.indexOf('pgClearWorkflowDraft(activeType');
+  assert.ok(completeIndex>=0&&failureIndex>=0&&clearIndex>completeIndex,'the count clears inside the confirmed-save path');
+  const failure=orchestration.slice(failureIndex,orchestration.indexOf('function pgOrderSaveOwnsActiveDraft'));
+  assert.doesNotMatch(failure,/pgClearWorkflowDraft/,'a failed save keeps the draft on the device');
+  assert.doesNotMatch(failure,/s5ShowSuccess/,'a failed save must never render the success card');
+  assert.match(failure,/s5ShowFailure\("Order NOT saved"/);
+  assert.match(failure,/pgRetryPendingOrderSave/,'the failure offers a retry');
+  assert.match(orchestration,/is NOT in order history/);
+  // The save button hands the whole outcome to the orchestration, with nothing optimistic.
+  const submission=html.slice(html.indexOf('function rOrderTab(prods,dists,dk,isG)'),html.indexOf('function calcSuggestedBuildTos'));
+  assert.match(submission,/pgSubmitOrderSave\(entry,activeType,isG\)/);
+  assert.doesNotMatch(submission,/s5ShowSuccess|pgClearWorkflowDraft/);
+});
+
+test('a confirmed server order id is the only thing that counts as saved',()=>{
+  const orchestration=html.slice(html.indexOf('// ── Order save orchestration'),html.indexOf('function rOrderTab(prods,dists,dk,isG)'));
+  assert.match(orchestration,/PourGridOrderSave\.stage\(pgOrderSaveStore\(\),entry/);
+  assert.match(orchestration,/PourGridOrderSave\.submit\(entry,\{/);
+  assert.match(orchestration,/PourGridOrderSave\.resolve\(pgOrderSaveStore\(\),entry\.draftId,result\.orderId\)/);
+  // Recovery never re-enters the shared-draft route: a second draft identity for the same
+  // order is how one order becomes two rows in History.
+  const retry=orchestration.slice(orchestration.indexOf('function pgRetryPendingOrderSave'));
+  assert.match(retry,/PourGridOrderSave\.submit\(record\.entry,\{saveDirect:saveDB\}\)/);
+  assert.doesNotMatch(retry.slice(0,retry.indexOf('function pgRetryAllPendingOrderSaves')),/finalizeShared/);
+  assert.match(html,/src="order-save\.js/);
+});
+
+test('the failure card is visually and textually distinct from the success card',()=>{
+  const shell=html.slice(html.indexOf('function s5ResetSuccessCard'),html.indexOf('function s5HideSuccess'));
+  assert.match(shell,/function s5ShowFailure\(title,text,retryLabel,onRetry\)/);
+  assert.match(shell,/not in order history/);
+  assert.match(shell,/classList\.add\('fail'\)/);
+  assert.match(shell,/s5-retry/);
+  assert.match(html,/\.s5-success\.fail \.s5-check\{/);
+});
+
+test('the shared draft flags the failures that never reached the database',()=>{
+  const drafts=fs.readFileSync('shared-drafts.js','utf8');
+  assert.match(drafts,/function neverSent\(text\)\{var error=new Error\(text\);error\.pgNeverSent=true/);
+  assert.match(drafts,/throw neverSent\("Shared draft service unavailable"\)/);
+  assert.match(drafts,/throw neverSent\("Shared draft is not fully synced"\)/);
+  // Everything from api().finalize onward has an unknown outcome and is deliberately unflagged.
+  const finalize=drafts.slice(drafts.indexOf('async function finalize'),drafts.indexOf('async function init'));
+  assert.match(finalize,/catch\(e\)\{if\(e&&typeof e==="object"\)e\.pgNeverSent=true/);
+  assert.doesNotMatch(finalize.slice(finalize.indexOf('api().finalize')),/pgNeverSent/);
 });
 
 test('saveDB returns the server order id and propagates failures',async()=>{

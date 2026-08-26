@@ -408,7 +408,8 @@ test('Deep Eddy Grapefruit adjustment persists under the active Bar draft and re
   assert.match(remove,/delete adjustments\[product\.name\]/);assert.match(remove,/delete meta\[product\.name\]/);assert.match(remove,/pgPersistDraft\(type\)/);
   assert.match(remove,/function pgStepManualAdjustment/);assert.match(remove,/pgStartSession\(type\)/);
   const submission=html.slice(html.indexOf('var saveBtn=mk'),html.indexOf('function calcSuggestedBuildTos'));
-  assert.match(submission,/calculatedOrderQty:base===null\?0:base/);assert.match(submission,/manualAdjustment:adj/);assert.match(submission,/finalOrderQty:final/);assert.match(submission,/draftId:activeSession\.id/);
+  assert.match(submission,/calculatedOrderQty:base===null\?0:base/);assert.match(submission,/manualAdjustment:adj/);assert.match(submission,/finalOrderQty:final/);
+  assert.match(submission,/draftIdentity=activeSession\.id\|\|\(pgDraftRecord\(activeType,true\)\|\|\{\}\)\.id\|\|null/);assert.match(submission,/draftId:draftIdentity/);
   assert.doesNotMatch(setter,/S\.counts\s*=|buildTo\s*=|pgSaveCatalogEdits/);
 });
 
@@ -524,8 +525,10 @@ test('confirmed Merchants clear removes every draft surface persistently and is 
 
 test('workflow submission clears only its own draft and preserves draft identity in History',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
-  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));
-  assert.match(order,/activeType=isG\?"merchants":"bar"/);assert.match(order,/draftId:activeSession\.id\|\|null/);assert.match(order,/orderType:activeType/);
+  // The submission composes the payload; pgCompleteOrderSave clears the draft, and only
+  // once the server has confirmed the order id.
+  const order=html.slice(html.indexOf('// ── Order save orchestration'),html.indexOf('function calcSuggestedBuildTos'));
+  assert.match(order,/activeType=isG\?"merchants":"bar"/);assert.match(order,/draftId:draftIdentity/);assert.match(order,/orderType:activeType/);
   assert.match(order,/counts:pgWorkflowCountSnapshot\(activeType\)/);
   assert.match(order,/pgClearWorkflowDraft\(activeType,\{render:false\}\)/);
   assert.doesNotMatch(order,/var clearedCounts=\{\}/);assert.doesNotMatch(order,/adjustments:\{\}/);

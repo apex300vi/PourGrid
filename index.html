@@ -480,6 +480,17 @@ textarea,input[type=text],input[type=email],input[type=number]{font-size:16px!im
 .s6-sheet-detail{display:flex;justify-content:space-between;gap:10px;padding:11px 0;border-top:1px solid rgba(255,255,255,.065);font-size:12px}.s6-sheet-detail span:first-child{color:#8DA4B2}.s6-sheet-detail strong{color:#F2F5F5;text-align:right}
 .s6-savebar{position:sticky;bottom:86px;z-index:7;margin:0 14px 9px;padding:10px;border-radius:20px;background:rgba(5,20,32,.90);border:1px solid rgba(132,198,222,.13);backdrop-filter:blur(22px) saturate(145%);box-shadow:0 16px 44px rgba(0,0,0,.36)}.s6-savebar .savebtn{margin:0!important;min-height:53px!important;border-radius:15px!important}
 .s6-success-note{margin-top:5px;color:#86A0AE;font-size:11px;line-height:1.4}
+/* A failed save must never borrow the green success card: the whole bug was a save that
+   only reached the device being presented as if it had reached the server. */
+.s5-success.fail .s5-success-card{border-color:rgba(255,107,95,.4)}
+.s5-success.fail .s5-check{background:rgba(255,107,95,.14);border-color:rgba(255,107,95,.42);color:#FF8F85}
+.s5-success.fail .s6-success-note{color:#FF8F85;font-weight:800}
+.s5-success.fail .s5-success-card button.s5-retry{background:#FF6B5F;color:#160707;margin-bottom:9px}
+.pg-order-recovery{margin:0 16px 12px;padding:13px 14px;border-radius:16px;background:linear-gradient(150deg,rgba(255,107,95,.16),rgba(255,107,95,.06));border:1px solid rgba(255,107,95,.4);display:flex;flex-direction:column;gap:7px}
+.pg-order-recovery-title{font-size:13.5px;font-weight:850;color:#FFC7C1;letter-spacing:-.1px}
+.pg-order-recovery-row{font-size:11px;font-weight:700;color:#F0B7B1;line-height:1.45;word-break:break-word}
+.pg-order-recovery-note{font-size:10.5px;font-weight:650;color:#D9A9A4;line-height:1.45}
+.pg-order-recovery-save{min-height:46px;width:100%;border:0;border-radius:13px;background:#FF6B5F;color:#160707;font-size:14px;font-weight:850;cursor:pointer}
 @media(max-width:350px){.s6-step .txt{display:none}.s6-journey{grid-template-columns:1fr 18px 1fr 18px 1fr}}
 
 
@@ -857,7 +868,8 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 <script type="text/pourgrid-protected" data-pg-protected src="seasonal-profiles.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="predictive-ordering.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="order-pipeline.js?v=1"></script>
-<script type="text/pourgrid-protected" data-pg-protected src="shared-drafts.js?v=1"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="order-save.js?v=1"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="shared-drafts.js?v=2"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="drink-price-estimator.js?v=2"></script>
 <script type="text/pourgrid-protected" data-pg-protected>
 
@@ -1440,6 +1452,8 @@ function pgPaintConnectivity(){
 function pgSetConnectivity(state){
   var previous=S.connectivity;S.connectivity=state;pgPaintConnectivity();
   if(previous==="offline"&&state==="online"&&typeof pushCounts==="function")try{pushCounts(S.counts)}catch(e){}
+  // An order held on the device is the first thing to push once the server is reachable again.
+  if(previous!=="online"&&state==="online"&&typeof pgRetryAllPendingOrderSaves==="function")try{pgRetryAllPendingOrderSaves({silent:true})}catch(e){}
 }
 function pgProbeConnectivity(){
   if(pgConnectivityInFlight)return pgConnectivityInFlight;
@@ -3523,6 +3537,158 @@ function rTabs2(active,fn,isG){
   return wrap;
 }
 
+// ── Order save orchestration ────────────────────────────────────────────────
+// Order history is the system of record: build-to tracking and predictive ordering read
+// from it, so an order that only exists in localStorage is lost work, not a saved order.
+// PourGrid therefore reports "saved" only when the server returns an order id. Everything
+// else is a loud failure with a retry, and the payload is staged on the device first so a
+// failed save — or a phone that dies mid-request — leaves a recoverable order behind.
+function pgOrderSaveStore(){return PG_STORE;}
+// Staged orders whose request is still open. They are on disk so a closed tab still recovers
+// them, but they are not "unsaved" on screen until the attempt actually comes back.
+var PG_ORDER_SAVE_INFLIGHT={};
+function pgPendingOrderSaves(){
+  if(!window.PourGridOrderSave)return [];
+  return PourGridOrderSave.list(pgOrderSaveStore()).filter(function(row){return !PG_ORDER_SAVE_INFLIGHT[row.draftId];});
+}
+function pgOrderSaveFailureMessage(error){
+  var detail=String(error&&error.message||"");
+  if(/already saved with different contents/i.test(detail))return "This draft was already saved with different contents. Open History to check before retrying.";
+  if(/session|jwt|sign in|authenticated|42501|access is required/i.test(detail))return "Your secure session expired, so nothing reached order history. Sign in again, then tap Retry — the order is held on this device.";
+  if(/network|fetch|offline|timeout|abort/i.test(detail))return "No connection to the server, so nothing reached order history. The order is held on this device — tap Retry when you have signal.";
+  return "This order is NOT in order history. It is held on this device until it saves. Tap Retry, or contact support with the current time.";
+}
+// The order stays out of History, deadlines, and the count clear until the server confirms,
+// so failing loudly here is the whole point: a silent local save is what lost the order.
+function pgReportOrderSaveFailure(entry,error){
+  console.error("[PourGrid order save]",{message:String(error&&error.message||error),code:error&&error.code||null,draftId:entry&&entry.draftId||null});
+  var message=pgOrderSaveFailureMessage(error);
+  // On a device with no storage headroom the payload could not be held, so there is nothing to
+  // retry from — say so rather than offering a button that quietly finds nothing.
+  var held=!!(window.PourGridOrderSave&&entry&&PourGridOrderSave.find(pgOrderSaveStore(),entry.draftId));
+  toast("NOT saved to order history");
+  if(typeof s5ShowFailure==="function"){
+    if(held)s5ShowFailure("Order NOT saved",message,"Retry save",function(){pgRetryPendingOrderSave(entry&&entry.draftId);});
+    else s5ShowFailure("Order NOT saved",message+" This device is out of storage, so the order could not be held — keep the count on screen and save again from Order & Send.",null,null);
+  }
+  render();
+}
+// Clearing the workspace is only correct while the saved draft is still the active one. A
+// recovery retry that lands days later must not wipe the count Josh has since started.
+function pgOrderSaveOwnsActiveDraft(entry,activeType){
+  var id=String(entry&&entry.draftId||"");
+  if(!id)return false;
+  var session=pgSession()[activeType]||{},record=pgDraftRecord(activeType,false)||{};
+  return String(session.id||"")===id||String(record.id||"")===id;
+}
+function pgCompleteOrderSave(entry,result,isG,activeType){
+  entry._dbId=result.orderId;
+  var keys=isG?["merchants-wed","merchants-sun"]:["bellows","cc1"];
+  if(isG){
+    var dls=getDeadlines();
+    var mw=dls.find(function(d){return d.key==="merchants-wed";});
+    var ms=dls.find(function(d){return d.key==="merchants-sun";});
+    keys=mw&&mw.deadline<ms.deadline?["merchants-wed"]:["merchants-sun"];
+  }
+  var o=Object.assign({},S.ordered);
+  keys.forEach(function(k){o[k]=Date.now();});
+  lsSet("sbb-ordered",o);
+  saveDeadlines(o);
+  if(pgOrderSaveOwnsActiveDraft(entry,activeType)){
+    pgClearWorkflowDraft(activeType,{render:false});
+    lsSet("sbb-counts-cleared",Date.now());pushCounts(S.counts);
+  }
+  ss({history:[entry].concat(S.history),notes:S.notes,ordered:o,adjustments:S.adjustments,adjustmentMeta:S.adjustmentMeta,counts:S.counts,bSub:"count",mSub:"count",bCat:null,mCat:null});
+  toast("Saved to order history ✓");
+  if(typeof s5ShowSuccess==="function")s5ShowSuccess("Order saved","Order #"+result.orderId+" is written to this location's order history"+(result.route==="direct"?" (saved directly after the shared draft was unavailable)":"")+". Deadlines updated and the active count cleared for the next inventory.");
+}
+function pgSubmitOrderSave(entry,activeType,isG){
+  if(!window.PourGridOrderSave){
+    var missing=new Error("The order save module did not load. Reload PourGrid and try again.");
+    pgReportOrderSaveFailure(entry,missing);
+    return Promise.reject(missing);
+  }
+  // Staged before the request, not after it fails: a save that never returns still leaves
+  // a recoverable order rather than nothing at all.
+  try{PourGridOrderSave.stage(pgOrderSaveStore(),entry,{orderType:activeType,label:(isG?"Merchants":"Bar")+" order"});}
+  catch(error){pgReportOrderSaveFailure(entry,error);return Promise.reject(error);}
+  PG_ORDER_SAVE_INFLIGHT[entry.draftId]=true;
+  return PourGridOrderSave.submit(entry,{
+    finalizeShared:window.PourGridSharedDraft?function(order){return window.PourGridSharedDraft.finalize(activeType,order);}:null,
+    saveDirect:saveDB
+  }).then(function(result){
+    delete PG_ORDER_SAVE_INFLIGHT[entry.draftId];
+    PourGridOrderSave.resolve(pgOrderSaveStore(),entry.draftId,result.orderId);
+    pgCompleteOrderSave(entry,result,isG,activeType);
+    return result;
+  },function(error){
+    delete PG_ORDER_SAVE_INFLIGHT[entry.draftId];
+    PourGridOrderSave.fail(pgOrderSaveStore(),entry.draftId,error);
+    pgReportOrderSaveFailure(entry,error);
+    throw error;
+  });
+}
+// Recovery replays the staged payload byte for byte down the direct route only.
+// save_location_order is idempotent on the draft identity and rejects a changed payload for
+// the same draft, so a retry after a lost response returns the original order id instead of
+// writing a second one. Re-entering the shared-draft route would use a different identity.
+function pgRetryPendingOrderSave(draftId,options){
+  options=options||{};
+  if(!window.PourGridOrderSave)return Promise.resolve(false);
+  var record=PourGridOrderSave.find(pgOrderSaveStore(),draftId);
+  if(!record)return Promise.resolve(false);
+  if(PG_ORDER_SAVE_INFLIGHT[record.draftId])return Promise.resolve(false);
+  if(!options.silent){
+    if(typeof s5HideSuccess==="function")s5HideSuccess();
+    toast("Saving to order history…");
+  }
+  PG_ORDER_SAVE_INFLIGHT[record.draftId]=true;
+  return PourGridOrderSave.submit(record.entry,{saveDirect:saveDB}).then(function(result){
+    delete PG_ORDER_SAVE_INFLIGHT[record.draftId];
+    PourGridOrderSave.resolve(pgOrderSaveStore(),record.draftId,result.orderId);
+    pgCompleteOrderSave(record.entry,result,record.orderType==="merchants",record.orderType);
+    return true;
+  },function(error){
+    delete PG_ORDER_SAVE_INFLIGHT[record.draftId];
+    PourGridOrderSave.fail(pgOrderSaveStore(),record.draftId,error);
+    // A background sweep records the attempt but never interrupts: the banner is already
+    // on screen, and an unprompted red modal on every reconnect would train Josh to ignore it.
+    if(options.silent)console.warn("[PourGrid order recovery]",String(error&&error.message||error));
+    else pgReportOrderSaveFailure(record.entry,error);
+    if(options.silent)render();
+    return false;
+  });
+}
+function pgRetryAllPendingOrderSaves(options){
+  options=options||{};
+  if(options.silent&&!window.POURGRID_ORDER_API)return Promise.resolve(false);
+  return pgPendingOrderSaves().reduce(function(chain,row){
+    return chain.then(function(){return pgRetryPendingOrderSave(row.draftId,options);});
+  },Promise.resolve(false));
+}
+function pgOrderRecoveryHeadline(count){
+  return count===1?"1 order is not in order history yet":count+" orders are not in order history yet";
+}
+function rPendingOrderSaves(){
+  var rows=pgPendingOrderSaves();
+  if(!rows.length)return null;
+  var box=d("pg-order-recovery");
+  box.setAttribute("role","alert");
+  ap(box,d("pg-order-recovery-title","⚠️ "+pgOrderRecoveryHeadline(rows.length)));
+  rows.forEach(function(row){
+    var entry=row.entry||{},items=Array.isArray(entry.items)?entry.items.length:0;
+    var line=d("pg-order-recovery-row");
+    line.textContent=(row.label||(row.orderType==="merchants"?"Merchants":"Bar")+" order")+" · "+
+      String(entry.date||"").trim()+" "+String(entry.time||"").trim()+" · "+items+" item"+(items===1?"":"s")+
+      (row.attempts?" · "+row.attempts+" failed attempt"+(row.attempts===1?"":"s"):"")+
+      (row.lastError?" · "+row.lastError:"");
+    ap(box,line);
+  });
+  ap(box,d("pg-order-recovery-note","Held on this device only. Order history, build-to tracking, and predictive ordering cannot see it until it is saved to the server."));
+  ap(box,btn("pg-order-recovery-save","Save to order history now",function(){pgRetryAllPendingOrderSaves();}));
+  return box;
+}
+
 function rOrderTab(prods,dists,dk,isG){
   var accent=isG?"#4AD3B0":"#59C7EA";
   var sharedType=isG?"merchants":"bar";
@@ -3768,35 +3934,13 @@ function rOrderTab(prods,dists,dk,isG){
     toast("Saving...");
     var currentNote=S.notes[dk]||"";
     var activeType=isG?"merchants":"bar",activeSession=pgSession()[activeType]||{};
-    var entry={id:Date.now(),draftId:activeSession.id||null,orderType:activeType,date:new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}),time:new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}),note:currentNote,counts:pgWorkflowCountSnapshot(activeType),countDetails:pgHalfCaseCountDetails(activeType),items:saveItems,emails:emails,emailStatus:status,seasonalProfile:activeSession.seasonalProfile||pgNormalSeasonalSnapshot(),calculationVersion:"seasonal-build-to-v1.0.0",stoliFreeFlavor:pgStoliFlavor()};
-    var sharedSave=window.PourGridSharedDraft?window.PourGridSharedDraft.finalize(activeType,entry):saveDB(entry);
-    sharedSave.then(function(dbId){
-      if(dbId){
-        entry._dbId=dbId;
-        var keys=isG?["merchants-wed","merchants-sun"]:["bellows","cc1"];
-        if(isG){
-          var dls=getDeadlines();
-          var mw=dls.find(function(d){return d.key==="merchants-wed";});
-          var ms=dls.find(function(d){return d.key==="merchants-sun";});
-          keys=mw&&mw.deadline<ms.deadline?["merchants-wed"]:["merchants-sun"];
-        }
-        var o=Object.assign({},S.ordered);
-        keys.forEach(function(k){o[k]=Date.now();});
-        lsSet("sbb-ordered",o);
-        saveDeadlines(o);
-        pgClearWorkflowDraft(activeType,{render:false});
-        lsSet("sbb-counts-cleared",Date.now());pushCounts(S.counts);
-        ss({history:[entry].concat(S.history),notes:S.notes,ordered:o,adjustments:S.adjustments,adjustmentMeta:S.adjustmentMeta,counts:S.counts,bSub:"count",mSub:"count",bCat:null,mCat:null});
-        toast("Saved & synced!");
-        if(typeof s5ShowSuccess==="function")s5ShowSuccess("Order saved","Saved to History, deadlines updated, and the active count was cleared for the next inventory.");
-      } else throw new Error("The server did not return a saved order ID.");
-    }).catch(function(error){
-      console.error("[PourGrid order save]",{message:String(error&&error.message||error),code:error&&error.code||null});
-      var detail=String(error&&error.message||"");
-      var message=/already saved with different contents/i.test(detail)?"This draft was already saved with different contents. Open History before retrying.":/session|jwt|sign in|authenticated/i.test(detail)?"Your secure session expired. Sign in again; this draft is still saved on this device.":/network|fetch|offline/i.test(detail)?"Order not saved — connection unavailable. This draft is still saved on this device.":"Order not saved. This draft is still saved on this device. Retry, or contact support with the current time.";
-      toast(message);
-      if(typeof s5ShowSuccess==="function")s5ShowSuccess("Save failed",message);
-    });
+    // The direct save is idempotent on this identity, so a draft that never got a session
+    // id still gets a persisted one rather than a null the server has to reject.
+    var draftIdentity=activeSession.id||(pgDraftRecord(activeType,true)||{}).id||null;
+    var entry={id:Date.now(),draftId:draftIdentity,orderType:activeType,date:new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}),time:new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}),note:currentNote,counts:pgWorkflowCountSnapshot(activeType),countDetails:pgHalfCaseCountDetails(activeType),items:saveItems,emails:emails,emailStatus:status,seasonalProfile:activeSession.seasonalProfile||pgNormalSeasonalSnapshot(),calculationVersion:"seasonal-build-to-v1.0.0",stoliFreeFlavor:pgStoliFlavor()};
+    // Success, History, the deadline stamp, and the count clear all live behind a confirmed
+    // server order id. pgSubmitOrderSave rejects on anything less, and reports it visibly.
+    pgSubmitOrderSave(entry,activeType,isG).catch(function(){});
   }});
   saveBtn.textContent=isG?"Finish & Save Merchants Order":"Finish & Save Bar Order";
   btnWrap.appendChild(saveBtn);
@@ -4949,11 +5093,15 @@ function render(){
     if(S.toast){ap(app,d("toast",S.toast));}
     return;
   }
+  // An order the server never accepted follows Josh around every screen until it is saved.
+  var recovery=typeof rPendingOrderSaves==="function"?rPendingOrderSaves():null;
   if(S.screen==="home"){
     app.appendChild(rHome());
+    if(recovery)app.appendChild(recovery);
     app.appendChild(rNav());
   } else {
     app.appendChild(rHdr());
+    if(recovery)app.appendChild(recovery);
     app.appendChild(rContent());
     app.appendChild(rNav());
   }
@@ -5111,7 +5259,11 @@ function s5SetOffline(){var e=document.getElementById('s5Offline');if(e)e.classL
 window.addEventListener('load',s5SetOffline);
 function s5IsStandalone(){return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true}
 function s5UpdateInstallHint(){var e=document.getElementById('s5InstallNote');if(!e)return;e.classList.toggle('show',!s5IsStandalone())}
-function s5ShowSuccess(title,text){var w=document.getElementById('s5Success');if(!w)return;document.getElementById('s5SuccessTitle').textContent=title||'Saved';document.getElementById('s5SuccessText').textContent=text||'Your changes are saved.';w.classList.add('show');if(navigator.vibrate)navigator.vibrate([12,35,18])}
+function s5ResetSuccessCard(w){w.classList.remove('fail');var note=w.querySelector('.s6-success-note');if(note)note.textContent='Sapphire keeps the team state in sync automatically.';var check=w.querySelector('.s5-check');if(check)check.textContent='✓';var retry=w.querySelector('.s5-retry');if(retry&&retry.parentNode)retry.parentNode.removeChild(retry)}
+function s5ShowSuccess(title,text){var w=document.getElementById('s5Success');if(!w)return;s5ResetSuccessCard(w);document.getElementById('s5SuccessTitle').textContent=title||'Saved';document.getElementById('s5SuccessText').textContent=text||'Your changes are saved.';w.classList.add('show');if(navigator.vibrate)navigator.vibrate([12,35,18])}
+// A failure gets a red card, an explicit "not saved to the server" note, and a retry. It must
+// never read as a success, and it must never be dismissible into silence without a way back.
+function s5ShowFailure(title,text,retryLabel,onRetry){var w=document.getElementById('s5Success');if(!w)return;s5ResetSuccessCard(w);document.getElementById('s5SuccessTitle').textContent=title||'Not saved';document.getElementById('s5SuccessText').textContent=text||'This did not save to the server.';var check=w.querySelector('.s5-check');if(check)check.textContent='✕';var note=w.querySelector('.s6-success-note');if(note)note.textContent='Saved on this device only · not in order history';var card=w.querySelector('.s5-success-card'),done=card&&card.querySelector('button');if(card&&typeof onRetry==='function'){var retry=document.createElement('button');retry.className='s5-retry';retry.type='button';retry.textContent=retryLabel||'Retry';retry.onclick=function(){s5HideSuccess();onRetry()};card.insertBefore(retry,done||null)}w.classList.add('fail');w.classList.add('show');if(navigator.vibrate)navigator.vibrate([28,60,28])}
 function s5HideSuccess(){var w=document.getElementById('s5Success');if(w)w.classList.remove('show')}
 // Escape closes transient layers, like a desktop/native app.
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(typeof s4CloseSheet==='function')s4CloseSheet();s5HideSuccess()}});

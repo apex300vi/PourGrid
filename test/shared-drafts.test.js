@@ -38,7 +38,7 @@ test('review and finalize share an exact immutable revision',()=>{
   assert.match(sql,/draft\.revision<>p_reviewed_revision/);
   assert.match(sql,/save_location_order/);
   assert.match(sql,/state='closed'/);
-  assert.match(html,/PourGridSharedDraft\.finalize\(activeType,entry\)/);
+  assert.match(html,/finalizeShared:window\.PourGridSharedDraft\?function\(order\)\{return window\.PourGridSharedDraft\.finalize\(activeType,order\);\}:null/);
 });
 
 test('authorized realtime API and honest sync states are wired',()=>{
