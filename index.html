@@ -693,6 +693,15 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 .pg-smart-note{margin:0 16px 10px;padding:12px 13px;border-radius:16px;background:linear-gradient(145deg,rgba(98,217,242,.065),rgba(104,221,187,.035));border:1px solid rgba(98,217,242,.13);font-size:10.5px;color:#83A0AD;line-height:1.45}
 .pg-smart-note strong{color:#D9F4F7}
 .pg-order-disclosure{margin-top:7px}.pg-order-disclosure-toggle{display:flex;align-items:center;gap:7px;min-height:44px;padding:7px 2px;border:0;background:transparent;color:#8dcddd;font-size:10.5px;font-weight:800;text-align:left}.pg-order-disclosure-toggle:focus-visible{outline:2px solid #79d5f2;outline-offset:3px;border-radius:8px}.pg-order-disclosure-chevron{display:inline-block;color:#e9c67e;font-size:13px;transition:transform .2s var(--spring)}.pg-order-disclosure-toggle[aria-expanded="true"] .pg-order-disclosure-chevron{transform:rotate(90deg)}.pg-order-disclosure-panel{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .22s var(--spring),opacity .16s ease}.pg-order-disclosure-panel.open{grid-template-rows:1fr;opacity:1}.pg-order-disclosure-inner{min-height:0;overflow:hidden}.pg-order-calculation{margin:2px 0 7px;padding:11px 12px;border-radius:13px;background:linear-gradient(145deg,rgba(98,217,242,.06),rgba(104,221,187,.03));border:1px solid rgba(98,217,242,.13);color:#9ab1bc;font-size:10.5px;line-height:1.45}.pg-order-calculation dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 12px;margin:0}.pg-order-calculation dt{color:#8199a5}.pg-order-calculation dd{margin:0;color:#e4edf0;font-weight:800;text-align:right}.pg-order-calculation .pg-order-logic{margin:9px 0 0;padding-top:8px;border-top:1px solid rgba(141,205,226,.12);color:#9bb9c4}.pg-order-calculation .pg-order-final{color:#efd083}
+.pg-order-suggestion{margin-top:8px;padding:9px 11px;border-radius:13px;background:linear-gradient(145deg,rgba(139,92,246,.16),rgba(91,33,182,.07));border:1px solid rgba(167,139,250,.32);color:#cfc2f5;font-size:10.5px;line-height:1.5}
+.pg-order-suggestion-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.pg-order-suggestion-tag{font-size:9px;font-weight:900;letter-spacing:1.1px;text-transform:uppercase;color:#0E0A1C;background:#A78BFA;border-radius:4px;padding:2px 6px}
+.pg-order-suggestion-qty{font-family:var(--mono);font-size:13px;font-weight:900;color:#EDE6FF}
+.pg-order-suggestion-confidence{font-size:9px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#9C8BD0}
+.pg-order-suggestion-summary{margin-top:4px;color:#B9A9E8;font-weight:700}
+.pg-order-suggestion-why{margin:6px 0 0;padding:0 0 0 15px;color:#A294CF;font-size:10px}
+.pg-order-suggestion-why li{margin:2px 0}
+.pg-order-suggestion-note{margin-top:6px;color:#8C7EBC;font-size:9.5px;font-weight:700}
 .pg-photo-result{margin-top:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.06);font-size:10px;color:#829BA8}
 .pg-photo-result strong{color:#EAF2F3}
 .pg-smart-progress{height:4px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden;margin-top:8px}.pg-smart-progress>span{display:block;height:100%;width:0;background:linear-gradient(90deg,#5BD4EE,#65DDB8);transition:width .24s ease}
@@ -832,6 +841,7 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 <script type="text/pourgrid-protected" data-pg-protected src="product-persistence.js?v=1.7.1.1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="history-analytics.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="seasonal-profiles.js?v=1"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="predictive-ordering.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="order-pipeline.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="shared-drafts.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="drink-price-estimator.js?v=2"></script>
@@ -1242,6 +1252,62 @@ function pgOrderItem(p){
   return Object.assign({},p,{onHand:pgEffectiveCount(p)||"",baseBuildTo:p.buildTo,adjustedBuildTo:adjusted,seasonalProfile:profile,onHand:pgEffectiveCount(p)||"",orderQty:baseQty,adjQty:finalQty,adj:adj,manualAdjustmentDetails:manual,finalPurchaseBreakdown:breakdown});
 }
 function pgOrderItemVisible(p){return p.adjQty!==null&&Number(p.adjQty)>0;}
+// ── Predictive ordering ─────────────────────────────────────────────────────
+// Advice only. The number produced here is rendered beside the count and the
+// build-to and is never written into S.adjustments, a draft, an email, or a
+// saved order. Josh reads it, then types what he actually wants.
+var PG_PREDICTIVE_CACHE={history:null,entries:{}};
+function pgPredictiveSuggestion(product){
+  if(!window.PourGridPredictiveOrdering||!product||!product.name)return null;
+  var history=S.history||[];
+  if(PG_PREDICTIVE_CACHE.history!==history)PG_PREDICTIVE_CACHE={history:history,entries:{}};
+  var onHand=pgEffectiveCount(product),
+      profile=typeof pgSeasonalProfileForProduct==="function"?pgSeasonalProfileForProduct(product):null,
+      // The par fallback must land on the same number the order screen already
+      // shows, so it uses the seasonally adjusted build-to. When a manager
+      // profile is active the engine also stands its own month factor down.
+      buildTo=profile&&window.PourGridHistory?window.PourGridHistory.adjustedBuildTo(product.buildTo,profile.percentageMultiplier):product.buildTo,
+      cacheKey=product.name+"|"+String(onHand)+"|"+String(buildTo);
+  if(Object.prototype.hasOwnProperty.call(PG_PREDICTIVE_CACHE.entries,cacheKey))return PG_PREDICTIVE_CACHE.entries[cacheKey];
+  var suggestion=null;
+  try{
+    suggestion=window.PourGridPredictiveOrdering.suggest(history,product,{
+      onHand:onHand===""||onHand===null||onHand===undefined?null:onHand,
+      buildTo:buildTo,
+      packaging:pgPack(product),
+      seasonalProfile:profile,
+      locationId:(window.POURGRID_AUTH_CONTEXT||{}).locationId||null
+    });
+  }catch(error){
+    console.warn("[PourGrid predictive]",String(error&&error.message||error));
+    suggestion=null;
+  }
+  PG_PREDICTIVE_CACHE.entries[cacheKey]=suggestion;
+  return suggestion;
+}
+function pgPredictiveConfidenceLabel(suggestion){
+  if(suggestion.basis==="par")return "Build-to fallback";
+  return {high:"High confidence",medium:"Medium confidence",low:"Low confidence"}[suggestion.confidence]||"Low confidence";
+}
+function rPredictiveSuggestion(product,suggestion){
+  if(!suggestion||suggestion.suggestedPurchaseUnits===null)return null;
+  var quantity=suggestion.suggestedPurchaseUnits,
+      quantityText=pgFinalPurchaseText(product,quantity,pgFinalPurchaseBreakdown(product,quantity,null)),
+      box=d("pg-order-suggestion"),
+      head=d("pg-order-suggestion-head");
+  box.setAttribute("role","note");
+  box.setAttribute("aria-label","Suggested order for "+product.name+": "+quantityText+". Suggestion only, not applied.");
+  ap(head,sp("pg-order-suggestion-tag","Suggestion"),sp("pg-order-suggestion-qty",quantityText),sp("pg-order-suggestion-confidence",pgPredictiveConfidenceLabel(suggestion)));
+  ap(box,head);
+  if(suggestion.summary)ap(box,d("pg-order-suggestion-summary",suggestion.summary));
+  if(suggestion.reasons&&suggestion.reasons.length){
+    var why=mk("ul","pg-order-suggestion-why");
+    suggestion.reasons.forEach(function(reason){var li=mk("li","");li.textContent=reason;why.appendChild(li);});
+    ap(box,why);
+  }
+  ap(box,d("pg-order-suggestion-note","Suggestion only \u00b7 nothing is filled in or sent until you set the quantity yourself."));
+  return box;
+}
 function pgHalfCaseCountDetails(type){
   var products=(type==="merchants"?MER:BAR),details={};
   products.forEach(function(product){var cfg=pgPack(product);if(!cfg||!cfg.allowHalfCaseCount||!pgHasPhysicalCount(product))return;var parts=pgPackParts(S.counts,product);if(!parts||!parts.valid)return;details[product.name]={enteredCaseCount:parts.parts.cases,caseSize:cfg.unitsPerCase,looseUnits:parts.parts.loose,canonicalTotal:pgPhysicalCount(product),calculationVersion:cfg.calculationVersion};});
@@ -2995,18 +3061,20 @@ function rPredictiveBody(result,barOrdersCount,products){
   if(barOrdersCount<4){
     var remaining=4-barOrdersCount;
     var sub=mk("div","");sub.style.cssText="font-size:12.5px;color:#C4B5FD;font-weight:700;margin-bottom:10px;";
-    sub.textContent="Need "+remaining+" more saved order"+(remaining!==1?"s":"")+" to activate predictions. Currently "+barOrdersCount+"/4.";
+    sub.textContent="Need "+remaining+" more saved order"+(remaining!==1?"s":"")+" to activate predictions. Currently "+barOrdersCount+"/4. Until then the order screen shows build-to suggestions instead.";
     var pbar=mk("div","");pbar.style.cssText="height:6px;border-radius:4px;background:rgba(139,92,246,0.18);overflow:hidden;";
     var pfill=mk("div","");pfill.style.cssText="height:100%;border-radius:4px;background:#A78BFA;width:"+(barOrdersCount/4*100)+"%";
     pbar.appendChild(pfill);wrap.appendChild(sub);wrap.appendChild(pbar);
     return wrap;
   }
   if(!result.suggestions){
-    var none=mk("div","");none.style.cssText="font-size:12.5px;color:var(--text-dim);font-weight:500;";none.textContent="Not enough consistent ordering pattern yet to predict.";
+    var none=mk("div","");none.style.cssText="font-size:12.5px;color:var(--text-dim);font-weight:500;";
+    none.textContent="No SKU has enough counted cycles to project yet. The order screen falls back to build-to suggestions until they do.";
     wrap.appendChild(none);return wrap;
   }
   var suggestions=result.suggestions;
-  var sub2=mk("div","");sub2.style.cssText="font-size:12.5px;color:#C4B5FD;margin-bottom:14px;font-weight:600;line-height:1.5;";sub2.textContent="Based on "+result.weeks+" weeks of order history. Still count to confirm current stock.";
+  var sub2=mk("div","");sub2.style.cssText="font-size:12.5px;color:#C4B5FD;margin-bottom:14px;font-weight:600;line-height:1.5;";
+  sub2.textContent="Based on "+result.weeks+" week"+(result.weeks===1?"":"s")+" of counted order history, adjusted for the USVI season and recent trend. Still count to confirm current stock — nothing here is applied to an order.";
   wrap.appendChild(sub2);
 
   var predShowAll=(S.insightsOpen||{}).predictedAll||false;
@@ -3015,13 +3083,16 @@ function rPredictiveBody(result,barOrdersCount,products){
     rowsList.innerHTML="";
     var shown=predShowAll?suggestions:suggestions.slice(0,8);
     shown.forEach(function(s,i){
-      var row=mk("div","");row.style.cssText="display:flex;justify-content:space-between;align-items:center;padding:9px 0;"+(i<shown.length-1?"border-bottom:1px solid rgba(255,255,255,0.08);":"");
-      var left=mk("div","");left.style.cssText="flex:1;min-width:0;padding-right:10px;";
+      var row=mk("div","");row.style.cssText="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:9px 0;"+(i<shown.length-1?"border-bottom:1px solid rgba(255,255,255,0.08);":"");
+      var left=mk("div","");left.style.cssText="flex:1;min-width:0;";
       var nm=mk("div","");nm.style.cssText="font-size:13.5px;font-weight:700;color:var(--text);letter-spacing:-0.1px;";nm.textContent=s.name;
-      var meta=mk("div","");meta.style.cssText="font-size:10.5px;color:var(--text-faint);font-weight:600;margin-top:1px;";meta.textContent="avg "+s.avgWeekly+" btls/wk"+(s.fullMoon?" · 🌕 full moon boost":"");
-      left.appendChild(nm);left.appendChild(meta);
+      var meta=mk("div","");meta.style.cssText="font-size:10.5px;color:var(--text-faint);font-weight:600;margin-top:1px;";
+      meta.textContent=s.weeklyUnits+" "+s.unitLabel+"/wk · "+s.confidence+" confidence";
+      var why=mk("div","");why.style.cssText="font-size:10.5px;color:#A294CF;font-weight:600;margin-top:3px;line-height:1.45;";
+      why.textContent=s.summary;
+      left.appendChild(nm);left.appendChild(meta);left.appendChild(why);
       var badge=mk("div","");badge.style.cssText="background:linear-gradient(155deg,#3D2478,#26154D);color:#DDD3FF;border-radius:6px;padding:5px 12px;font-size:13px;font-weight:800;white-space:nowrap;box-shadow:0 2px 6px rgba(91,33,182,0.3);border:1px solid rgba(167,139,250,0.35);font-family:var(--mono);";
-      badge.textContent=s.suggestedQty+" "+s.unit;
+      badge.textContent=s.quantityText;
       row.appendChild(left);row.appendChild(badge);rowsList.appendChild(row);
     });
   }
@@ -3046,26 +3117,22 @@ function rPredictiveBody(result,barOrdersCount,products){
     wrap.appendChild(moreBtn);
   }
 
-  var applyBtn=mk("button","");
-  applyBtn.style.cssText="width:100%;padding:14px;border-radius:14px;border:none;background:linear-gradient(155deg,#8B3FE8,#5B21B6);color:#fff;font-size:14.5px;font-weight:800;cursor:pointer;margin-top:14px;box-shadow:0 8px 22px rgba(124,58,237,0.4),inset 0 1px 0 rgba(255,255,255,0.15);letter-spacing:-0.1px;transition:transform 0.15s;border:1px solid rgba(255,255,255,0.12);";
-  applyBtn.onmousedown=function(){applyBtn.style.transform="scale(0.97)";};
-  applyBtn.onmouseup=function(){applyBtn.style.transform="scale(1)";};
-  applyBtn.textContent="Use as Starting Point on Order Tab";
+  // Deliberately navigation only. PourGrid never writes a predicted quantity
+  // into an order: every line is typed or stepped by the person sending it.
+  var note=mk("div","");note.style.cssText="margin-top:14px;padding:11px 12px;border-radius:12px;background:rgba(139,92,246,0.10);border:1px solid rgba(167,139,250,0.28);color:#B9A9E8;font-size:11px;font-weight:700;line-height:1.5;";
+  note.textContent="These are suggestions only. Each one also appears beside its count and build-to on the Order tab, where you set the quantity yourself.";
+  wrap.appendChild(note);
 
-  applyBtn.onclick=function(){
-    var newAdj=Object.assign({},S.adjustments);
-    suggestions.forEach(function(s){
-      var prod=products.find(function(p){return p.name===s.name;});
-      if(!prod)return;
-      var base=cq(prod,pgEffectiveCount(prod)||"")||0;
-      var delta=s.suggestedQty-base;
-      if(delta>0)newAdj[s.name]=delta;
-    });
+  var goBtn=mk("button","");
+  goBtn.style.cssText="width:100%;padding:14px;border-radius:14px;background:linear-gradient(155deg,#8B3FE8,#5B21B6);color:#fff;font-size:14.5px;font-weight:800;cursor:pointer;margin-top:10px;box-shadow:0 8px 22px rgba(124,58,237,0.4),inset 0 1px 0 rgba(255,255,255,0.15);letter-spacing:-0.1px;transition:transform 0.15s;border:1px solid rgba(255,255,255,0.12);";
+  goBtn.onmousedown=function(){goBtn.style.transform="scale(0.97)";};
+  goBtn.onmouseup=function(){goBtn.style.transform="scale(1)";};
+  goBtn.textContent="Review on the Order Tab";
+  goBtn.onclick=function(){
     var isMerch=suggestions.length>0&&MER.some(function(p){return p.name===suggestions[0].name;});
-    ss({adjustments:newAdj,tab:isMerch?"merchants":"bar",bSub:"order",mSub:"order"});
-    toast("Predicted order applied - review on Order tab");
+    ss({tab:isMerch?"merchants":"bar",bSub:"order",mSub:"order"});
   };
-  wrap.appendChild(applyBtn);
+  wrap.appendChild(goBtn);
   return wrap;
 }
 
@@ -3372,7 +3439,9 @@ function rOrderTab(prods,dists,dk,isG){
         adjTag.textContent=pgManualPurchaseText(p,S.adjustmentMeta[p.name]||{},p.adj);
         metaDiv.appendChild(adjTag);
       }
-      ap(info,nm2,metaDiv,disclosure);
+      // Predictive suggestion sits directly under the count/build-to line so the
+      // three numbers can be compared at a glance. It is advice, never applied.
+      ap(info,nm2,metaDiv,rPredictiveSuggestion(p,pgPredictiveSuggestion(p)),disclosure);
       info.appendChild(d("pg-vendor-label","Assigned vendor: "+p.dist+(p.dist==="Bellows/WI"?" · routed within Bellows/West Indies output":"")));
       if(isAdj){var adjMeta=S.adjustmentMeta[p.name]||{},adjSummary=d("pg-adjust-summary");adjSummary.textContent="Calculated "+Number(p.orderQty||0)+" "+pgPlural(p.orderQty,p.unit,p.unit+"s")+" · Manual "+pgManualPurchaseText(p,adjMeta,p.adj)+" · Final "+pgFinalPurchaseText(p,p.adjQty,p.finalPurchaseBreakdown)+(adjMeta.reason?" · "+adjMeta.reason:"");info.appendChild(adjSummary);}
       var qtyWrap=mk("div","pg-order-quantity");
@@ -4273,34 +4342,34 @@ async function syncCounts(showToast2){
 
 
 
+// The Insights "Predicted Order" panel and the per-row suggestion on the order
+// screen run the same engine, so the two can never disagree. Only SKUs the
+// engine can actually project from counted history are listed here; anything on
+// the build-to fallback is already shown in context on the order screen.
 function calcPredictiveOrder(history,products){
-  var barOrders=history.filter(function(e){return e.items&&e.items.some(function(i){return !pgIsMerchantProduct(i);});});
-  if(barOrders.length<4)return {suggestions:null,weeks:barOrders.length};
-  var recent=barOrders.slice(0,12);
+  var barOrders=(history||[]).filter(function(e){return e.items&&e.items.some(function(i){return !pgIsMerchantProduct(i);});});
+  if(!window.PourGridPredictiveOrdering||barOrders.length<4)return {suggestions:null,weeks:barOrders.length};
   var suggestions=[];
-  products.forEach(function(p){
-    var weeklyOrders=recent.map(function(entry){
-      var item=entry.items.find(function(i){return i.name===p.name;});
-      if(!item)return 0;
-      var qty=item.orderQty||0;
-      if(item.unit==="Case"&&item.pack>1)return qty*item.pack;
-      return qty;
+  (products||[]).forEach(function(p){
+    var suggestion=pgPredictiveSuggestion(p);
+    if(!suggestion||suggestion.basis!=="history")return;
+    if(!(Number(suggestion.suggestedPurchaseUnits)>0))return;
+    suggestions.push({
+      name:p.name,dist:p.dist,cat:p.cat,unit:p.unit,pack:p.pack,
+      suggestedQty:suggestion.suggestedPurchaseUnits,
+      quantityText:pgFinalPurchaseText(p,suggestion.suggestedPurchaseUnits,pgFinalPurchaseBreakdown(p,suggestion.suggestedPurchaseUnits,null)),
+      weeklyUnits:suggestion.projectedWeeklyUnits,
+      unitLabel:suggestion.unitLabel,
+      confidence:suggestion.confidence,
+      summary:suggestion.summary,
+      reasons:suggestion.reasons
     });
-    var nonZeroWeeks=weeklyOrders.filter(function(q){return q>0;}).length;
-    if(nonZeroWeeks<2)return;
-    var weightedSum=0;var weightTotal=0;
-    weeklyOrders.forEach(function(q,i){var w=i<4?2:1;weightedSum+=q*w;weightTotal+=w;});
-    var avgWeekly=weightedSum/weightTotal;
-    var fullMoonWeeks=recent.filter(function(e){return e.note&&e.note.toLowerCase().indexOf("full moon")>=0;}).length;
-    var boost=fullMoonWeeks>0?1.15:1;
-    var suggestedBottles=Math.ceil(avgWeekly*boost);
-    if(suggestedBottles<1)return;
-    var suggestedQty;
-    if(p.unit==="Case"&&p.pack>1)suggestedQty=Math.ceil(suggestedBottles/p.pack);
-    else suggestedQty=suggestedBottles;
-    if(suggestedQty>0)suggestions.push({name:p.name,dist:p.dist,cat:p.cat,unit:p.unit,pack:p.pack,suggestedQty:suggestedQty,avgWeekly:Math.round(avgWeekly*10)/10,fullMoon:fullMoonWeeks>0});
   });
-  return {suggestions:suggestions.length>0?suggestions:null,weeks:recent.length};
+  var rank={high:0,medium:1,low:2};
+  suggestions.sort(function(a,b){return (rank[a.confidence]-rank[b.confidence])||(b.suggestedQty-a.suggestedQty)||a.name.localeCompare(b.name);});
+  var weeks=0;
+  (products||[]).forEach(function(p){var s=pgPredictiveSuggestion(p);if(s&&s.weeksOfHistory>weeks)weeks=s.weeksOfHistory;});
+  return {suggestions:suggestions.length>0?suggestions:null,weeks:weeks||barOrders.length};
 }
 
 // ── VENUE CORRECTION FACTORS ────────────────────────────────────────────────
