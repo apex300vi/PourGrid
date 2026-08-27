@@ -97,9 +97,10 @@ test('packaged-item order accepts any valid entered component and blocks invalid
   assert.match(cardSection,/var has=pgHasPhysicalCount\(p\)/);
 });
 
-test('bounded home exposes Dashboard, History, Full Count, and Profit Lab without deadline boot work',()=>{
+test('focused home exposes Full Count and settings without duplicating tab destinations',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),home=html.slice(html.indexOf('function rHome'),html.indexOf('function rStabs'));
-  assert.match(home,/pgPropertyName\(\)/);assert.match(home,/rPropertySwitcher\("home"\)/);assert.match(home,/Full Count/);assert.match(home,/tab:"history"/);assert.match(home,/pgEstimatorHomeTrigger/);
+  assert.match(home,/pgPropertyName\(\)/);assert.match(home,/pg-home-property/);assert.match(home,/Full Count/);assert.match(home,/pgSettingsTrigger/);assert.match(home,/pgDraftAttention/);
+  assert.doesNotMatch(home,/rSetupEntry\(\)|tab:"history"|pgEstimatorHomeTrigger|Seasonal Profiles/);
   assert.doesNotMatch(home,/Sapphire Beach Bar/);
   assert.doesNotMatch(home,/pgHomeBriefing|rDeadlines|pgNextMerchantsCycle/);
 });

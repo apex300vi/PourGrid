@@ -2,10 +2,10 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 const source=read('drink-price-estimator.js'),html=read('index.html'),gate=read('auth-gate.js'),sql=read('supabase/migrations/202608110002_profit_lab.sql');
 
-test('Profit Lab ships as a protected first-class Home workspace',()=>{
+test('Profit Lab ships as a protected first-class tab workspace',()=>{
   new Function(source);
   assert.match(html,/text\/pourgrid-protected[^>]+drink-price-estimator\.js/);
-  assert.match(html,/id:"pgEstimatorHomeTrigger"/);
+  assert.match(html,/\{id:"profit",lbl:"Profit Lab"/);
   assert.match(source,/<strong>Profit Lab<\/strong>/);
   assert.match(source,/Build drinks\. Understand cost\. Price with confidence\./);
   assert.match(source,/button\.innerHTML='<div><strong>Profit Lab/);
