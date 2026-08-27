@@ -3,9 +3,9 @@ const gate=fs.readFileSync('auth-gate.js','utf8'),html=fs.readFileSync('index.ht
 
 test('history loads through an authenticated location-scoped server API',()=>{
   assert.match(gate,/POURGRID_HISTORY_API=Object\.freeze/);
-  assert.match(gate,/get_location_order_history/);
+  assert.match(gate,/get_location_order_history_v2/);
   assert.match(gate,/p_organization:context\.organizationId,p_location:context\.locationId/);
-  assert.match(html,/window\.POURGRID_HISTORY_API\.list\(60\)/);
+  assert.match(html,/window\.POURGRID_HISTORY_API\.list\(100,offset\)/);
   assert.doesNotMatch(html,/dbFetch\("orders\?select=id,created_at,data&order=created_at\.desc&limit=60"\)/);
 });
 

@@ -97,9 +97,11 @@ test('packaged-item order accepts any valid entered component and blocks invalid
   assert.match(cardSection,/var has=pgHasPhysicalCount\(p\)/);
 });
 
-test('bounded home exposes Dashboard, History, Full Count, and Profit Lab without deadline boot work',()=>{
+test('focused home exposes Full Count and settings without duplicating tab destinations',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),home=html.slice(html.indexOf('function rHome'),html.indexOf('function rStabs'));
-  assert.match(home,/Sapphire Beach Bar/);assert.match(home,/Full Count/);assert.match(home,/tab:"history"/);assert.match(home,/pgEstimatorHomeTrigger/);
+  assert.match(home,/pgPropertyName\(\)/);assert.match(home,/pg-home-property/);assert.match(home,/Full Count/);assert.match(home,/pgSettingsTrigger/);assert.match(home,/pgDraftAttention/);
+  assert.doesNotMatch(home,/rSetupEntry\(\)|tab:"history"|pgEstimatorHomeTrigger|Seasonal Profiles/);
+  assert.doesNotMatch(home,/Sapphire Beach Bar/);
   assert.doesNotMatch(home,/pgHomeBriefing|rDeadlines|pgNextMerchantsCycle/);
 });
 
@@ -150,8 +152,11 @@ test('Bar and Merchants render separate workspaces while each keeps its shared d
   assert.match(filters,/filter==="all"\?BAR:BAR\.filter/);
   assert.match(filters,/pgHasPhysicalCount\(p\)/);
   const bar=html.slice(html.indexOf('function rBarCountWorkspace'),html.indexOf('function rMerchantsCountWorkspace'));
-  ['all','Bellows/WI','CC1'].forEach(v=>assert.match(bar,new RegExp('"'+v.replace('/','\\/')+'"')));
+  assert.match(bar,/var filterKeys=pgBarFilterKeys\(\)/);assert.match(bar,/filterKeys\.forEach/);
   assert.doesNotMatch(bar,/Merchants|Mixer|Fruit/);
+  // Sapphire's own vendor list still resolves to the original three bar views.
+  const Catalog=require('../property-catalog.js');
+  assert.deepEqual(['all'].concat(Catalog.barVendorNames(Catalog.seedVendorsFor({seedCatalog:'sapphire-v12'}))),['all','Bellows/WI','CC1']);
   const merchants=html.slice(html.indexOf('function rMerchantsCountWorkspace'),html.indexOf('function rCatGrid'));
   assert.match(merchants,/\["Mixer","Fruit"\]/);assert.doesNotMatch(merchants,/Bellows\/WI|CC1|Full Count/);
   const routing=html.slice(html.indexOf('function rContent'),html.indexOf('function rTabs2'));
@@ -184,8 +189,9 @@ test('Dashboard navigation centrally maps every count destination without replac
   assert.match(routes,/destination==="bar"\|\|destination==="full"/);assert.match(routes,/countFilter:"all"/);
   assert.match(routes,/destination==="merchants"/);assert.match(routes,/merchantView:"Mixer"/);
   assert.match(routes,/destination==="fruit"/);assert.match(routes,/merchantView:"Fruit"/);
-  assert.match(routes,/destination==="bellows"/);assert.match(routes,/countFilter:"Bellows\/WI"/);
-  assert.match(routes,/destination==="cc1"/);assert.match(routes,/countFilter:"CC1"/);
+  assert.match(routes,/destination\.indexOf\("vendor:"\)===0/);assert.match(routes,/pgHasVendor\(vendor\)/);assert.match(routes,/countFilter:vendor/);
+  assert.match(routes,/pgOpenBarView\(filter\)\{pgApplyRoute\(filter&&filter!=="all"\?"vendor:"\+filter:"full"\)/);
+  assert.doesNotMatch(routes,/"Bellows\/WI"|"CC1"/);
   assert.match(routes,/function pgSafeRouteState/);assert.match(routes,/next\.tab==="merchants"/);
   assert.doesNotMatch(routes,/counts\s*:/);assert.doesNotMatch(routes,/adjustments\s*:/);assert.doesNotMatch(routes,/pgStartSession/);
   const nav=html.slice(html.indexOf('function rNav'),html.indexOf('function rSplash'));
@@ -261,7 +267,7 @@ test('manual adjustment parser supports cases, bottles, conversion, direction, a
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm'),context={};
   const quantities=html.slice(html.indexOf('function pgWholeQuantity'),html.indexOf('function pgPackParts'));
   const adjustments=html.slice(html.indexOf('function pgAdjustmentCapability'),html.indexOf('function pgSetManualAdjustment'));
-  context.pgPack=()=>null;vm.runInNewContext(quantities+adjustments+';this.adjust=pgManualAdjustment;',context);
+  context.pgPack=()=>null;context.pgIsMerchantProduct=product=>product&&product.dist==='Merchants';vm.runInNewContext(quantities+adjustments+';this.adjust=pgManualAdjustment;',context);
   const casesOnly=context.adjust({dist:'Merchants',unit:'Case',pack:12},'2','','add');assert.equal(casesOnly.valid,true);assert.equal(casesOnly.orderUnits,2);assert.equal(casesOnly.cases,2);assert.equal(casesOnly.loose,0);assert.equal(casesOnly.capability.allowLoose,false);
   assert.equal(context.adjust({dist:'Merchants',unit:'Case',pack:12},'2','1','add').valid,false);
   assert.equal(context.adjust({dist:'Merchants',unit:'Bottle',pack:12},'','','add').valid,false);
@@ -298,7 +304,7 @@ test('Bar workflow permits cases and loose units except explicitly case-only pro
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm');
   const quantities=html.slice(html.indexOf('function pgWholeQuantity'),html.indexOf('function pgPackParts'));
   const purchasing=html.slice(html.indexOf('function pgAdjustmentCapability'),html.indexOf('function pgSetManualAdjustment'));
-  const context={pgPack:()=>null,pgPlural:(n,one,many)=>Number(n)===1?one:many};
+  const context={pgPack:()=>null,pgIsMerchantProduct:product=>product&&product.dist==='Merchants',pgPlural:(n,one,many)=>Number(n)===1?one:many};
   vm.runInNewContext(quantities+purchasing+';this.adjust=pgManualAdjustment;this.capability=pgAdjustmentCapability;this.breakdown=pgFinalPurchaseBreakdown;this.manualText=pgManualPurchaseText;this.finalText=pgFinalPurchaseText;',context);
   const stoli={name:'Stoli Raz',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',bottleMl:1000,buildTo:12};
   const deep={name:'Deep Eddy Grapefruit',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',bottleMl:1000,buildTo:6};
@@ -317,7 +323,7 @@ test('Bar workflow permits cases and loose units except explicitly case-only pro
   const missing={name:'Future Missing Pack',dist:'New Bar Vendor',unit:'Case',pack:null};assert.equal(context.capability(missing).allowCases,false);assert.equal(context.capability(missing).allowLoose,true);assert.equal(context.capability(missing).missingCaseConfig,true);assert.equal(context.adjust(missing,'1','0','add').valid,false);assert.equal(context.adjust(missing,'0','3','add').orderUnits,3);
   const lime={name:'Lime Juice',dist:'Merchants',unit:'Case',pack:12};assert.equal(context.adjust(lime,'0','3','add').valid,false);assert.equal(context.capability(lime).rule,'caseOnly');
   const merchantBottle={name:'Configured Merchant Bottle',dist:'Merchants',unit:'Bottle',pack:12,purchaseRule:'bottleOnly'};assert.equal(context.capability(merchantBottle).allowCases,false);assert.equal(context.adjust(merchantBottle,'1','0','add').valid,false);
-  const catalog=JSON.parse(html.match(/var PG_V12_PRODUCTS=(\[.*?\]);\r?\nvar PRODUCTS/s)[1]),bar=catalog.filter(product=>product.dist!=='Merchants');assert.ok(bar.length>0);assert.equal(bar.filter(product=>!Number.isInteger(Number(product.pack))||Number(product.pack)<=0).length,0);bar.forEach(product=>{const capability=context.capability(product);assert.equal(capability.rule,product.purchaseRule==='caseOnly'?'caseOnly':'barCaseAndLoose',product.name);assert.equal(capability.allowCases,true,product.name);assert.equal(capability.allowLoose,product.purchaseRule!=='caseOnly',product.name);});
+  const catalog=JSON.parse(html.match(/var PG_V12_PRODUCTS=(\[.*?\]);\r?\n\/\//s)[1]),bar=catalog.filter(product=>product.dist!=='Merchants');assert.ok(bar.length>0);assert.equal(bar.filter(product=>!Number.isInteger(Number(product.pack))||Number(product.pack)<=0).length,0);bar.forEach(product=>{const capability=context.capability(product);assert.equal(capability.rule,product.purchaseRule==='caseOnly'?'caseOnly':'barCaseAndLoose',product.name);assert.equal(capability.allowCases,true,product.name);assert.equal(capability.allowLoose,product.purchaseRule!=='caseOnly',product.name);});
   assert.doesNotMatch(html,/PG_PURCHASE_RULES/);
   assert.match(html,/"Deep Eddy Grapefruit"[\s\S]*?"pack":12[\s\S]*?"unit":"Case"[\s\S]*?"bottleMl":1000/);
   assert.match(html,/"Stoli Raz"[\s\S]*?"pack":12[\s\S]*?"unit":"Case"[\s\S]*?"bottleMl":1000/);
@@ -338,13 +344,13 @@ test('Stoli Raz exact units persist in the Bar draft and remain in Bellows submi
 });
 
 test('unbranded Bellows/WI liquor is shown once in a shared section above both rep sections',()=>{
-  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm'),context={};
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm'),Pipeline=require('../order-pipeline.js'),context={PourGridOrderPipeline:Pipeline};
   const helpers=html.slice(html.indexOf('var PG_BELLOWS_WI_SHARED_ITEMS'),html.indexOf('function rEmailPanel'));
   vm.runInNewContext(helpers+';this.group=pgBellowsWiEmailGroup;this.sections=pgAppendBellowsWiSections;',context);
-  ['Peach Schnapps','Amaretto','Irish Cream','Creme de Cacao','Triple Sec'].forEach(name=>assert.equal(context.group({name},[]),'shared',name));
-  assert.equal(context.group({name:'Future generic cordial',bellowsWiEmailGroup:'shared'},[]),'shared');
-  assert.equal(context.group({name:'Stoli Vodka'},['Stoli Vodka']),'westIndies');
-  assert.equal(context.group({name:'Bellows brand'},[]),'bellows');
+  ['Peach Schnapps','Amaretto','Irish Cream','Creme de Cacao','Triple Sec','Blue Curacao'].forEach(name=>assert.equal(context.group({name,emailRoute:'shared'},[]),'shared',name));
+  assert.equal(context.group({name:'Future generic cordial',emailRoute:'shared'},[]),'shared');
+  assert.equal(context.group({name:'Stoli Vodka',emailRoute:'westIndies'},['Stoli Vodka']),'westIndies');
+  assert.equal(context.group({name:'Bellows brand',dist:'Bellows/WI'},[]),'bellows');
   const body=context.sections('INTRO\n',['1 case - Peach Schnapps'],['2 cases - Bellows Brand'],['3 cases - Stoli Vodka']);
   assert.ok(body.indexOf('-- SHARED / BRAND NOT SPECIFIED --')<body.indexOf('-- BELLOWS --'));
   assert.ok(body.indexOf('-- BELLOWS --')<body.indexOf('-- WEST INDIES --'));
@@ -403,7 +409,8 @@ test('Deep Eddy Grapefruit adjustment persists under the active Bar draft and re
   assert.match(remove,/delete adjustments\[product\.name\]/);assert.match(remove,/delete meta\[product\.name\]/);assert.match(remove,/pgPersistDraft\(type\)/);
   assert.match(remove,/function pgStepManualAdjustment/);assert.match(remove,/pgStartSession\(type\)/);
   const submission=html.slice(html.indexOf('var saveBtn=mk'),html.indexOf('function calcSuggestedBuildTos'));
-  assert.match(submission,/calculatedOrderQty:base===null\?0:base/);assert.match(submission,/manualAdjustment:adj/);assert.match(submission,/finalOrderQty:final/);assert.match(submission,/draftId:activeSession\.id/);
+  assert.match(submission,/calculatedOrderQty:base===null\?0:base/);assert.match(submission,/manualAdjustment:adj/);assert.match(submission,/finalOrderQty:final/);
+  assert.match(submission,/draftIdentity=activeSession\.id\|\|\(pgDraftRecord\(activeType,true\)\|\|\{\}\)\.id\|\|null/);assert.match(submission,/draftId:draftIdentity/);
   assert.doesNotMatch(setter,/S\.counts\s*=|buildTo\s*=|pgSaveCatalogEdits/);
 });
 
@@ -519,8 +526,10 @@ test('confirmed Merchants clear removes every draft surface persistently and is 
 
 test('workflow submission clears only its own draft and preserves draft identity in History',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
-  const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));
-  assert.match(order,/activeType=isG\?"merchants":"bar"/);assert.match(order,/draftId:activeSession\.id\|\|null/);assert.match(order,/orderType:activeType/);
+  // The submission composes the payload; pgCompleteOrderSave clears the draft, and only
+  // once the server has confirmed the order id.
+  const order=html.slice(html.indexOf('// ── Order save orchestration'),html.indexOf('function calcSuggestedBuildTos'));
+  assert.match(order,/activeType=isG\?"merchants":"bar"/);assert.match(order,/draftId:draftIdentity/);assert.match(order,/orderType:activeType/);
   assert.match(order,/counts:pgWorkflowCountSnapshot\(activeType\)/);
   assert.match(order,/pgClearWorkflowDraft\(activeType,\{render:false\}\)/);
   assert.doesNotMatch(order,/var clearedCounts=\{\}/);assert.doesNotMatch(order,/adjustments:\{\}/);

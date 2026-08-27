@@ -9,6 +9,11 @@ for that; this is specifically the "you weren't here for this" entries,
 so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
+## 2026-08-27
+**What:** Made the Home shared-draft warning open a real conflict review sheet with explicit “Keep shared” and “Use this device” choices.
+**By:** Codex, task actionable shared-draft conflict review.
+**Why:** The warning previously opened Bar Count without showing the conflicting field or providing a resolution action.
+**Note:** This extends the shared-draft system from `15457bec` and the Home alert from PR #71. It preserves both values until an authorized user chooses; no count is resolved automatically.
 **Honest backfill note (2026-08-27):** commits made by the JARVIS
 dispatcher use the same git identity as Josh's own interactive sessions
 on this repo (both commit as `apex300vi`, from the same machine) — there

@@ -10,7 +10,7 @@ function slice(from,to){return html.slice(html.indexOf(from),html.indexOf(to));}
 
 test('only explicitly configured bulk citrus inherits half-case counting',()=>{
   const source=slice('var PG_BULK_FRUIT','function pgCountKey');
-  const context={PG_PACKAGING:{},PourGridProductPersistence:{resolve:()=>null},pgCatalogPackagingEdits:()=>({}),Number};
+  const context={PG_PACKAGING:{},PourGridProductPersistence:{resolve:()=>null},pgCatalogPackagingEdits:()=>({}),pgIsMerchantProduct:product=>product&&product.dist==='Merchants',Number};
   vm.runInNewContext(source+';this.pack=pgPack;this.bulk=pgIsBulkFruit;',context);
   ['Limes','Lemons','Oranges','Grapefruits'].forEach(name=>assert.equal(context.pack({name,cat:'Fruit',dist:'Merchants',unit:'Case',pack:1}).mode,'halfCase'));
   assert.equal(context.pack({name:'Maraschino Cherries',cat:'Fruit',dist:'Merchants',unit:'Case',pack:4}).mode,'caseLoose');
