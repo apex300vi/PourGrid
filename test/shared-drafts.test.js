@@ -7,6 +7,7 @@ const sql=fs.readFileSync(path.join(root,'supabase/migrations/202608230004_share
 const client=fs.readFileSync(path.join(root,'shared-drafts.js'),'utf8');
 const auth=fs.readFileSync(path.join(root,'auth-gate.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+const resolution=fs.readFileSync(path.join(root,'supabase/migrations/202608270001_resolve_shared_draft_conflicts.sql'),'utf8');
 
 test('shared drafts are tenant scoped and direct writes remain closed',()=>{
   assert.match(sql,/require_shared_draft_access\(p_organization,p_location,true\)/);
@@ -49,4 +50,28 @@ test('authorized realtime API and honest sync states are wired',()=>{
   assert.match(client,/syncing/);
   assert.match(client,/conflict/);
   assert.match(html,/Offline — saved on this device/);
+});
+
+test('conflicts have an explicit tenant-safe resolution path without silent data loss',()=>{
+  assert.match(resolution,/require_shared_draft_access\(p_organization,p_location,true\)/);
+  assert.match(resolution,/d\.organization_id=p_organization/);
+  assert.match(resolution,/d\.location_id=p_location/);
+  assert.match(resolution,/p_resolution not in\('server','incoming'\)/);
+  assert.match(resolution,/for update/);
+  assert.match(resolution,/resolved_at=now\(\),resolved_by=actor/);
+  assert.match(resolution,/reviewed_revision=null/);
+  assert.match(resolution,/returning id into conflict_id/);
+  assert.match(resolution,/not found and p_expected_field_revision is not null[\s\S]*insert into public\.shared_draft_conflicts/);
+  assert.match(resolution,/'conflictId',conflict_id/);
+  assert.match(resolution,/grant execute on function public\.resolve_shared_draft_conflict[\s\S]*to authenticated/);
+  assert.doesNotMatch(resolution,/delete from public\.shared_draft/);
+});
+
+test('resolved fields clear their queued retry and refresh the authoritative draft',()=>{
+  assert.match(auth,/resolve_shared_draft_conflict/);
+  assert.match(client,/async function resolveConflict/);
+  assert.match(client,/item\.product!==conflict\.productKey\|\|item\.field!==conflict\.fieldKey/);
+  assert.match(client,/await refresh\(type\)/);
+  assert.match(client,/resolveConflict:resolveConflict/);
+  assert.match(client,/id:r\.conflictId\|\|null/);
 });

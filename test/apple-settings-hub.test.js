@@ -16,7 +16,12 @@ test('draft problems remain visible and route to the affected workspace',()=>{
   const attention=html.slice(html.indexOf('function pgDraftAttentionState'),html.indexOf('function pgSetConnectivity'));
   for(const status of ['conflict','save-failed','unsynced','offline-saved'])assert.match(attention,new RegExp(status));
   assert.match(attention,/Changes from another device need review/);
-  assert.match(attention,/pgApplyRoute\(attention\.type==="merchants"\?"merchants":"bar"\)/);
+  assert.match(attention,/pgOpenDraftAttention\(attention\)/);
+  assert.match(attention,/Shared draft/);
+  assert.match(attention,/This device/);
+  assert.match(attention,/Keep shared/);
+  assert.match(attention,/Use this device/);
+  assert.match(attention,/resolveConflict/);
 });
 
 test('Settings preserves every administrative destination without floating controls',()=>{
