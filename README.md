@@ -8,6 +8,8 @@ order guide from a downloadable spreadsheet rather than by hand — see
 when the server confirms it, and an order held on a device is recoverable — see
 [docs/ORDER_SAVE_RECOVERY.md](docs/ORDER_SAVE_RECOVERY.md).
 
+**Before working on this repo, check `CHANGELOG.md`** — it records real changes made by JARVIS's autonomous dispatcher (Josh's AI assistant), which can touch this repo unattended from a request made through Jarvis rather than a session opened here directly.
+
 ## Current baseline
 
 This repository begins with PourGrid V1 RC1.4 staging, synchronized to the Sapphire Beach Bar Order Guide v12 catalog.

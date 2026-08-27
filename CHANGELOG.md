@@ -1,18 +1,37 @@
-# Change Log
+# Changelog — non-human changes
 
-This file records cross-agent changes that affect product behavior or shared implementation areas.
+Real changes made to this repo by something other than a human sitting in
+this project's own chat — specifically, the JARVIS autotask dispatcher
+(Josh's personal AI assistant), which can work on this repo unattended
+from a request queued through Jarvis rather than a session opened
+directly on PourGrid. Newest first. Not a full commit log — see `git log`
+for that; this is specifically the "you weren't here for this" entries,
+so a session opened directly on this repo isn't confused by a change it
+didn't make.
 
-## 2026-08-27 — Home focus and Settings hub
+**Honest backfill note (2026-08-27):** commits made by the JARVIS
+dispatcher use the same git identity as Josh's own interactive sessions
+on this repo (both commit as `apex300vi`, from the same machine) — there
+is no reliable marker in `git log` alone that distinguishes one from the
+other for anything already merged, and this repo's history also includes
+work from other agent tooling (see the `agent/*` and `codex/*` branches)
+that isn't JARVIS either. Rather than guess at history, this file starts
+here, going forward: every dispatcher-made change from this point on gets
+a real entry, appended as part of the same task that makes it.
 
-- Kept Home focused on the primary operational action, Full Count.
-- Moved Items & Vendors, Seasonal Profiles, team access, and sign out into a single Settings sheet without removing capability or changing permissions.
-- Consolidated duplicate property presentation into one compact property row; multi-property switching remains available.
-- Restored “Connected” as a network-status label. Shared-draft conflicts and save issues now appear as a separate actionable alert instead of replacing connectivity state.
-- Removed the floating Manage team and Sign out controls above the bottom navigation; both remain available in Settings.
-- No database migration or operational-data change.
+**Also see `docs/DECISIONS.md` in the JARVIS repo:** PourGrid's own real
+data (pour cost, order predictions) only exists after Josh has physically
+counted inventory through the app's own Full Count flow — there's nothing
+for an automated agent to read here that isn't already something Josh
+entered himself, which is why JARVIS's own PourGrid integration stays
+deferred rather than attempting a browser-based read.
 
-Recent areas touched by other agents and intentionally preserved:
-
-- Multi-property onboarding and Items & Vendors (`94842ef`, 2026-08-26).
-- Seasonal Profiles and pinned draft behavior (`b05ae400`, 2026-08-24).
-- Shared-draft conflict detection (`15457bec`, 2026-08-23).
+<!-- New entries go at the top, newest first. Format:
+## YYYY-MM-DD
+**What:** one line.
+**By:** JARVIS dispatcher, task <short description>.
+**Why:** one line - what prompted it.
+**Note:** anything that would confuse someone who last saw the code
+before this, or anything deliberate that looks wrong without context.
+Omit this line entirely if there's nothing to flag.
+-->
