@@ -231,6 +231,20 @@ select test.assert((select status='approved' from public.reconciliation_requests
 select test.assert(not exists(select 1 from public.location_inventory_balances b left join (select location_id,item_id,sum(quantity_units) quantity_units from public.inventory_movements group by location_id,item_id) m using(location_id,item_id) where b.quantity_units<>coalesce(m.quantity_units,0)),'balances reconstruct from movements');
 do $$begin begin update public.inventory_movements set quantity_units=999 where id=(select id from public.inventory_movements limit 1); raise exception 'movement update succeeded'; exception when raise_exception then if sqlerrm='movement update succeeded' then raise; end if; end; begin delete from public.audit_events; raise exception 'audit delete succeeded'; exception when raise_exception then if sqlerrm='audit delete succeeded' then raise; end if; end; end$$;
 
+-- Identical shared-draft retries are acknowledgements, while a genuine stale
+-- value creates exactly one conflict even when the same mutation is retried.
+set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',false);
+select public.open_shared_location_draft('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','bar',null) as noop_draft_id \gset
+select public.update_shared_draft_field('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',:'noop_draft_id','Lime Juice','loose','6'::jsonb,null,'91000000-0000-0000-0000-000000000001');
+select test.assert((select (result->>'status')='acknowledged' and (result->>'noChange')::boolean from (select public.update_shared_draft_field('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',:'noop_draft_id','Lime Juice','loose','6'::jsonb,0,'91000000-0000-0000-0000-000000000002') result)q),'identical stale shared draft value acknowledges without conflict');
+select test.assert((select jsonb_array_length(result->'conflicts')=0 from (select public.read_shared_location_draft('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','bar') result)q),'identical shared draft value creates no review choice');
+select public.update_shared_draft_field('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',:'noop_draft_id','Lime Juice','loose','7'::jsonb,0,'91000000-0000-0000-0000-000000000003');
+select public.update_shared_draft_field('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',:'noop_draft_id','Lime Juice','loose','7'::jsonb,0,'91000000-0000-0000-0000-000000000003');
+select test.assert((select jsonb_array_length(result->'conflicts')=1 from (select public.read_shared_location_draft('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','bar') result)q),'genuine shared draft mutation retry creates one review choice');
+select public.resolve_shared_draft_conflict('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',((public.read_shared_location_draft('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','bar')->'conflicts'->0->>'id')::uuid),'server',:'noop_draft_id','Lime Juice','loose');
+select public.abandon_shared_location_draft('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',:'noop_draft_id');
+reset role;
+
 -- Prepare one session for the external two-client concurrency test.
 insert into public.structured_orders(id,organization_id,location_id,vendor_id,workflow,status,submitted_at,created_by) values('70000000-0000-0000-0000-000000000003','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','40000000-0000-0000-0000-000000000001','bar','submitted',now(),'00000000-0000-0000-0000-000000000003');
 insert into public.order_lines(id,order_id,organization_id,location_id,item_id,draft_units,submitted_units,expected_units,units_per_package) values('71000000-0000-0000-0000-000000000003','70000000-0000-0000-0000-000000000003','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001',1,1,1,12);
