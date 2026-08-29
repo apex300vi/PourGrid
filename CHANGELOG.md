@@ -10,6 +10,12 @@ so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
 ## 2026-08-29
+**What:** Limited shared count sync to products explicitly edited in the active browser session, automatically kept the shared team value for untouched stale-device conflicts, and formatted genuine package conflicts as cases plus loose units.
+**By:** Codex, task passive shared-draft conflict recovery.
+**Why:** A whole-device cache push promoted old converted counts such as `3.6666666666666665` into hundreds of apparent device changes even when the user had not touched those products.
+**Note:** This directly touches the PR #75 and PR #77 shared-draft work. It preserves deliberate same-session conflicts and pending offline mutations, keeps server/shared counts authoritative for untouched cache residue, and does not change Home, Settings, navigation, orders, or submitted inventory history.
+
+## 2026-08-29
 **What:** Collapsed false numeric shared-draft conflicts, scoped count sync to its actual workspace, and made removed order adjustments persist as explicit zero-state mutations.
 **By:** Codex, task shared draft and order adjustment recovery.
 **Why:** Numeric strings and numbers displayed identically but produced hundreds of review cards, while deleting a local adjustment sent no shared mutation and allowed the old server value to return.
