@@ -8,6 +8,7 @@ const client=fs.readFileSync(path.join(root,'shared-drafts.js'),'utf8');
 const auth=fs.readFileSync(path.join(root,'auth-gate.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const resolution=fs.readFileSync(path.join(root,'supabase/migrations/202608270001_resolve_shared_draft_conflicts.sql'),'utf8');
+const noopRepair=fs.readFileSync(path.join(root,'supabase/migrations/202608290001_shared_draft_noop_conflict_repair.sql'),'utf8');
 
 test('shared drafts are tenant scoped and direct writes remain closed',()=>{
   assert.match(sql,/require_shared_draft_access\(p_organization,p_location,true\)/);
@@ -74,4 +75,32 @@ test('resolved fields clear their queued retry and refresh the authoritative dra
   assert.match(client,/await refresh\(type\)/);
   assert.match(client,/resolveConflict:resolveConflict/);
   assert.match(client,/id:r\.conflictId\|\|null/);
+});
+
+test('identical stale updates acknowledge automatically and clean existing no-op conflicts',()=>{
+  assert.match(noopRepair,/server_value=incoming_value/);
+  assert.match(noopRepair,/field_exists and field\.value=p_value/);
+  assert.match(noopRepair,/'status','acknowledged'[\s\S]*'noChange',true/);
+  assert.match(noopRepair,/shared_draft_mutations[\s\S]*on conflict\(draft_id,idempotency_key\) do nothing/);
+  assert.doesNotMatch(noopRepair,/delete from public\.shared_draft/);
+});
+
+test('one mutation can create at most one active conflict across retries',()=>{
+  assert.match(noopRepair,/add column if not exists idempotency_key uuid/);
+  assert.match(noopRepair,/shared_draft_conflicts_mutation_once/);
+  assert.match(noopRepair,/where c\.draft_id=p_draft and c\.idempotency_key=p_idempotency_key/);
+  assert.match(noopRepair,/'conflictId',prior_conflict\.id/);
+});
+
+test('one conflicted item cannot block the rest of a device count',()=>{
+  const flush=client.slice(client.indexOf('async function flush'),client.indexOf('function queue'));
+  assert.match(flush,/if\(s\.queue\[0\]&&s\.queue\[0\]\.key===sentKey\)s\.queue\.shift\(\)/);
+  assert.match(flush,/set\(type,\{status:"conflict"\}\);continue/);
+  assert.doesNotMatch(flush,/status:"conflict"\}\);break/);
+});
+
+test('repeated unsent edits keep only the latest value for each field',()=>{
+  const queue=client.slice(client.indexOf('function queue'),client.indexOf('function syncCounts'));
+  assert.match(queue,/existing=\(s\.queue\|\|\[\]\)\.find/);
+  assert.match(queue,/existing\.value=value;existing\.key=key/);
 });

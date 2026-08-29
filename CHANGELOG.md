@@ -10,6 +10,12 @@ so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
 ## 2026-08-29
+**What:** Made identical shared-draft retries self-resolving, made real conflict creation idempotent, kept a conflicted item from blocking the rest of a count, and clarified the rare genuine-conflict language.
+**By:** Codex, task false shared-draft conflict repair.
+**Why:** Revision drift created hundreds of duplicate choices even when “Saved for everyone” and “On this device” contained the same count.
+**Note:** The forward-only cleanup closes only conflicts whose JSON values are exactly equal. It does not change draft fields, counts, revisions, orders, or genuine differing conflicts. Queued counts remain on the originating device and resume after the blocker clears.
+
+## 2026-08-29
 **What:** Corrected the default build-to basis for all bottle-purchased products and aligned predictive ordering with the order calculation.
 **By:** Codex, task bottle build-to multiplier repair.
 **Why:** Bottle targets were incorrectly treated as case targets, so pack size multiplied the shortage (for example, Black Seal requested 47 bottles instead of 3, and Hurricane Proof requested 24 instead of 2).
