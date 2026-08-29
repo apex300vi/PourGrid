@@ -88,7 +88,9 @@ test('bottle-purchased par suggestions use bottle targets, not case-pack multipl
     {product:{name:'Bombay Sapphire Gin',unit:'Bottle',pack:12,buildTo:4},onHand:0,expected:4},
     {product:{name:"Hendrick's Gin",unit:'Bottle',pack:12,buildTo:2},onHand:2,expected:0},
     {product:{name:'Crown Royal',unit:'Bottle',pack:12,buildTo:8},onHand:4,expected:4},
-    {product:{name:'Crown Apple',unit:'Bottle',pack:12,buildTo:8},onHand:4,expected:4}
+    {product:{name:'Crown Apple',unit:'Bottle',pack:12,buildTo:8},onHand:4,expected:4},
+    {product:{name:'Bulleit Bourbon',unit:'Bottle',pack:12,buildTo:4},onHand:1,expected:3},
+    {product:{name:"Maker's Mark Bourbon",unit:'Bottle',pack:12,buildTo:2},onHand:2,expected:0}
   ];
   for(const item of cases){
     const basis=Predictive.basisFor(item.product,{});
