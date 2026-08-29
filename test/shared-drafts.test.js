@@ -132,7 +132,7 @@ test('untouched device cache defers to the shared team count without asking the 
   assert.match(client,/passiveConflicts/);
   assert.match(client,/if\(isCountField\(m\.field\)\)activeTouches\[type\]\.add\(m\.product\)/);
   assert.match(html,/new CustomEvent\("pourgrid:count-touched"/);
-  assert.match(html,/shared-drafts\.js\?v=4/);
+  assert.match(html,/shared-drafts\.js\?v=5/);
 });
 
 test('real count conflicts use readable package quantities instead of float artifacts',()=>{
@@ -150,6 +150,15 @@ test('cleared manual order quantities persist and stale refreshes cannot restore
   assert.match(html,/pgPersistDraft\(type,\[product\.name\]\)/);
   assert.match(html,/pgPersistDraft\(type,next===0\?\[product\.name\]:\[\]\)/);
   assert.doesNotMatch(html,/PourGridSharedDraft\.review\(sharedType\)/);
+});
+
+test('an explicit order adjustment wins a stale revision without reverting on refresh',()=>{
+  const flush=client.slice(client.indexOf('async function flush'),client.indexOf('function queue'));
+  assert.match(client,/function isAdjustmentField\(field\)/);
+  assert.match(flush,/if\(isAdjustmentField\(m\.field\)\)/);
+  assert.match(flush,/api\(\)\.resolve\(r\.conflictId\|\|null,"incoming",s\.id,m\.product,m\.field\)/);
+  assert.ok(flush.indexOf('api().resolve(r.conflictId||null,"incoming"')<flush.indexOf('s.queue[0].key===sentKey)s.queue.shift()'));
+  assert.match(flush,/await refresh\(type\);continue/);
 });
 
 test('one order edit queues only fields that actually changed',()=>{
