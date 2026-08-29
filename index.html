@@ -896,7 +896,7 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 <script type="text/pourgrid-protected" data-pg-protected src="predictive-ordering.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="order-pipeline.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="order-save.js?v=1"></script>
-<script type="text/pourgrid-protected" data-pg-protected src="shared-drafts.js?v=3"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="shared-drafts.js?v=4"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="drink-price-estimator.js?v=2"></script>
 <script type="text/pourgrid-protected" data-pg-protected>
 
@@ -1509,9 +1509,15 @@ function pgPaintDraftAttention(){
   host.hidden=false;host.innerHTML='<span aria-hidden="true">!</span><div><strong>'+names[attention.type]+' draft needs attention</strong><small>'+copy[attention.status]+'</small></div><b aria-hidden="true">›</b>';
   host.onclick=function(){pgOpenDraftAttention(attention);};
 }
-function pgConflictValue(value){
+function pgConflictValue(value,conflict){
   if(value===null||value===undefined||value==="")return "Empty";
   if(typeof value==="object")try{return JSON.stringify(value);}catch(e){return "Saved change";}
+  var number=Number(value),product=conflict&&PRODUCTS.find(function(candidate){return candidate.name===conflict.productKey;}),cfg=product&&pgPack(product);
+  if(conflict&&conflict.fieldKey==="count"&&Number.isFinite(number)&&cfg&&cfg.mode==="caseLoose"&&Number(cfg.unitsPerCase)>1){
+    var cases=Math.floor(number+1e-9),loose=Math.round((number-cases)*Number(cfg.unitsPerCase));if(loose>=cfg.unitsPerCase){cases+=1;loose=0;}
+    return cases+" "+pgPlural(cases,"case","cases")+(loose?" + "+loose+" "+pgPlural(loose,cfg.looseUnit||"unit",cfg.unitLabel||(cfg.looseUnit||"unit")+"s"):"");
+  }
+  if(Number.isFinite(number)&&String(value).trim()!=="")return number.toLocaleString(undefined,{maximumFractionDigits:2});
   return String(value);
 }
 function pgOpenDraftAttention(attention){
@@ -1522,8 +1528,8 @@ function pgOpenDraftAttention(attention){
     s4Sheet(name+" draft",detail,'<div class="pg-settings-group"><div><button type="button" class="pg-settings-row" id="pgOpenAttentionDraft"><span class="pg-settings-icon" aria-hidden="true">↗</span><div><strong>Open '+name+' draft</strong><small>No entries will be changed</small></div><b aria-hidden="true">›</b></button></div></div>',{returnFocus:document.getElementById("pgDraftAttention")});
     setTimeout(function(){var open=document.getElementById("pgOpenAttentionDraft");if(open)open.onclick=function(){s4CloseSheet();pgApplyRoute(attention.type==="merchants"?"merchants":"bar");};},0);return;
   }
-  var rows=conflicts.map(function(conflict,index){var product=conflict.productKey==="$workflow"?"Order note":conflict.productKey,field=conflict.fieldKey==="count"?"Count":conflict.fieldKey.replace(/_/g," ");return '<article class="pg-conflict-row"><div class="pg-conflict-title"><strong>'+pgEsc(product)+'</strong><small>'+pgEsc(field)+'</small></div><div class="pg-conflict-choice"><span>Saved for everyone</span><strong>'+pgEsc(pgConflictValue(conflict.serverValue))+'</strong></div><div class="pg-conflict-choice incoming"><span>On this device</span><strong>'+pgEsc(pgConflictValue(conflict.incomingValue))+'</strong></div><div class="pg-conflict-actions"><button type="button" data-conflict-index="'+index+'" data-choice="server">Keep saved</button><button type="button" class="primary" data-conflict-index="'+index+'" data-choice="incoming">Use this device</button></div></article>';}).join("");
-  s4Sheet("Choose the correct "+name.toLowerCase()+" values","These items were changed differently on two devices. Pick the value PourGrid should keep.",'<div class="pg-conflict-list">'+rows+'</div>',{returnFocus:document.getElementById("pgDraftAttention")});
+  var rows=conflicts.map(function(conflict,index){var product=conflict.productKey==="$workflow"?"Order note":conflict.productKey,field=conflict.fieldKey==="count"?"Count":conflict.fieldKey.replace(/_/g," ");return '<article class="pg-conflict-row"><div class="pg-conflict-title"><strong>'+pgEsc(product)+'</strong><small>'+pgEsc(field)+'</small></div><div class="pg-conflict-choice"><span>Saved for everyone</span><strong>'+pgEsc(pgConflictValue(conflict.serverValue,conflict))+'</strong></div><div class="pg-conflict-choice incoming"><span>On this device</span><strong>'+pgEsc(pgConflictValue(conflict.incomingValue,conflict))+'</strong></div><div class="pg-conflict-actions"><button type="button" data-conflict-index="'+index+'" data-choice="server">Keep saved</button><button type="button" class="primary" data-conflict-index="'+index+'" data-choice="incoming">Use this device</button></div></article>';}).join("");
+  s4Sheet("Choose the correct "+name.toLowerCase()+" values","You changed these products on this phone after another device saved a different count. Choose which count to keep.",'<div class="pg-conflict-list">'+rows+'</div>',{returnFocus:document.getElementById("pgDraftAttention")});
   setTimeout(function(){document.querySelectorAll("[data-conflict-index]").forEach(function(button){button.onclick=function(){var all=document.querySelectorAll("[data-conflict-index]"),conflict=conflicts[Number(button.dataset.conflictIndex)];all.forEach(function(x){x.disabled=true;});button.textContent="Saving…";PourGridSharedDraft.resolveConflict(attention.type,conflict.id||null,button.dataset.choice,conflict.productKey,conflict.fieldKey).then(function(){s4CloseSheet();toast("Saved value updated");var next=pgDraftAttentionState();if(next&&next.status==="conflict")setTimeout(function(){pgOpenDraftAttention(next);},120);},function(){all.forEach(function(x){x.disabled=false;});button.textContent=button.dataset.choice==="server"?"Keep saved":"Use this device";toast("Nothing changed — try again");});};});},0);
 }
 function pgSetConnectivity(state){
@@ -2073,6 +2079,7 @@ function pgTouch(type,name){
   if(!Array.isArray(s[type].touched))s[type].touched=[];
   if(s[type].touched.indexOf(name)<0)s[type].touched.push(name);
   pgSaveSession(s);
+  window.dispatchEvent(new CustomEvent("pourgrid:count-touched",{detail:{type:type,name:name}}));
 }
 function pgSessionStarted(type){
   var s=pgSession(),today=pgTodayKey();

@@ -117,8 +117,30 @@ test('numeric strings and numbers do not create visible or server conflicts',()=
 
 test('count sync is confined to its actual workspace',()=>{
   assert.match(client,/function productNames\(type\)/);
-  assert.match(client,/if\(!owns\(type,p\)\|\|\["count","cases","halves","loose"\]/);
+  assert.match(client,/if\(!owns\(type,p\)\|\|!isCountField\(f\)/);
   assert.match(client,/if\(owns\(type,k\)\)fields\.push\(\{productKey:k,fieldKey:"adjustment"/);
+});
+
+test('untouched device cache defers to the shared team count without asking the user',()=>{
+  assert.match(client,/activeTouches=\{bar:new Set\(\),merchants:new Set\(\)\}/);
+  assert.match(client,/pourgrid:count-touched/);
+  assert.match(client,/!isActiveTouch\(type,p\)/);
+  assert.match(client,/f==="count"&&hasStructuredCount\(counts,p\)/);
+  assert.match(client,/window\.pgPhysicalCountFrom\(counts,product\)/);
+  assert.match(client,/isCountField\(conflict\.fieldKey\)&&!isActiveTouch\(type,conflict\.productKey\)/);
+  assert.match(client,/api\(\)\.resolve\(conflict\.id,"server"/);
+  assert.match(client,/passiveConflicts/);
+  assert.match(client,/if\(isCountField\(m\.field\)\)activeTouches\[type\]\.add\(m\.product\)/);
+  assert.match(html,/new CustomEvent\("pourgrid:count-touched"/);
+  assert.match(html,/shared-drafts\.js\?v=4/);
+});
+
+test('real count conflicts use readable package quantities instead of float artifacts',()=>{
+  assert.match(html,/function pgConflictValue\(value,conflict\)/);
+  assert.match(html,/cfg\.mode==="caseLoose"/);
+  assert.match(html,/Math\.round\(\(number-cases\)\*Number\(cfg\.unitsPerCase\)\)/);
+  assert.match(html,/maximumFractionDigits:2/);
+  assert.doesNotMatch(html,/These items were changed differently on two devices/);
 });
 
 test('cleared manual order quantities persist and stale refreshes cannot restore them',()=>{
