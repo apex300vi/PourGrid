@@ -10,6 +10,12 @@ so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
 ## 2026-08-29
+**What:** Kept explicit order quantity adjustments overlaid until server confirmation and automatically rebased them when their shared field revision changed.
+**By:** Codex, task order adjustment refresh recovery.
+**Why:** A stale shared revision removed the pending `+` or `−` adjustment before resolution, so a later refresh restored the old quantity even though the user had just changed it.
+**Note:** This directly touches PR #77's shared adjustment persistence. The latest deliberate order-review edit wins; count conflicts, build-tos, inventory, vendor routing, submitted orders, and PR #78's passive count cleanup remain unchanged.
+
+## 2026-08-29
 **What:** Limited shared count sync to products explicitly edited in the active browser session, automatically kept the shared team value for untouched stale-device conflicts, and formatted genuine package conflicts as cases plus loose units.
 **By:** Codex, task passive shared-draft conflict recovery.
 **Why:** A whole-device cache push promoted old converted counts such as `3.6666666666666665` into hundreds of apparent device changes even when the user had not touched those products.
