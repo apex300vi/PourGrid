@@ -25,9 +25,10 @@
   function unitInfo(product){
     var cfg=product&&product.visionPackaging||{},unitsPerCase=Number(cfg.unitsPerCase||product&&product.unitsPerCase||product&&product.pack)||1;
     var mode=cfg.mode||"standard";
-    return {mode:mode,unitsPerCase:Math.max(1,unitsPerCase),unitLabel:cfg.unitLabel||product&&product.unitLabel||defaultUnitLabel(product),innerPacksPerCase:Number(cfg.innerPacksPerCase)||0,unitsPerInner:Number(cfg.unitsPerInner)||0,buildToBasis:cfg.buildToBasis||defaultBuildToBasis(product,mode),countBasis:cfg.countBasis||(mode==="standard"?"units":"cases")};
+    var buildToBasis=product&&product.unit!=="Case"?"units":cfg.buildToBasis||defaultBuildToBasis(product,mode);
+    return {mode:mode,unitsPerCase:Math.max(1,unitsPerCase),unitLabel:cfg.unitLabel||product&&product.unitLabel||defaultUnitLabel(product),innerPacksPerCase:Number(cfg.innerPacksPerCase)||0,unitsPerInner:Number(cfg.unitsPerInner)||0,buildToBasis:buildToBasis,countBasis:cfg.countBasis||(mode==="standard"?"units":"cases")};
   }
-  function effectiveInfo(product,config){var info=Object.assign(unitInfo(product),config||{});info.unitsPerCase=Math.max(1,Number(info.unitsPerCase)||1);if(!info.countBasis)info.countBasis=info.mode==="standard"?"units":"cases";return info;}
+  function effectiveInfo(product,config){var info=Object.assign(unitInfo(product),config||{});info.unitsPerCase=Math.max(1,Number(info.unitsPerCase)||1);if(product&&product.unit!=="Case")info.buildToBasis="units";if(!info.countBasis)info.countBasis=info.mode==="standard"?"units":"cases";return info;}
   function reviewRows(results,products){
     var rows={};(results||[]).forEach(function(result){
       var product=byId(products,result.productId),id=product?idOf(product):"Unknown",key=id==="Unknown"?"Unknown":id,row=rows[key];

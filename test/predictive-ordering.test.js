@@ -81,7 +81,7 @@ test('a par-basis suggestion equals PourGridVision.orderQuantity exactly',()=>{
   }
 });
 
-test('bottle-purchased par suggestions use bottle targets, not case-pack multipliers',()=>{
+test('bottle-purchased par suggestions ignore stale case-basis device overrides',()=>{
   const cases=[
     {product:{name:'Goslings Black Seal Rum',unit:'Bottle',pack:12,buildTo:4},onHand:1,expected:3},
     {product:{name:'Cruzan Hurricane Proof',unit:'Bottle',pack:12,buildTo:2},onHand:0,expected:2},
@@ -90,15 +90,23 @@ test('bottle-purchased par suggestions use bottle targets, not case-pack multipl
     {product:{name:'Crown Royal',unit:'Bottle',pack:12,buildTo:8},onHand:4,expected:4},
     {product:{name:'Crown Apple',unit:'Bottle',pack:12,buildTo:8},onHand:4,expected:4},
     {product:{name:'Bulleit Bourbon',unit:'Bottle',pack:12,buildTo:4},onHand:1,expected:3},
-    {product:{name:"Maker's Mark Bourbon",unit:'Bottle',pack:12,buildTo:2},onHand:2,expected:0}
+    {product:{name:"Maker's Mark Bourbon",unit:'Bottle',pack:12,buildTo:2},onHand:2,expected:0},
+    {product:{name:'Dewars White Label',unit:'Bottle',pack:12,buildTo:4},onHand:6,expected:0},
+    {product:{name:'Johnnie Walker Black Label',unit:'Bottle',pack:12,buildTo:4},onHand:0,expected:4},
+    {product:{name:'Grand Marnier',unit:'Bottle',pack:6,buildTo:2},onHand:1,expected:1},
+    {product:{name:'Cointreau',unit:'Bottle',pack:12,buildTo:2},onHand:1,expected:1},
+    {product:{name:'Amaretto',unit:'Bottle',pack:12,buildTo:6},onHand:3,expected:3},
+    {product:{name:'Frangelico',unit:'Bottle',pack:6,buildTo:6},onHand:7,expected:0},
+    {product:{name:'Sambuca',unit:'Bottle',pack:12,buildTo:2},onHand:2,expected:0}
   ];
   for(const item of cases){
-    const basis=Predictive.basisFor(item.product,{});
-    const result=Predictive.suggest([],item.product,{now:AUGUST,onHand:item.onHand,packaging:{}});
+    const stale={unitsPerCase:item.product.pack,countBasis:'units',buildToBasis:'cases'};
+    const basis=Predictive.basisFor(item.product,stale);
+    const result=Predictive.suggest([],item.product,{now:AUGUST,onHand:item.onHand,packaging:stale});
     assert.equal(basis.buildToBasis,'units',item.product.name);
     assert.equal(basis.unitLabel,'bottles',item.product.name);
     assert.equal(result.suggestedPurchaseUnits,item.expected,item.product.name);
-    assert.equal(result.suggestedPurchaseUnits,Vision.orderQuantity(item.product,item.onHand,{}),item.product.name);
+    assert.equal(result.suggestedPurchaseUnits,Vision.orderQuantity(item.product,item.onHand,stale),item.product.name);
   }
 });
 

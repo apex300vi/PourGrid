@@ -426,7 +426,7 @@ test('Deep Eddy case and bottle components edit, persist, route to Bellows, subm
   const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));
   assert.match(order,/pgOrderLine\(p,p\.adjQty\)/);assert.match(order,/finalPurchaseBreakdown:pgFinalPurchaseBreakdown\(p,base,manual\)/);assert.match(order,/pgManualPurchaseText/);assert.match(order,/pgFinalPurchaseText/);
   assert.match(order,/pgBellowsWiEmailGroup\(p,WI_PRODS2\)/);assert.doesNotMatch(order,/WI_PRODS2=\[[^\]]*Deep Eddy Grapefruit/);
-  const sheet=html.slice(html.indexOf('function pgOpenManualAdjustment'),html.indexOf('function pgOpenAdjustmentPicker'));assert.match(sheet,/base\+result\.orderUnits<0/);assert.match(sheet,/The final order cannot be negative/);
+  const sheet=html.slice(html.indexOf('function pgOpenManualAdjustment'),html.indexOf('function pgOpenAdjustmentPicker'));assert.match(sheet,/pgAdjustmentForFinalQuantity/);assert.match(sheet,/Enter the final quantity once/);assert.match(sheet,/Use calculated order/);
   const formatter=html.slice(html.indexOf('function pgPlural'),html.indexOf('function pgStoliFlavor'));
   const formatContext={pgFinalPurchaseText:(p,q,b)=>b.loose&&!b.cases?b.loose+' individual bottles':b.cases+' case'+(b.cases===1?'':'s')+(b.loose?' + '+b.loose+' individual bottles':''),pgPlural:(n,o,m)=>Number(n)===1?o:m};
   vm.runInNewContext(formatter+';this.line=pgOrderLine;',formatContext);

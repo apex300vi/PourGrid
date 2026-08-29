@@ -10,6 +10,12 @@ so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
 ## 2026-08-29
+**What:** Made bottle-unit build-tos a runtime invariant, upgraded stale device packaging edits, and replaced repetitive quantity stepping with a direct final-quantity editor.
+**By:** Codex, task bottle order recovery.
+**Why:** The earlier default-only repair did not override an already-saved device setting of `buildToBasis: cases`, so bottle targets were still multiplied by pack size on affected phones.
+**Note:** This touches the 2026-08-29 bottle build-to and predictive-ordering work. It does not alter counts, numeric build-tos, drafts, vendors, or submitted orders; the existing count is recalculated in place after the updated app loads.
+
+## 2026-08-29
 **What:** Made identical shared-draft retries self-resolving, made real conflict creation idempotent, kept a conflicted item from blocking the rest of a count, and clarified the rare genuine-conflict language.
 **By:** Codex, task false shared-draft conflict repair.
 **Why:** Revision drift created hundreds of duplicate choices even when “Saved for everyone” and “On this device” contained the same count.

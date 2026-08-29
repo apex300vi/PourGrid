@@ -100,7 +100,7 @@
         unitsPerCase=Math.max(1,finite(config.unitsPerCase)||finite(product.unitsPerCase)||finite(product.pack)||1),
         mode=text(config.mode)||"standard",
         orderedByCase=product.unit==="Case",
-        buildToBasis=text(config.buildToBasis)||defaultBuildToBasis(product,mode),
+        buildToBasis=product.unit!=="Case"?"units":text(config.buildToBasis)||defaultBuildToBasis(product,mode),
         countBasis=text(config.countBasis)||(mode==="standard"?"units":"cases"),
         unitBasis=buildToBasis==="units",
         mixedBasis=!unitBasis&&countBasis==="units";
