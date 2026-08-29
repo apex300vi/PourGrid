@@ -71,6 +71,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608250004_cranberry_bib_verified_cost.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608270001_resolve_shared_draft_conflicts.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608290001_shared_draft_noop_conflict_repair.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/202608290003_shared_draft_scalar_and_adjustment_repair.sql
       - name: Run executable database and RLS suite
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase3_executable.sql
       - name: Verify Seasonal Profile activation, isolation, and draft pinning

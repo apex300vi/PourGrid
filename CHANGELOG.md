@@ -10,6 +10,12 @@ so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
 ## 2026-08-29
+**What:** Collapsed false numeric shared-draft conflicts, scoped count sync to its actual workspace, and made removed order adjustments persist as explicit zero-state mutations.
+**By:** Codex, task shared draft and order adjustment recovery.
+**Why:** Numeric strings and numbers displayed identically but produced hundreds of review cards, while deleting a local adjustment sent no shared mutation and allowed the old server value to return.
+**Note:** This directly follows the PR #75 shared-draft repair and PR #76 quantity editor. It preserves counts and genuine differing-device conflicts; it does not touch the newer Home, Settings, or bottom-navigation layout work.
+
+## 2026-08-29
 **What:** Made bottle-unit build-tos a runtime invariant, upgraded stale device packaging edits, and replaced repetitive quantity stepping with a direct final-quantity editor.
 **By:** Codex, task bottle order recovery.
 **Why:** The earlier default-only repair did not override an already-saved device setting of `buildToBasis: cases`, so bottle targets were still multiplied by pack size on affected phones.

@@ -52,7 +52,7 @@ test('quick adjustments are present, accessible, persistent, and removable at th
   const step=slice('function pgStepManualAdjustment','function pgDraftWorkState');
   assert.match(order,/ap\(qtyWrap,qm,qb,qp,adjust\)/);
   assert.match(order,/pg-order-step/);assert.match(order,/aria-label/);assert.match(order,/qm\.disabled=Number\(p\.adjQty\)<=0/);
-  assert.match(step,/if\(base\+next<0\)return false/);assert.match(step,/if\(next===0\)\{delete adjustments/);assert.match(step,/pgPersistDraft\(type\)/);
+  assert.match(step,/if\(base\+next<0\)return false/);assert.match(step,/if\(next===0\)\{delete adjustments/);assert.match(step,/pgPersistDraft\(type,next===0\?\[product\.name\]:\[\]\)/);
   const setter=slice('function pgAdjustmentForFinalQuantity','function pgPurchasePartsText'),sheet=slice('function pgOpenManualAdjustment','function pgOpenAdjustmentPicker');
   assert.match(setter,/desired-\(Number\(baseQty\)\|\|0\)/);assert.match(sheet,/Save quantity/);assert.match(sheet,/Use calculated order/);assert.match(order,/pg-order-value/);assert.match(order,/Set final order quantity for/);
 });
