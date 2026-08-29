@@ -406,7 +406,7 @@ test('Deep Eddy Grapefruit adjustment persists under the active Bar draft and re
   const routes=html.slice(html.indexOf('function pgRouteSnapshot'),html.indexOf('var pgSheetGestures'));
   assert.doesNotMatch(routes,/adjustments\s*:/);assert.doesNotMatch(routes,/adjustmentMeta\s*:/);
   const remove=html.slice(html.indexOf('function pgRemoveManualAdjustment'),html.indexOf('function pgDraftHasMeaningfulWork'));
-  assert.match(remove,/delete adjustments\[product\.name\]/);assert.match(remove,/delete meta\[product\.name\]/);assert.match(remove,/pgPersistDraft\(type\)/);
+  assert.match(remove,/delete adjustments\[product\.name\]/);assert.match(remove,/delete meta\[product\.name\]/);assert.match(remove,/pgPersistDraft\(type,(?:\[product\.name\]|next===0\?\[product\.name\]:\[\])\)/);
   assert.match(remove,/function pgStepManualAdjustment/);assert.match(remove,/pgStartSession\(type\)/);
   const submission=html.slice(html.indexOf('var saveBtn=mk'),html.indexOf('function calcSuggestedBuildTos'));
   assert.match(submission,/calculatedOrderQty:base===null\?0:base/);assert.match(submission,/manualAdjustment:adj/);assert.match(submission,/finalOrderQty:final/);
@@ -433,7 +433,7 @@ test('Deep Eddy case and bottle components edit, persist, route to Bellows, subm
   assert.equal(formatContext.line(Object.assign({},deep,{finalPurchaseBreakdown:{cases:0,loose:3}}),.25),'3 individual bottles - Deep Eddy Grapefruit');
   assert.equal(formatContext.line(Object.assign({},deep,{finalPurchaseBreakdown:{cases:1,loose:2}}),14/12),'1 case + 2 individual bottles - Deep Eddy Grapefruit');
   const history=html.slice(html.indexOf('function rHistDet'),html.indexOf('function rEmpty'));assert.match(history,/pgManualPurchaseText/);assert.match(history,/pgFinalPurchaseText/);
-  const remove=html.slice(html.indexOf('function pgRemoveManualAdjustment'),html.indexOf('function pgDraftHasMeaningfulWork'));assert.match(remove,/delete adjustments\[product\.name\]/);assert.match(remove,/delete meta\[product\.name\]/);assert.match(remove,/pgPersistDraft\(type\)/);
+  const remove=html.slice(html.indexOf('function pgRemoveManualAdjustment'),html.indexOf('function pgDraftHasMeaningfulWork'));assert.match(remove,/delete adjustments\[product\.name\]/);assert.match(remove,/delete meta\[product\.name\]/);assert.match(remove,/pgPersistDraft\(type,(?:\[product\.name\]|next===0\?\[product\.name\]:\[\])\)/);
   const routes=html.slice(html.indexOf('function pgRouteSnapshot'),html.indexOf('var pgSheetGestures'));assert.doesNotMatch(routes,/adjustments\s*:/);assert.doesNotMatch(routes,/adjustmentMeta\s*:/);
   const setter=html.slice(html.indexOf('function pgSetManualAdjustment'),html.indexOf('function pgDraftHasMeaningfulWork'));assert.doesNotMatch(setter,/S\.counts\s*=|buildTo\s*=|pgSaveCatalogEdits/);
 });

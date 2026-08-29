@@ -896,7 +896,7 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 <script type="text/pourgrid-protected" data-pg-protected src="predictive-ordering.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="order-pipeline.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="order-save.js?v=1"></script>
-<script type="text/pourgrid-protected" data-pg-protected src="shared-drafts.js?v=2"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="shared-drafts.js?v=3"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="drink-price-estimator.js?v=2"></script>
 <script type="text/pourgrid-protected" data-pg-protected>
 
@@ -1408,12 +1408,13 @@ function pgCaseQuantity(raw,allowHalf){
   return isFinite(value)&&value>=0&&value*2===Math.floor(value*2)?{valid:true,blank:false,value:value}:{valid:false,blank:false,value:0};
 }
 function pgSeasonalProfileForProduct(product){var record=pgDraftRecord(pgDraftTypeForProduct(product),false);return record&&record.seasonalProfile||pgCurrentSeasonalSnapshot();}
-function pgPersistDraft(type){
+function pgPersistDraft(type,clearedNames){
   var drafts=pgDrafts(),record=drafts[type]||{id:pgDraftId(type),createdAt:new Date().toISOString(),seasonalProfile:pgCurrentSeasonalSnapshot()};
+  var previousAdjustments=Object.assign({},record.adjustments||{}),previousMeta=Object.assign({},record.adjustmentMeta||{}),previousNote=record.note||"";
   var products=type==="merchants"?MER:BAR,names=products.map(function(p){return p.name;}),adjustments={},meta={};
   names.forEach(function(name){if(Number(S.adjustments[name]))adjustments[name]=Number(S.adjustments[name]);if(S.adjustmentMeta[name])meta[name]=S.adjustmentMeta[name];});
   record.adjustments=adjustments;record.adjustmentMeta=meta;record.note=S.notes[pgDraftNoteKey(type)]||"";record.updatedAt=new Date().toISOString();drafts[type]=record;lsSet(PG_DRAFT_KEY,drafts);
-  if(typeof window!=="undefined"&&window.PourGridSharedDraft){Object.keys(adjustments).forEach(function(name){PourGridSharedDraft.queue(type,name,"adjustment",adjustments[name]);});Object.keys(meta).forEach(function(name){PourGridSharedDraft.queue(type,name,"adjustment_meta",meta[name]);});PourGridSharedDraft.queue(type,"$workflow","note",record.note);}
+  if(typeof window!=="undefined"&&window.PourGridSharedDraft){(clearedNames||[]).forEach(function(name){PourGridSharedDraft.clearAdjustment(type,name);});Object.keys(adjustments).forEach(function(name){if(JSON.stringify(previousAdjustments[name])!==JSON.stringify(adjustments[name]))PourGridSharedDraft.queue(type,name,"adjustment",adjustments[name]);});Object.keys(meta).forEach(function(name){if(JSON.stringify(previousMeta[name])!==JSON.stringify(meta[name]))PourGridSharedDraft.queue(type,name,"adjustment_meta",meta[name]);});if(previousNote!==record.note)PourGridSharedDraft.queue(type,"$workflow","note",record.note);}
   return record;
 }
 function pgHydrateDrafts(){
@@ -2165,7 +2166,7 @@ function pgSetManualAdjustment(product,result,reason,note){
   return {product:product.name,vendor:product.dist,calculated:Math.max(0,finalOrderQty(product)-result.orderUnits),manual:result.orderUnits,final:finalOrderQty(product),unit:product.unit,draftId:(pgDraftRecord(type,false)||{}).id||null};
 }
 function pgRemoveManualAdjustment(product){
-  var type=pgDraftTypeForProduct(product),adjustments=Object.assign({},S.adjustments),meta=Object.assign({},S.adjustmentMeta);delete adjustments[product.name];delete meta[product.name];S.adjustments=adjustments;S.adjustmentMeta=meta;pgPersistDraft(type);render();
+  var type=pgDraftTypeForProduct(product),adjustments=Object.assign({},S.adjustments),meta=Object.assign({},S.adjustmentMeta);delete adjustments[product.name];delete meta[product.name];S.adjustments=adjustments;S.adjustmentMeta=meta;pgPersistDraft(type,[product.name]);render();
 }
 function pgStepManualAdjustment(product,delta){
   var type=pgDraftTypeForProduct(product),base=cq(product,pgEffectiveCount(product)||"");base=base===null?0:Number(base)||0;
@@ -2174,7 +2175,7 @@ function pgStepManualAdjustment(product,delta){
   pgStartSession(type);
   if(next===0){delete adjustments[product.name];delete meta[product.name];}
   else{var previous=meta[product.name]||{},capability=pgAdjustmentCapability(product),absolute=Math.abs(next),total=capability.canonicalUnit==="case"?Math.round(absolute*capability.unitsPerCase):absolute;adjustments[product.name]=next;meta[product.name]={cases:capability.canonicalUnit==="case"?Math.floor(total/capability.unitsPerCase):0,loose:capability.canonicalUnit==="case"?total%capability.unitsPerCase:total,direction:next<0?"reduce":"add",reason:previous.reason||"",note:previous.note||"",orderUnits:next,updatedAt:new Date().toISOString()};}
-  S.adjustments=adjustments;S.adjustmentMeta=meta;pgPersistDraft(type);render();return true;
+  S.adjustments=adjustments;S.adjustmentMeta=meta;pgPersistDraft(type,next===0?[product.name]:[]);render();return true;
 }
 function pgDraftWorkState(type){
   var products=pgProductSet(type),names=products.map(function(p){return p.name;}),session=pgSession()[type]||{},note=S.notes[pgDraftNoteKey(type)]||"",record=pgDraftRecord(type,false)||{},email=pgEmailStatus()[pgDraftNoteKey(type)]||{};
@@ -3595,7 +3596,7 @@ function s6ConfirmMarkSent(keys,label){
 }
 function s6ResetAdjustments(type){
   type=type||"bar";var products=pgProductSet(type),previous=Object.assign({},S.adjustments),previousMeta=Object.assign({},S.adjustmentMeta);
-  function reset(){var next=Object.assign({},S.adjustments),meta=Object.assign({},S.adjustmentMeta);products.forEach(function(product){delete next[product.name];delete meta[product.name];});S.adjustments=next;S.adjustmentMeta=meta;pgPersistDraft(type);render();}
+  function reset(){var next=Object.assign({},S.adjustments),meta=Object.assign({},S.adjustmentMeta),cleared=[];products.forEach(function(product){if(Object.prototype.hasOwnProperty.call(next,product.name)||Object.prototype.hasOwnProperty.call(meta,product.name))cleared.push(product.name);delete next[product.name];delete meta[product.name];});S.adjustments=next;S.adjustmentMeta=meta;pgPersistDraft(type,cleared);render();}
   if(typeof s4Sheet!=="function"){reset();return;}
   s4Sheet("Reset adjustments?","This returns every manually adjusted quantity to the amount Sapphire calculated from your on-hand count.",
     '<div class="s6-sheet-actions"><button class="s6-sheet-btn danger" id="s6ResetConfirm">Reset Adjustments</button><button class="s6-sheet-btn" id="s6ResetCancel">Cancel</button></div>');
@@ -3794,7 +3795,6 @@ function rPendingOrderSaves(){
 function rOrderTab(prods,dists,dk,isG){
   var accent=isG?"#4AD3B0":"#59C7EA";
   var sharedType=isG?"merchants":"bar";
-  if(window.PourGridSharedDraft)window.PourGridSharedDraft.review(sharedType).then(function(){},function(error){console.warn("[PourGrid shared review]",String(error&&error.message||error));});
   var WI_PRODS2=["Finest Call Grenadine","Finest Call Margarita Mix","Finest Call Sweet & Sour","Stoli Vodka","Stoli Oranj","Stoli Raz","Stoli Blu","Bacardi Superior","Bacardi Gold","Bacardi Pineapple","Bombay Sapphire Gin","Hendrick's Gin","Jack Daniel's Old No. 7","Dewars White Label","Milagro Silver","Hennessy VS","Sabroso Coffee Liqueur","Blue Curacao","Manon Rose","Soca cans","Reef Life cans","Beach Life cans","White Claw - Black Cherry","Florida's Natural OJ","Florida's Natural Fruit Splash","Florida's Natural Cranberry","Florida's Natural Kiwi","Gatorade Fruit Punch 20oz","Gatorade Glacier Freeze","Gatorade Fierce Grape","Gatorade Lemon Lime","Gatorade Orange 20oz","Mountain Dew 20oz Btl","Pepsi 20oz Btl","Diet Pepsi 20oz Btl","Cherry Pepsi 20oz Btl","A&W Root Beer can","Canada Dry Tonic Water","Canada Dry Club Soda","Canada Dry Ginger Ale","Dr. Pepper can","Diet Dr. Pepper can","Sunkist Orange can","Brisk Ice Tea 20oz","Bubly Blackberry","Bubly Strawberry","Bubly Lime","Aquafina 16.9oz"];
 
   var items=prods.map(pgOrderItem).filter(pgOrderItemVisible);

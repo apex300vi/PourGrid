@@ -9,6 +9,7 @@ const auth=fs.readFileSync(path.join(root,'auth-gate.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const resolution=fs.readFileSync(path.join(root,'supabase/migrations/202608270001_resolve_shared_draft_conflicts.sql'),'utf8');
 const noopRepair=fs.readFileSync(path.join(root,'supabase/migrations/202608290001_shared_draft_noop_conflict_repair.sql'),'utf8');
+const scalarRepair=fs.readFileSync(path.join(root,'supabase/migrations/202608290003_shared_draft_scalar_and_adjustment_repair.sql'),'utf8');
 
 test('shared drafts are tenant scoped and direct writes remain closed',()=>{
   assert.match(sql,/require_shared_draft_access\(p_organization,p_location,true\)/);
@@ -103,4 +104,36 @@ test('repeated unsent edits keep only the latest value for each field',()=>{
   const queue=client.slice(client.indexOf('function queue'),client.indexOf('function syncCounts'));
   assert.match(queue,/existing=\(s\.queue\|\|\[\]\)\.find/);
   assert.match(queue,/existing\.value=value;existing\.key=key/);
+});
+
+test('numeric strings and numbers do not create visible or server conflicts',()=>{
+  assert.match(client,/function sameValue\(field,a,b\)/);
+  assert.match(client,/\["count","cases","halves","loose","adjustment"\]/);
+  assert.match(client,/visibleConflicts\(snap\.conflicts\)/);
+  assert.match(scalarRepair,/create or replace function public\.shared_draft_values_equal/);
+  assert.match(scalarRepair,/p_left #>> '\{\}'/);
+  assert.match(scalarRepair,/public\.shared_draft_values_equal\(field_key,server_value,incoming_value\)/);
+});
+
+test('count sync is confined to its actual workspace',()=>{
+  assert.match(client,/function productNames\(type\)/);
+  assert.match(client,/if\(!owns\(type,p\)\|\|\["count","cases","halves","loose"\]/);
+  assert.match(client,/if\(owns\(type,k\)\)fields\.push\(\{productKey:k,fieldKey:"adjustment"/);
+});
+
+test('cleared manual order quantities persist and stale refreshes cannot restore them',()=>{
+  assert.match(client,/function clearAdjustment\(type,product\)\{queue\(type,product,"adjustment",0\);queue\(type,product,"adjustment_meta",\{\}\)\}/);
+  assert.match(client,/pending\.forEach\(function\(item\)\{applyField/);
+  assert.match(client,/if\(!Number\(f\.value\)\)delete adjs\[f\.productKey\]/);
+  assert.match(html,/pgPersistDraft\(type,\[product\.name\]\)/);
+  assert.match(html,/pgPersistDraft\(type,next===0\?\[product\.name\]:\[\]\)/);
+  assert.doesNotMatch(html,/PourGridSharedDraft\.review\(sharedType\)/);
+});
+
+test('one order edit queues only fields that actually changed',()=>{
+  const persistence=html.slice(html.indexOf('function pgPersistDraft'),html.indexOf('function pgHydrateDrafts'));
+  assert.match(persistence,/previousAdjustments/);
+  assert.match(persistence,/JSON\.stringify\(previousAdjustments\[name\]\)!==JSON\.stringify\(adjustments\[name\]\)/);
+  assert.match(persistence,/JSON\.stringify\(previousMeta\[name\]\)!==JSON\.stringify\(meta\[name\]\)/);
+  assert.match(persistence,/if\(previousNote!==record\.note\)/);
 });
