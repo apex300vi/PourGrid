@@ -36,13 +36,15 @@ test('each product owns an independent accessible disclosure state',()=>{
   assert.doesNotMatch(orderRenderer,/querySelectorAll\([^)]*pg-order-disclosure-panel/);
 });
 
-test('minus plus and Adjust controls remain outside the disclosure',()=>{
+test('minus plus and direct Set quantity controls remain outside the disclosure',()=>{
   const disclosureEnd=orderRenderer.indexOf('ap(disclosure,disclosureToggle,disclosurePanel)');
   const controlsStart=orderRenderer.indexOf('var qtyWrap=mk("div","pg-order-quantity")');
   assert.ok(disclosureEnd>0&&controlsStart>disclosureEnd);
   assert.match(orderRenderer,/Decrease .* by one/);
   assert.match(orderRenderer,/Increase .* by one/);
-  assert.match(orderRenderer,/adjust\.textContent=isAdj\?"Edit":"Adjust"/);
+  assert.match(orderRenderer,/adjust\.textContent="Set quantity"/);
+  assert.match(orderRenderer,/qb=mk\("button","pg-order-value"/);
+  assert.match(orderRenderer,/Set final order quantity for/);
 });
 
 test('canonical order calculations remain unchanged',()=>{

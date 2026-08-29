@@ -89,6 +89,17 @@ test('stale device-specific Florida packaging edits are upgraded without changin
   assert.equal(localStorage.getItem('pourgrid-migration-floridas-natural-case-build-to-v1'),'complete');
 });
 
+test('stale bottle case-basis edits are upgraded without changing counts, build-tos, or package sizes',()=>{
+  const storage=new Map(),localStorage={getItem:key=>storage.has(key)?storage.get(key):null,setItem:(key,value)=>storage.set(key,String(value))};
+  const bottle=catalog.find(p=>p.name==='Bombay Sapphire Gin'),stale={catalogId:Persistence.stableId(bottle),name:bottle.name,buildTo:4,pack:12,packaging:{mode:'standard',unitsPerCase:12,countBasis:'units',buildToBasis:'cases'}};
+  Persistence.saveVerified(localStorage,{[Persistence.stableId(bottle)]:stale});
+  const context={PRODUCTS:[bottle],PG_STORE:localStorage,PourGridProductPersistence:Persistence,pgCatalogEdits:()=>Persistence.read(localStorage),pgSaveCatalogEdits:value=>Persistence.saveVerified(localStorage,value),pgEnforceBuildToBasis:(product,packaging)=>product.unit!=='Case'?({...packaging,buildToBasis:'units'}):packaging};
+  vm.runInNewContext(functionSource('pgMigrateBottleBuildToUnits')+';this.migrate=pgMigrateBottleBuildToUnits;',context);context.migrate();
+  const upgraded=Persistence.resolve(Persistence.read(localStorage),bottle);
+  assert.equal(upgraded.buildTo,4);assert.equal(upgraded.pack,12);assert.equal(upgraded.packaging.countBasis,'units');assert.equal(upgraded.packaging.buildToBasis,'units');
+  assert.equal(localStorage.getItem('pourgrid-migration-bottle-build-to-units-v2'),'complete');
+});
+
 test('legacy exact Finest Call counts convert without loss while ambiguous Florida counts are retained for confirmation',()=>{
   const context={PRODUCTS:[finest[0],florida[0]],pgPack:p=>p.packaging,pgCountKey:(n,s)=>n+'::'+s,pgWholeQuantity(raw){const text=String(raw??'').trim();return /^\d+$/.test(text)?{valid:true,blank:false,value:Number(text)}:{valid:false,blank:text==='',value:0};}};
   vm.runInNewContext(functionSource('pgCorrectedPackagingCounts')+';this.convert=pgCorrectedPackagingCounts;',context);
