@@ -12,10 +12,20 @@
   function idOf(p){return String(p&& (p.id||p.productId||p.catalogId||p.sku||p.name)||"Unknown");}
   function context(products){var first=(products||[])[0]||{};return {vendor:first.dist||"",category:first.cat||""};}
   function byId(products,id){return (products||[]).find(function(p){return idOf(p)===String(id)||p.name===String(id);});}
+  function defaultBuildToBasis(product,mode){
+    if(!product||product.unit!=="Case")return "units";
+    if(mode!=="standard")return "cases";
+    return Number(product.pack)>1?"units":"cases";
+  }
+  function defaultUnitLabel(product){
+    var unit=String(product&&product.unit||"").toLowerCase();
+    if(unit&&unit!=="case")return /s$/.test(unit)?unit:unit+"s";
+    return "units";
+  }
   function unitInfo(product){
     var cfg=product&&product.visionPackaging||{},unitsPerCase=Number(cfg.unitsPerCase||product&&product.unitsPerCase||product&&product.pack)||1;
-    var mode=cfg.mode||"standard",defaultBasis=mode==="standard"&&product&&product.unit==="Case"&&Number(product.pack)>1?"units":"cases";
-    return {mode:mode,unitsPerCase:Math.max(1,unitsPerCase),unitLabel:cfg.unitLabel||product&&product.unitLabel||"units",innerPacksPerCase:Number(cfg.innerPacksPerCase)||0,unitsPerInner:Number(cfg.unitsPerInner)||0,buildToBasis:cfg.buildToBasis||defaultBasis,countBasis:cfg.countBasis||(mode==="standard"?"units":"cases")};
+    var mode=cfg.mode||"standard";
+    return {mode:mode,unitsPerCase:Math.max(1,unitsPerCase),unitLabel:cfg.unitLabel||product&&product.unitLabel||defaultUnitLabel(product),innerPacksPerCase:Number(cfg.innerPacksPerCase)||0,unitsPerInner:Number(cfg.unitsPerInner)||0,buildToBasis:cfg.buildToBasis||defaultBuildToBasis(product,mode),countBasis:cfg.countBasis||(mode==="standard"?"units":"cases")};
   }
   function effectiveInfo(product,config){var info=Object.assign(unitInfo(product),config||{});info.unitsPerCase=Math.max(1,Number(info.unitsPerCase)||1);if(!info.countBasis)info.countBasis=info.mode==="standard"?"units":"cases";return info;}
   function reviewRows(results,products){
@@ -81,5 +91,5 @@
     if(manualAdjustment){text+=" Manual adjustment: "+(manualAdjustment>0?"+":"")+manualAdjustment+" "+plural(Math.abs(manualAdjustment),"case","cases")+". Final suggested order: "+suggested+" "+plural(suggested,"case","cases")+".";}
     return {target:targetForCount,baseTarget:target,counted:countedForTarget,shortage:shortage,unitsPerCase:divisor,purchaseOverage:Math.max(0,base*divisor-shortage),baseSuggestedOrder:base,manualAdjustment:manualAdjustment,suggestedOrder:suggested,text:text,calculationVersion:info.calculationVersion||"order-v1.0.0"};
   }
-  return {WORKFLOW_STATES:WORKFLOW_STATES,createWorkflow:createWorkflow,idOf:idOf,context:context,unitInfo:unitInfo,reviewRows:reviewRows,reviewSummary:reviewSummary,resultStatus:resultStatus,inventoryLines:inventoryLines,createPhotoSession:createPhotoSession,applyReviewedCounts:applyReviewedCounts,orderQuantity:orderQuantity,orderExplanation:orderExplanation};
+  return {WORKFLOW_STATES:WORKFLOW_STATES,createWorkflow:createWorkflow,idOf:idOf,context:context,defaultBuildToBasis:defaultBuildToBasis,unitInfo:unitInfo,reviewRows:reviewRows,reviewSummary:reviewSummary,resultStatus:resultStatus,inventoryLines:inventoryLines,createPhotoSession:createPhotoSession,applyReviewedCounts:applyReviewedCounts,orderQuantity:orderQuantity,orderExplanation:orderExplanation};
 });

@@ -81,6 +81,25 @@ test('a par-basis suggestion equals PourGridVision.orderQuantity exactly',()=>{
   }
 });
 
+test('bottle-purchased par suggestions use bottle targets, not case-pack multipliers',()=>{
+  const cases=[
+    {product:{name:'Goslings Black Seal Rum',unit:'Bottle',pack:12,buildTo:4},onHand:1,expected:3},
+    {product:{name:'Cruzan Hurricane Proof',unit:'Bottle',pack:12,buildTo:2},onHand:0,expected:2},
+    {product:{name:'Bombay Sapphire Gin',unit:'Bottle',pack:12,buildTo:4},onHand:0,expected:4},
+    {product:{name:"Hendrick's Gin",unit:'Bottle',pack:12,buildTo:2},onHand:2,expected:0},
+    {product:{name:'Crown Royal',unit:'Bottle',pack:12,buildTo:8},onHand:4,expected:4},
+    {product:{name:'Crown Apple',unit:'Bottle',pack:12,buildTo:8},onHand:4,expected:4}
+  ];
+  for(const item of cases){
+    const basis=Predictive.basisFor(item.product,{});
+    const result=Predictive.suggest([],item.product,{now:AUGUST,onHand:item.onHand,packaging:{}});
+    assert.equal(basis.buildToBasis,'units',item.product.name);
+    assert.equal(basis.unitLabel,'bottles',item.product.name);
+    assert.equal(result.suggestedPurchaseUnits,item.expected,item.product.name);
+    assert.equal(result.suggestedPurchaseUnits,Vision.orderQuantity(item.product,item.onHand,{}),item.product.name);
+  }
+});
+
 // ── Sparse data falls back rather than fabricating ───────────────────────────
 
 test('a SKU with no history falls back to the build-to and says so',()=>{

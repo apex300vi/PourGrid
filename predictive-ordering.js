@@ -84,14 +84,23 @@
   // exactly the same purchase units as the quantity control it sits beside.
   // "space" below means the shared comparison space that orderQuantity uses to
   // subtract a count from a build-to.
+  function defaultBuildToBasis(product,mode){
+    if(!product||product.unit!=="Case")return "units";
+    if(mode!=="standard")return "cases";
+    return (finite(product.pack)||0)>1?"units":"cases";
+  }
+  function defaultUnitLabel(product,orderedByCase,unitsPerCase){
+    var unit=text(product&&product.unit).toLowerCase();
+    if(unit&&unit!=="case")return /s$/.test(unit)?unit:unit+"s";
+    return orderedByCase&&unitsPerCase>1?"bottles":"units";
+  }
   function basisFor(product,packaging){
     product=product||{};
     var config=packaging||product.packaging||{},
         unitsPerCase=Math.max(1,finite(config.unitsPerCase)||finite(product.unitsPerCase)||finite(product.pack)||1),
         mode=text(config.mode)||"standard",
         orderedByCase=product.unit==="Case",
-        defaultBuildToBasis=mode==="standard"&&orderedByCase&&(finite(product.pack)||0)>1?"units":"cases",
-        buildToBasis=text(config.buildToBasis)||defaultBuildToBasis,
+        buildToBasis=text(config.buildToBasis)||defaultBuildToBasis(product,mode),
         countBasis=text(config.countBasis)||(mode==="standard"?"units":"cases"),
         unitBasis=buildToBasis==="units",
         mixedBasis=!unitBasis&&countBasis==="units";
@@ -99,7 +108,7 @@
       unitsPerCase:unitsPerCase,orderedByCase:orderedByCase,mode:mode,
       buildToBasis:buildToBasis,countBasis:countBasis,unitBasis:unitBasis,mixedBasis:mixedBasis,
       dividesByCase:orderedByCase&&(unitBasis||mixedBasis),
-      unitLabel:text(config.unitLabel)||(orderedByCase&&unitsPerCase>1?"bottles":"units")
+      unitLabel:text(config.unitLabel)||defaultUnitLabel(product,orderedByCase,unitsPerCase)
     };
   }
   function countToSpace(basis,counted){var n=finite(counted);if(n===null)return null;return basis.unitBasis&&basis.countBasis==="cases"?n*basis.unitsPerCase:n;}

@@ -9,6 +9,12 @@ for that; this is specifically the "you weren't here for this" entries,
 so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
+## 2026-08-29
+**What:** Corrected the default build-to basis for all bottle-purchased products and aligned predictive ordering with the order calculation.
+**By:** Codex, task bottle build-to multiplier repair.
+**Why:** Bottle targets were incorrectly treated as case targets, so pack size multiplied the shortage (for example, Black Seal requested 47 bottles instead of 3, and Hurricane Proof requested 24 instead of 2).
+**Note:** Audited all 15 bottle-purchased catalog items. Case-based products, saved packaging choices, counts, and drafts remain unchanged.
+
 ## 2026-08-27
 **What:** Made the Home shared-draft warning open a real conflict review sheet with explicit “Keep shared” and “Use this device” choices.
 **By:** Codex, task actionable shared-draft conflict review.
