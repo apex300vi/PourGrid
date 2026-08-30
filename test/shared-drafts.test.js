@@ -132,7 +132,7 @@ test('untouched device cache defers to the shared team count without asking the 
   assert.match(client,/passiveConflicts/);
   assert.match(client,/if\(isCountField\(m\.field\)\)activeTouches\[type\]\.add\(m\.product\)/);
   assert.match(html,/new CustomEvent\("pourgrid:count-touched"/);
-  assert.match(html,/shared-drafts\.js\?v=6/);
+  assert.match(html,/shared-drafts\.js\?v=7/);
 });
 
 test('real count conflicts use readable package quantities instead of float artifacts',()=>{
@@ -168,6 +168,18 @@ test('count conflicts merge automatically instead of becoming a review checklist
   assert.match(client,/function settleAutomaticCountConflicts/);
   assert.match(client,/setTimeout\(function\(\)\{refresh\(type\)/);
   assert.match(html,/cfg\.countBasis==="units"/);
+});
+
+test('a finalized workflow opens a genuinely empty shared draft',()=>{
+  assert.match(client,/async function startFresh\(type\)/);
+  assert.match(client,/function clearLocalWorkspace\(type\)/);
+  assert.match(client,/delete notes\[type\]/);
+  assert.match(client,/clearLocalWorkspace\(type\)/);
+  assert.match(client,/filter\(function\(item\)\{return item\.type!==type\}\)/);
+  assert.match(client,/activeTouches\[type\]\.clear\(\)/);
+  assert.match(client,/open\(type,\{skipLegacyImport:true\}\)/);
+  assert.match(client,/!options\.skipLegacyImport&&!\(snap\.fields\|\|\[\]\)\.length/);
+  assert.match(client,/startFresh:startFresh/);
 });
 
 test('one order edit queues only fields that actually changed',()=>{

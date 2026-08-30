@@ -52,9 +52,20 @@ test('quick adjustments are present, accessible, persistent, and removable at th
   const step=slice('function pgStepManualAdjustment','function pgDraftWorkState');
   assert.match(order,/ap\(qtyWrap,qm,qb,qp,adjust\)/);
   assert.match(order,/pg-order-step/);assert.match(order,/aria-label/);assert.match(order,/qm\.disabled=Number\(p\.adjQty\)<=0/);
-  assert.match(step,/if\(base\+next<0\)return false/);assert.match(step,/if\(next===0\)\{delete adjustments/);assert.match(step,/pgPersistDraft\(type,next===0\?\[product\.name\]:\[\]\)/);
+  assert.match(step,/if\(base\+next<0\)return false/);assert.match(step,/if\(next===0\)\{delete adjustments/);assert.match(step,/pgPersistDraft\(type,next===0\?\[product\.name\]:\[\]\)/);assert.match(step,/pgRenderPreservingOrderPosition\(product\.name\)/);
   const setter=slice('function pgAdjustmentForFinalQuantity','function pgPurchasePartsText'),sheet=slice('function pgOpenManualAdjustment','function pgOpenAdjustmentPicker');
   assert.match(setter,/desired-\(Number\(baseQty\)\|\|0\)/);assert.match(sheet,/Save quantity/);assert.match(sheet,/Use calculated order/);assert.match(order,/pg-order-value/);assert.match(order,/Set final order quantity for/);
+});
+
+test('quick order adjustments preserve the tapped product position',()=>{
+  const helper=slice('function pgOrderRowForProduct','function pgStepManualAdjustment');
+  assert.match(helper,/\.orow\[data-order-product\]/);
+  assert.match(helper,/getBoundingClientRect\(\)\.top/);
+  assert.match(helper,/window\.scrollBy/);
+  assert.match(helper,/window\.scrollTo/);
+  assert.match(helper,/requestAnimationFrame/);
+  const order=slice('function rOrderTab','function calcSuggestedBuildTos');
+  assert.match(order,/setAttribute\("data-order-product",p\.name\)/);
 });
 
 test('detailed Add Item picker contains only products missing from the calculated order',()=>{

@@ -896,7 +896,7 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 <script type="text/pourgrid-protected" data-pg-protected src="predictive-ordering.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="order-pipeline.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="order-save.js?v=1"></script>
-<script type="text/pourgrid-protected" data-pg-protected src="shared-drafts.js?v=6"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="shared-drafts.js?v=7"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="drink-price-estimator.js?v=2"></script>
 <script type="text/pourgrid-protected" data-pg-protected>
 
@@ -2176,6 +2176,13 @@ function pgSetManualAdjustment(product,result,reason,note){
 function pgRemoveManualAdjustment(product){
   var type=pgDraftTypeForProduct(product),adjustments=Object.assign({},S.adjustments),meta=Object.assign({},S.adjustmentMeta);delete adjustments[product.name];delete meta[product.name];S.adjustments=adjustments;S.adjustmentMeta=meta;pgPersistDraft(type,[product.name]);render();
 }
+function pgOrderRowForProduct(name){return Array.prototype.find.call(document.querySelectorAll(".orow[data-order-product]"),function(row){return row.getAttribute("data-order-product")===name;})||null;}
+function pgRenderPreservingOrderPosition(name){
+  var before=pgOrderRowForProduct(name),top=before&&before.getBoundingClientRect?before.getBoundingClientRect().top:null,scrollTop=window.scrollY||document.documentElement.scrollTop||0;
+  render();
+  function restore(){var after=pgOrderRowForProduct(name);if(after&&top!==null&&after.getBoundingClientRect)window.scrollBy(0,after.getBoundingClientRect().top-top);else window.scrollTo(0,scrollTop);}
+  restore();var frame=window.requestAnimationFrame||function(fn){return setTimeout(fn,0);};frame(function(){restore();frame(restore);});
+}
 function pgStepManualAdjustment(product,delta){
   var type=pgDraftTypeForProduct(product),base=cq(product,pgEffectiveCount(product)||"");base=base===null?0:Number(base)||0;
   var adjustments=Object.assign({},S.adjustments),meta=Object.assign({},S.adjustmentMeta),next=(Number(adjustments[product.name])||0)+delta;
@@ -2183,7 +2190,7 @@ function pgStepManualAdjustment(product,delta){
   pgStartSession(type);
   if(next===0){delete adjustments[product.name];delete meta[product.name];}
   else{var previous=meta[product.name]||{},capability=pgAdjustmentCapability(product),absolute=Math.abs(next),total=capability.canonicalUnit==="case"?Math.round(absolute*capability.unitsPerCase):absolute;adjustments[product.name]=next;meta[product.name]={cases:capability.canonicalUnit==="case"?Math.floor(total/capability.unitsPerCase):0,loose:capability.canonicalUnit==="case"?total%capability.unitsPerCase:total,direction:next<0?"reduce":"add",reason:previous.reason||"",note:previous.note||"",orderUnits:next,updatedAt:new Date().toISOString()};}
-  S.adjustments=adjustments;S.adjustmentMeta=meta;pgPersistDraft(type,next===0?[product.name]:[]);render();return true;
+  S.adjustments=adjustments;S.adjustmentMeta=meta;pgPersistDraft(type,next===0?[product.name]:[]);pgRenderPreservingOrderPosition(product.name);return true;
 }
 function pgDraftWorkState(type){
   var products=pgProductSet(type),names=products.map(function(p){return p.name;}),session=pgSession()[type]||{},note=S.notes[pgDraftNoteKey(type)]||"",record=pgDraftRecord(type,false)||{},email=pgEmailStatus()[pgDraftNoteKey(type)]||{};
@@ -3708,6 +3715,7 @@ function pgCompleteOrderSave(entry,result,isG,activeType){
   if(pgOrderSaveOwnsActiveDraft(entry,activeType)){
     pgClearWorkflowDraft(activeType,{render:false});
     lsSet("sbb-counts-cleared",Date.now());pushCounts(S.counts);
+    if(window.PourGridSharedDraft&&typeof window.PourGridSharedDraft.startFresh==="function")window.PourGridSharedDraft.startFresh(activeType).catch(function(error){console.warn("[PourGrid fresh draft]",String(error&&error.message||error));});
   }
   ss({history:[entry].concat(S.history),notes:S.notes,ordered:o,adjustments:S.adjustments,adjustmentMeta:S.adjustmentMeta,counts:S.counts,bSub:"count",mSub:"count",bCat:null,mCat:null});
   toast("Saved to order history ✓");
@@ -3871,7 +3879,7 @@ function rOrderTab(prods,dists,dk,isG){
     var ol=d("olist");
     di.forEach(function(p,i){
       var isAdj=p.adj!==0;
-      var row=mk("div","orow");
+      var row=mk("div","orow");row.setAttribute("data-order-product",p.name);
       if(isAdj)row.style.background="rgba(232,169,60,0.1)";
       var info=mk("div","");info.style.flex="1";
       var nm2=d("onm",p.name);
