@@ -10,6 +10,12 @@ so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
 ## 2026-08-30
+**What:** Completed the post-save draft lifecycle and anchored order-review quantity adjustments to their product card.
+**By:** Codex, task finalized-order clear and stable adjustment position.
+**Why:** A confirmed History save cleared local fields without attaching the client to a new empty shared draft, while every quick `+` or `−` adjustment rebuilt the screen and let mobile Safari move the user away from the product being edited.
+**Note:** This directly extends the recent shared-draft finalization and order-adjustment work. Only the finalized Bar or Merchants workflow is cleared after a confirmed server order ID; failed saves and newer replacement drafts remain untouched. History, counts captured in the saved order, build-tos, calculation rules, and vendor routing are unchanged.
+
+## 2026-08-30
 **What:** Changed order-review explanations for case-counted products to show cases plus loose cans or bottles instead of leading with internal canonical-unit totals.
 **By:** Codex, task package-native order explanations.
 **Why:** Canonical units are required for exact arithmetic, but asking a case counter to interpret totals such as 240 cans made a correct calculation feel unrelated to the count they entered.

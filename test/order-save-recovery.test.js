@@ -64,6 +64,7 @@ test('network and session failures retain the draft and expose actionable feedba
   const failureIndex=orchestration.indexOf('function pgReportOrderSaveFailure');
   const clearIndex=orchestration.indexOf('pgClearWorkflowDraft(activeType');
   assert.ok(completeIndex>=0&&failureIndex>=0&&clearIndex>completeIndex,'the count clears inside the confirmed-save path');
+  assert.match(orchestration,/PourGridSharedDraft\.startFresh\(activeType\)/,'a confirmed save starts an empty shared workflow');
   const failure=orchestration.slice(failureIndex,orchestration.indexOf('function pgOrderSaveOwnsActiveDraft'));
   assert.doesNotMatch(failure,/pgClearWorkflowDraft/,'a failed save keeps the draft on the device');
   assert.doesNotMatch(failure,/s5ShowSuccess/,'a failed save must never render the success card');
