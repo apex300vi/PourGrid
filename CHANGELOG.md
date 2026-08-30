@@ -9,6 +9,12 @@ for that; this is specifically the "you weren't here for this" entries,
 so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
+## 2026-08-30
+**What:** Changed order-review explanations for case-counted products to show cases plus loose cans or bottles instead of leading with internal canonical-unit totals.
+**By:** Codex, task package-native order explanations.
+**Why:** Canonical units are required for exact arithmetic, but asking a case counter to interpret totals such as 240 cans made a correct calculation feel unrelated to the count they entered.
+**Note:** This touches the order disclosure introduced in the recent predictive-ordering work. Calculation inputs, rounding, suggestions, final quantities, build-tos, counts, and vendor output are unchanged; only the explanation layer is reformatted.
+
 ## 2026-08-29
 **What:** Replaced manual per-field count conflict review with automatic intent-aware merging and corrected derived unit labels.
 **By:** Codex, task automatic count merge recovery.

@@ -3886,11 +3886,11 @@ function rOrderTab(prods,dists,dk,isG){
       var disclosurePanel=mk("div","pg-order-disclosure-panel",{id:disclosureId});disclosurePanel.setAttribute("aria-hidden","true");
       var disclosureInner=d("pg-order-disclosure-inner"),calculationBox=d("pg-order-calculation"),facts=mk("dl","");
       function fact(label,value,extraClass){var dt=mk("dt","");dt.textContent=label;var dd=mk("dd",extraClass||"");dd.textContent=value;facts.appendChild(dt);facts.appendChild(dd);}
-      var itemLabel=(packConfig.unitLabel||(p.unit==="Case"&&calculation.unitsPerCase>1?"bottles":p.unit||"units")).toLowerCase();
-      fact("On hand",calculation.counted+" "+itemLabel);fact("Build-to target",calculation.target+" "+itemLabel);fact("Shortfall",calculation.shortage+" "+itemLabel);
-      if(p.unit==="Case"&&calculation.unitsPerCase>1)fact("Bottles per case",String(calculation.unitsPerCase));
+      var orderDisplay=PourGridVision.orderDisplay(visionProduct,calculation,packConfig);
+      fact("On hand",orderDisplay.onHand);fact("Build-to target",orderDisplay.target);fact("Shortfall",orderDisplay.shortage);
+      if(p.unit==="Case"&&calculation.unitsPerCase>1)fact("Package size",orderDisplay.perCase);
       fact("Final calculated recommendation",pgFinalPurchaseText(p,calculation.baseSuggestedOrder,pgFinalPurchaseBreakdown(p,calculation.baseSuggestedOrder,null)),"pg-order-final");
-      var rounding=d("pg-order-logic");rounding.textContent=calculation.text;ap(calculationBox,facts,rounding);disclosureInner.appendChild(calculationBox);disclosurePanel.appendChild(disclosureInner);ap(disclosure,disclosureToggle,disclosurePanel);
+      var rounding=d("pg-order-logic");rounding.textContent=orderDisplay.text;ap(calculationBox,facts,rounding);disclosureInner.appendChild(calculationBox);disclosurePanel.appendChild(disclosureInner);ap(disclosure,disclosureToggle,disclosurePanel);
       disclosureToggle.onclick=function(){var expanded=disclosureToggle.getAttribute("aria-expanded")==="true";disclosureToggle.setAttribute("aria-expanded",String(!expanded));disclosureToggle.setAttribute("aria-label",(expanded?"Show":"Hide")+" order calculation for "+p.name);disclosurePanel.setAttribute("aria-hidden",String(expanded));disclosurePanel.classList.toggle("open",!expanded);};
       if(isAdj){
         var adjTag=mk("span","");adjTag.style.cssText="font-size:10px;background:#E8A93C;color:#0E0E10;border-radius:4px;padding:1px 5px;margin-left:6px;font-weight:800;";
