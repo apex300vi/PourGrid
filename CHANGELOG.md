@@ -10,6 +10,12 @@ so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
 ## 2026-08-29
+**What:** Replaced manual per-field count conflict review with automatic intent-aware merging and corrected derived unit labels.
+**By:** Codex, task automatic count merge recovery.
+**Why:** One physical count could appear twice as cases and a derived unit total (for example, White Claw as 7 cases and 168 cans), forcing users to arbitrate internal synchronization fields and sometimes displaying cans as cases.
+**Note:** This directly supersedes the manual count-conflict UI behavior from PR #72 and extends PR #78. Untouched stale device data keeps the shared team value; a product explicitly edited in the active session keeps that latest entry. Non-count workflow conflicts retain the existing protected review path. Orders, build-tos, inventory history, and vendor routing are unchanged.
+
+## 2026-08-29
 **What:** Kept explicit order quantity adjustments overlaid until server confirmation and automatically rebased them when their shared field revision changed.
 **By:** Codex, task order adjustment refresh recovery.
 **Why:** A stale shared revision removed the pending `+` or `−` adjustment before resolution, so a later refresh restored the old quantity even though the user had just changed it.

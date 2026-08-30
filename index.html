@@ -896,7 +896,7 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 <script type="text/pourgrid-protected" data-pg-protected src="predictive-ordering.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="order-pipeline.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="order-save.js?v=1"></script>
-<script type="text/pourgrid-protected" data-pg-protected src="shared-drafts.js?v=5"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="shared-drafts.js?v=6"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="drink-price-estimator.js?v=2"></script>
 <script type="text/pourgrid-protected" data-pg-protected>
 
@@ -1513,6 +1513,7 @@ function pgConflictValue(value,conflict){
   if(value===null||value===undefined||value==="")return "Empty";
   if(typeof value==="object")try{return JSON.stringify(value);}catch(e){return "Saved change";}
   var number=Number(value),product=conflict&&PRODUCTS.find(function(candidate){return candidate.name===conflict.productKey;}),cfg=product&&pgPack(product);
+  if(conflict&&conflict.fieldKey==="count"&&Number.isFinite(number)&&cfg&&cfg.countBasis==="units")return number.toLocaleString(undefined,{maximumFractionDigits:2})+" "+(cfg.unitLabel||"units");
   if(conflict&&conflict.fieldKey==="count"&&Number.isFinite(number)&&cfg&&cfg.mode==="caseLoose"&&Number(cfg.unitsPerCase)>1){
     var cases=Math.floor(number+1e-9),loose=Math.round((number-cases)*Number(cfg.unitsPerCase));if(loose>=cfg.unitsPerCase){cases+=1;loose=0;}
     return cases+" "+pgPlural(cases,"case","cases")+(loose?" + "+loose+" "+pgPlural(loose,cfg.looseUnit||"unit",cfg.unitLabel||(cfg.looseUnit||"unit")+"s"):"");

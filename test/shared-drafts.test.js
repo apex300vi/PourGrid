@@ -127,12 +127,12 @@ test('untouched device cache defers to the shared team count without asking the 
   assert.match(client,/!isActiveTouch\(type,p\)/);
   assert.match(client,/f==="count"&&hasStructuredCount\(counts,p\)/);
   assert.match(client,/window\.pgPhysicalCountFrom\(counts,product\)/);
-  assert.match(client,/isCountField\(conflict\.fieldKey\)&&!isActiveTouch\(type,conflict\.productKey\)/);
-  assert.match(client,/api\(\)\.resolve\(conflict\.id,"server"/);
+  assert.match(client,/automatic=all\.filter\(function\(conflict\)\{return isCountField\(conflict\.fieldKey\)\}/);
+  assert.match(client,/resolution=isActiveTouch\(type,conflict\.productKey\)\?"incoming":"server"/);
   assert.match(client,/passiveConflicts/);
   assert.match(client,/if\(isCountField\(m\.field\)\)activeTouches\[type\]\.add\(m\.product\)/);
   assert.match(html,/new CustomEvent\("pourgrid:count-touched"/);
-  assert.match(html,/shared-drafts\.js\?v=5/);
+  assert.match(html,/shared-drafts\.js\?v=6/);
 });
 
 test('real count conflicts use readable package quantities instead of float artifacts',()=>{
@@ -155,10 +155,19 @@ test('cleared manual order quantities persist and stale refreshes cannot restore
 test('an explicit order adjustment wins a stale revision without reverting on refresh',()=>{
   const flush=client.slice(client.indexOf('async function flush'),client.indexOf('function queue'));
   assert.match(client,/function isAdjustmentField\(field\)/);
-  assert.match(flush,/if\(isAdjustmentField\(m\.field\)\)/);
+  assert.match(flush,/if\(isAdjustmentField\(m\.field\)\|\|isCountField\(m\.field\)\)/);
   assert.match(flush,/api\(\)\.resolve\(r\.conflictId\|\|null,"incoming",s\.id,m\.product,m\.field\)/);
   assert.ok(flush.indexOf('api().resolve(r.conflictId||null,"incoming"')<flush.indexOf('s.queue[0].key===sentKey)s.queue.shift()'));
   assert.match(flush,/await refresh\(type\);continue/);
+});
+
+test('count conflicts merge automatically instead of becoming a review checklist',()=>{
+  const flush=client.slice(client.indexOf('async function flush'),client.indexOf('function queue'));
+  assert.match(flush,/isAdjustmentField\(m\.field\)\|\|isCountField\(m\.field\)/);
+  assert.match(flush,/api\(\)\.resolve\(r\.conflictId\|\|null,"incoming"/);
+  assert.match(client,/function settleAutomaticCountConflicts/);
+  assert.match(client,/setTimeout\(function\(\)\{refresh\(type\)/);
+  assert.match(html,/cfg\.countBasis==="units"/);
 });
 
 test('one order edit queues only fields that actually changed',()=>{
