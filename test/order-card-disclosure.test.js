@@ -18,10 +18,10 @@ test('ordering explanations are collapsed by default behind contextual disclosur
   assert.match(orderRenderer,/How this was calculated/);
 });
 
-test('disclosure exposes complete calculation content while warnings and routing stay visible',()=>{
-  for(const label of ['On hand','Build-to target','Shortfall','Bottles per case','Final calculated recommendation'])assert.match(orderRenderer,new RegExp(label));
-  assert.match(orderRenderer,/packConfig\.unitLabel\|\|\(p\.unit==="Case"&&calculation\.unitsPerCase>1\?"bottles"/);
-  assert.match(orderRenderer,/rounding\.textContent=calculation\.text/);
+test('disclosure exposes complete package-native calculation content while warnings and routing stay visible',()=>{
+  for(const label of ['On hand','Build-to target','Shortfall','Package size','Final calculated recommendation'])assert.match(orderRenderer,new RegExp(label));
+  assert.match(orderRenderer,/PourGridVision\.orderDisplay\(visionProduct,calculation,packConfig\)/);
+  assert.match(orderRenderer,/rounding\.textContent=orderDisplay\.text/);
   assert.match(orderRenderer,/Assigned vendor:/);
   assert.match(orderRenderer,/pg-adjust-summary/);
   assert.match(orderRenderer,/pgManualPurchaseText/);
@@ -61,6 +61,22 @@ test('canonical order calculations remain unchanged',()=>{
   assert.equal(explanation.unitsPerCase,12);
   assert.match(explanation.text,/rounds up to 2 cases/);
   assert.doesNotMatch(orderRenderer,/function orderQuantity|function orderExplanation/);
+});
+
+test('case-counted beer explanations lead with cases plus loose cans',()=>{
+  const sandbox={module:{exports:{}},exports:{}};
+  vm.runInNewContext(visionSource,sandbox);
+  const Vision=sandbox.module.exports;
+  const product={name:'Example Beer',unit:'Case',pack:24,buildTo:12};
+  const config={mode:'caseLoose',unitsPerCase:24,countBasis:'units',buildToBasis:'cases',unitLabel:'cans',allowHalfCaseCount:true};
+  const calculation=Vision.orderExplanation(product,250,config,0);
+  const display=Vision.orderDisplay(product,calculation,config);
+  assert.equal(calculation.target,288);
+  assert.equal(display.onHand,'10 cases + 10 cans');
+  assert.equal(display.target,'12 cases');
+  assert.equal(display.shortage,'1 case + 14 cans');
+  assert.match(display.text,/ordered in full cases/);
+  assert.match(display.text,/2 cases/);
 });
 
 test('disclosure styling is mobile-tappable, restrained, and reduced-motion safe',()=>{

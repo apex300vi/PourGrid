@@ -92,5 +92,19 @@
     if(manualAdjustment){text+=" Manual adjustment: "+(manualAdjustment>0?"+":"")+manualAdjustment+" "+plural(Math.abs(manualAdjustment),"case","cases")+". Final suggested order: "+suggested+" "+plural(suggested,"case","cases")+".";}
     return {target:targetForCount,baseTarget:target,counted:countedForTarget,shortage:shortage,unitsPerCase:divisor,purchaseOverage:Math.max(0,base*divisor-shortage),baseSuggestedOrder:base,manualAdjustment:manualAdjustment,suggestedOrder:suggested,text:text,calculationVersion:info.calculationVersion||"order-v1.0.0"};
   }
-  return {WORKFLOW_STATES:WORKFLOW_STATES,createWorkflow:createWorkflow,idOf:idOf,context:context,defaultBuildToBasis:defaultBuildToBasis,unitInfo:unitInfo,reviewRows:reviewRows,reviewSummary:reviewSummary,resultStatus:resultStatus,inventoryLines:inventoryLines,createPhotoSession:createPhotoSession,applyReviewedCounts:applyReviewedCounts,orderQuantity:orderQuantity,orderExplanation:orderExplanation};
+  function orderDisplay(product,calculation,config){
+    var info=effectiveInfo(product,config),rawLabel=words(product,info),nativePackages=product&&product.unit==="Case"&&calculation&&calculation.unitsPerCase>1&&info.countBasis==="units"&&(info.mode!=="standard"||info.allowHalfCaseCount);
+    function raw(value){return value+" "+(Number(value)===1&&/s$/.test(rawLabel)&&rawLabel!=="BIBs"?rawLabel.slice(0,-1):rawLabel);}
+    function packages(value){
+      var total=Math.max(0,Number(value)||0),per=calculation.unitsPerCase,cases=Math.floor(total/per+1e-9),loose=Math.round((total-cases*per)*100)/100,parts=[];
+      if(cases)parts.push(cases+" "+plural(cases,"case","cases"));
+      if(loose||!parts.length)parts.push(raw(loose));
+      return parts.join(" + ");
+    }
+    if(!nativePackages)return {onHand:raw(calculation.counted),target:raw(calculation.target),shortage:raw(calculation.shortage),perCase:calculation.unitsPerCase+" "+rawLabel+" per case",text:calculation.text,nativePackages:false};
+    var recommendation=calculation.baseSuggestedOrder+" "+plural(calculation.baseSuggestedOrder,"case","cases"),text="You counted "+packages(calculation.counted)+". The build-to target is "+packages(calculation.target)+", leaving a shortfall of "+packages(calculation.shortage)+". This product is ordered in full cases, so PourGrid recommends "+recommendation+".";
+    if(calculation.purchaseOverage)text+=" After delivery, that leaves "+packages(calculation.purchaseOverage)+" above the target.";
+    return {onHand:packages(calculation.counted),target:packages(calculation.target),shortage:packages(calculation.shortage),perCase:calculation.unitsPerCase+" "+rawLabel+" per case",text:text,nativePackages:true};
+  }
+  return {WORKFLOW_STATES:WORKFLOW_STATES,createWorkflow:createWorkflow,idOf:idOf,context:context,defaultBuildToBasis:defaultBuildToBasis,unitInfo:unitInfo,reviewRows:reviewRows,reviewSummary:reviewSummary,resultStatus:resultStatus,inventoryLines:inventoryLines,createPhotoSession:createPhotoSession,applyReviewedCounts:applyReviewedCounts,orderQuantity:orderQuantity,orderExplanation:orderExplanation,orderDisplay:orderDisplay};
 });
