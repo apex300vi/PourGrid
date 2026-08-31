@@ -10,6 +10,12 @@ so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
 ## 2026-08-31
+**What:** Stopped a failed automatic token refresh from deleting the user's previously verified PourGrid authorization context.
+**By:** Codex, task persistent login outage recovery.
+**Why:** The authentication callback treated a temporary refresh failure as an intentional sign-out and erased the only same-user authorization record available during a Supabase database outage. A correct password could therefore create a valid session but still leave the user locked out.
+**Note:** Explicit sign-out, invalid or revoked authentication, and different-user access still clear or reject cached authority. No credentials, memberships, roles, orders, drafts, History, or RLS policies are changed.
+
+## 2026-08-31
 **What:** Kept previously verified, same-user access available during temporary Supabase database outages and authorization-check timeouts.
 **By:** Codex, task production access outage recovery.
 **Why:** Supabase returned 503/PGRST002 schema-cache failures for every membership query. PourGrid recognized only generic network wording, so it ignored its verified authorization cache and locked Josh and Nikki out even though their secure sessions remained valid.
