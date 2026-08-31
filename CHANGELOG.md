@@ -9,6 +9,12 @@ for that; this is specifically the "you weren't here for this" entries,
 so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
+## 2026-08-31
+**What:** Made count edits immediately authoritative, automatically reconciled rapid order-adjustment metadata, and made Clear or direct-save recovery retire the old shared draft before opening a blank one.
+**By:** Codex, task shared-draft reassertion recovery.
+**Why:** Clear only removed local values while the active server draft retained them, the delayed count mutation left a window where shared refresh could restore the previous number after the keyboard checkmark was tapped, and rapid quantity taps could expose raw adjustment JSON as a manual conflict.
+**Note:** This directly extends PRs #75–#82 in shared-draft synchronization and finalization. It also prevents stale manual adjustments from canceling a correct new order. It does not change count math, build-tos, order quantities, History, vendor routing, authentication, or tenant protections.
+
 ## 2026-08-30
 **What:** Completed the post-save draft lifecycle and anchored order-review quantity adjustments to their product card.
 **By:** Codex, task finalized-order clear and stable adjustment position.

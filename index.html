@@ -896,7 +896,7 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 <script type="text/pourgrid-protected" data-pg-protected src="predictive-ordering.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="order-pipeline.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="order-save.js?v=1"></script>
-<script type="text/pourgrid-protected" data-pg-protected src="shared-drafts.js?v=7"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="shared-drafts.js?v=8"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="drink-price-estimator.js?v=2"></script>
 <script type="text/pourgrid-protected" data-pg-protected>
 
@@ -2233,6 +2233,7 @@ function pgClearOrderName(type){return type==="merchants"?"Merchants":"Bar";}
 function pgClearActiveOrder(type){
   if(!pgDraftHasMeaningfulWork(type))return;
   pgClearWorkflowDraft(type);
+  if(typeof window!=="undefined"&&window.PourGridSharedDraft&&typeof window.PourGridSharedDraft.startFresh==="function")window.PourGridSharedDraft.startFresh(type).catch(function(error){console.warn("[PourGrid clear draft]",String(error&&error.message||error));});
 }
 function pgCountClearContext(type,products){
   var hasWork=pgDraftHasMeaningfulWork(type),counted=(products||[]).filter(function(product){return pgHasPhysicalCount(product);}).length,row=d("ch"),label=sp("cc",hasWork?(counted===(products||[]).length&&counted>0?"Count complete":"Keep counting"):"Ready to start");
@@ -4754,7 +4755,9 @@ async function pushCounts(counts){
 }
 
 function schedulePush(counts){
-  // Debounce: wait 3 seconds after last change before pushing
+  // Protect deliberate input immediately. The delayed pass remains as a retry/coalescing
+  // safety net, but no shared refresh gets a three-second window to restore an old value.
+  pushCounts(counts);
   if(countSyncTimer)clearTimeout(countSyncTimer);
   countSyncTimer=setTimeout(function(){pushCounts(counts);},3000);
 }
