@@ -127,12 +127,21 @@ test('untouched device cache defers to the shared team count without asking the 
   assert.match(client,/!isActiveTouch\(type,p\)/);
   assert.match(client,/f==="count"&&hasStructuredCount\(counts,p\)/);
   assert.match(client,/window\.pgPhysicalCountFrom\(counts,product\)/);
-  assert.match(client,/automatic=all\.filter\(function\(conflict\)\{return isCountField\(conflict\.fieldKey\)\}/);
-  assert.match(client,/resolution=isActiveTouch\(type,conflict\.productKey\)\?"incoming":"server"/);
+  assert.match(client,/function isAutomaticField\(field\)\{return isCountField\(field\)\|\|isAdjustmentField\(field\)\}/);
+  assert.match(client,/automatic=all\.filter\(function\(conflict\)\{return isAutomaticField\(conflict\.fieldKey\)\}/);
+  assert.match(client,/resolution=isAdjustmentField\(conflict\.fieldKey\)\|\|isActiveTouch\(type,conflict\.productKey\)\?"incoming":"server"/);
   assert.match(client,/passiveConflicts/);
   assert.match(client,/if\(isCountField\(m\.field\)\)activeTouches\[type\]\.add\(m\.product\)/);
   assert.match(html,/new CustomEvent\("pourgrid:count-touched"/);
-  assert.match(html,/shared-drafts\.js\?v=7/);
+  assert.match(html,/shared-drafts\.js\?v=8/);
+});
+
+test('a deliberate count cannot be overwritten before its debounced retry',()=>{
+  const apply=client.slice(client.indexOf('function apply('),client.indexOf('async function settleAutomaticConflicts'));
+  assert.match(apply,/isCountField\(f\.fieldKey\)&&isActiveTouch\(type,f\.productKey\)/);
+  assert.match(apply,/Object\.prototype\.hasOwnProperty\.call\(counts,k\)\)return/);
+  const schedule=html.slice(html.indexOf('function schedulePush'),html.indexOf('async function syncCounts'));
+  assert.ok(schedule.indexOf('pushCounts(counts)')<schedule.indexOf('setTimeout'),'the shared mutation is queued before the retry timer');
 });
 
 test('real count conflicts use readable package quantities instead of float artifacts',()=>{
@@ -161,11 +170,13 @@ test('an explicit order adjustment wins a stale revision without reverting on re
   assert.match(flush,/await refresh\(type\);continue/);
 });
 
-test('count conflicts merge automatically instead of becoming a review checklist',()=>{
+test('count and adjustment conflicts merge automatically instead of becoming a review checklist',()=>{
   const flush=client.slice(client.indexOf('async function flush'),client.indexOf('function queue'));
   assert.match(flush,/isAdjustmentField\(m\.field\)\|\|isCountField\(m\.field\)/);
   assert.match(flush,/api\(\)\.resolve\(r\.conflictId\|\|null,"incoming"/);
-  assert.match(client,/function settleAutomaticCountConflicts/);
+  assert.match(client,/function settleAutomaticConflicts/);
+  assert.match(client,/isAdjustmentField\(conflict\.fieldKey\)\|\|isActiveTouch\(type,conflict\.productKey\)\?"incoming":"server"/);
+  assert.match(client,/conflicts=all\.filter\(function\(conflict\)\{return !isAutomaticField\(conflict\.fieldKey\)\}/);
   assert.match(client,/setTimeout\(function\(\)\{refresh\(type\)/);
   assert.match(html,/cfg\.countBasis==="units"/);
 });
@@ -177,9 +188,14 @@ test('a finalized workflow opens a genuinely empty shared draft',()=>{
   assert.match(client,/clearLocalWorkspace\(type\)/);
   assert.match(client,/filter\(function\(item\)\{return item\.type!==type\}\)/);
   assert.match(client,/activeTouches\[type\]\.clear\(\)/);
+  assert.match(client,/s\.discarding=true/);
+  assert.match(client,/if\(!discardId&&!s\.closed\)\{var existing=await api\(\)\.read\(type\)/);
+  assert.match(client,/if\(discardId&&!s\.closed\)await api\(\)\.abandon\(discardId\)/);
+  assert.match(client,/states\[type\]!==expected/);
   assert.match(client,/open\(type,\{skipLegacyImport:true\}\)/);
   assert.match(client,/!options\.skipLegacyImport&&!\(snap\.fields\|\|\[\]\)\.length/);
   assert.match(client,/startFresh:startFresh/);
+  assert.match(html,/PourGridSharedDraft\.startFresh\(type\)/);
 });
 
 test('one order edit queues only fields that actually changed',()=>{
