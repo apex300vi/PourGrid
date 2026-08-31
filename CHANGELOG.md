@@ -10,6 +10,12 @@ so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
 ## 2026-08-31
+**What:** Kept previously verified, same-user access available during temporary Supabase database outages and authorization-check timeouts.
+**By:** Codex, task production access outage recovery.
+**Why:** Supabase returned 503/PGRST002 schema-cache failures for every membership query. PourGrid recognized only generic network wording, so it ignored its verified authorization cache and locked Josh and Nikki out even though their secure sessions remained valid.
+**Note:** Invalid, expired, revoked, malformed, different-user, and never-verified access still fail closed. No credentials, memberships, roles, operational records, or tenant policies are changed.
+
+## 2026-08-31
 **What:** Made count edits immediately authoritative, automatically reconciled rapid order-adjustment metadata, and made Clear or direct-save recovery retire the old shared draft before opening a blank one.
 **By:** Codex, task shared-draft reassertion recovery.
 **Why:** Clear only removed local values while the active server draft retained them, the delayed count mutation left a window where shared refresh could restore the previous number after the keyboard checkmark was tapped, and rapid quantity taps could expose raw adjustment JSON as a manual conflict.
