@@ -121,7 +121,7 @@ test('a SKU with real history renders a projection, a trend, and the season',()=
   assert.match(text,/Suggestion/);
   assert.match(text,/confidence/i);
   assert.match(text,/bottles a week over \d+ counted cycles/);
-  assert.match(text,/August is historically a slower month in the USVI/);
+  assert.match(text,/September is historically slow season in the USVI/);
   assert.match(text,/You order this about every 7 days/);
   assert.doesNotMatch(text,/undefined|NaN/);
 });

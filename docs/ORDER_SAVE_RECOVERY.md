@@ -1,5 +1,11 @@
 # Order save: why an order stopped reaching order history, and how to recover one
 
+> Superseded on 2026-09-03: order completion is now local-first. The app persists the
+> completed order into on-device History before clearing the workspace, then retains the
+> immutable staged payload until the existing `save_location_order` route confirms cloud
+> backup. The server-only wording below documents the previous failure and remains useful
+> for understanding the idempotent cloud retry contract.
+
 Order history is PourGrid's system of record. Build-to tracking reads it, and
 `predictive-ordering.js` derives every suggestion from it. An order that only exists in
 `localStorage` is not a saved order — it is lost work that the rest of the app cannot see.

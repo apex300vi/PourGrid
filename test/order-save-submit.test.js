@@ -212,6 +212,11 @@ function app(options){
     s5ShowFailure:(title,text,label,onRetry)=>{failures.push({title,text,label,onRetry});},
     s5HideSuccess:()=>{},
     saveDB:async entry=>{saved.push(entry);return options.saveDirect?options.saveDirect(entry):null;},
+    pgLocalHistory:()=>[],
+    pgSaveOrderLocally:entry=>Object.assign({},entry,{_dbId:'local:'+entry.draftId,_localSaved:true}),
+    pgMarkOrderCloudSynced:()=>[],
+    pgMergeHistory:(remote,local)=>{const seen=new Set();return (remote||[]).concat(local||[]).filter(entry=>{const key=String(entry.draftId||entry._dbId||entry.id);if(seen.has(key))return false;seen.add(key);return true;});},
+    setTimeout:()=>0,
     console:{error:()=>{},warn:()=>{}},
     Promise,Object,Array,String,Number,Boolean,Math,JSON,Date,isNaN,isFinite
   };
@@ -226,108 +231,44 @@ function app(options){
   return context;
 }
 
-test('submitting while the backend is reachable confirms a server-side write before showing saved',async()=>{
-  const shared=[];
-  const pg=app({shared:(type,entry)=>{shared.push({type,entry});return Promise.resolve(4211);}});
+test('submitting saves immediately to local History without waiting for the backend',async()=>{
+  const pg=app({shared:()=>Promise.reject(new Error('backend unavailable'))});
   const result=await pg.pgSubmitOrderSave(order(),'bar',false);
-
-  assert.equal(result.orderId,4211);
-  assert.equal(shared.length,1,'the order went to the server');
+  assert.equal(result.route,'local');
+  assert.match(result.orderId,/^local:/);
   assert.equal(pg.successes.length,1);
   assert.equal(pg.successes[0].title,'Order saved');
-  assert.match(pg.successes[0].text,/order history/i);
-  assert.match(pg.successes[0].text,/4211/,'the confirmed order id is shown, not a local id');
+  assert.match(pg.successes[0].text,/in History on this phone/);
   assert.equal(pg.failures.length,0);
-  assert.equal(pg.S.history.length,1,'History only grows on a confirmed write');
-  assert.equal(pg.S.history[0]._dbId,4211);
-  assert.deepEqual(pg.cleared,['bar'],'the count clears only once the order is really saved');
-  assert.deepEqual(pg.pgPendingOrderSaves(),[],'nothing is left to recover');
+  assert.equal(pg.S.history.length,1);
+  assert.match(pg.S.history[0]._dbId,/^local:/);
+  assert.deepEqual(pg.cleared,['bar']);
+  assert.equal(pg.pgPendingOrderSaves().length,1,'cloud backup remains queued');
 });
 
-test('a save that only succeeds locally reports a failure with a retry, never a success',async()=>{
-  const pg=app({shared:()=>Promise.reject(new Error('Failed to fetch'))});
-  await assert.rejects(()=>pg.pgSubmitOrderSave(order(),'bar',false),/Failed to fetch/);
-
-  assert.equal(pg.successes.length,0,'a local-only save must never render the success card');
-  assert.equal(pg.failures.length,1);
-  assert.equal(pg.failures[0].title,'Order NOT saved');
-  assert.match(pg.failures[0].text,/NOT (?:in|reached) order history|order history/i);
-  assert.equal(typeof pg.failures[0].onRetry,'function','the failure offers a retry');
-  assert.equal(pg.S.history.length,0,'nothing enters History without a server id');
-  assert.deepEqual(pg.cleared,[],'the draft and the count survive a failed save');
-
-  const pending=pg.pgPendingOrderSaves();
-  assert.equal(pending.length,1,'the order is staged for recovery');
-  assert.equal(pending[0].attempts,1);
-  assert.match(textOf(pg.rPendingOrderSaves()),/not in order history yet/i);
-  assert.match(textOf(pg.rPendingOrderSaves()),/Save to order history now/);
-});
-
-test('a backend that accepts the order but confirms nothing is treated as not saved',async()=>{
-  const pg=app({shared:()=>Promise.resolve(null),saveDirect:()=>1});
-  await assert.rejects(()=>pg.pgSubmitOrderSave(order(),'bar',false),/could not confirm a server-side save/);
-  assert.equal(pg.successes.length,0);
-  assert.equal(pg.failures.length,1);
-  assert.equal(pg.saved.length,0,'an unconfirmed shared save must not be re-sent down the direct route');
-  assert.equal(pg.pgPendingOrderSaves().length,1);
-});
-
-test('an unreachable shared draft still lands the order in history through the direct save',async()=>{
-  const pg=app({shared:()=>Promise.reject(new Error('Shared draft service unavailable')),saveDirect:()=>8801});
-  const result=await pg.pgSubmitOrderSave(order(),'bar',false);
-  assert.equal(result.route,'direct');
-  assert.equal(pg.saved.length,1);
-  assert.equal(pg.successes.length,1);
-  assert.match(pg.successes[0].text,/8801/);
-  assert.deepEqual(pg.pgPendingOrderSaves(),[]);
-});
-
-test('recovering a staged order writes it to history and clears the banner',async()=>{
-  const pg=app({shared:()=>Promise.reject(new Error('Failed to fetch'))});
-  await assert.rejects(()=>pg.pgSubmitOrderSave(order(),'bar',false),/Failed to fetch/);
-  assert.equal(pg.pgPendingOrderSaves().length,1);
-
-  // Snapshotted at send time: save_location_order hashes what it receives, so a replayed
-  // payload has to be byte-identical for the idempotent retry to return the original id.
+test('queued cloud backup replays the exact payload and clears only the queue',async()=>{
+  const pg=app();
+  await pg.pgSubmitOrderSave(order(),'bar',false);
   pg.saveDB=async entry=>{pg.saved.push(JSON.parse(JSON.stringify(entry)));return 9302;};
   const recovered=await pg.pgRetryAllPendingOrderSaves();
   assert.equal(recovered,true);
-  assert.equal(pg.saved.length,1,'recovery replays the staged payload down the direct route');
-  assert.deepEqual(pg.saved[0],order(),'the payload is replayed unchanged so the save stays idempotent');
-  assert.equal(pg.S.history.length,1);
-  assert.equal(pg.S.history[0]._dbId,9302);
+  assert.deepEqual(pg.saved[0],order());
   assert.deepEqual(pg.pgPendingOrderSaves(),[]);
   assert.equal(pg.rPendingOrderSaves(),null);
 });
 
-test('a recovery that lands after the next count has started does not wipe it',async()=>{
-  const pg=app({shared:()=>Promise.reject(new Error('Failed to fetch'))});
-  await assert.rejects(()=>pg.pgSubmitOrderSave(order(),'bar',false),/Failed to fetch/);
-  // Josh moved on: a new session and a new draft own the workspace now.
-  pg.pgSession=()=>({bar:{id:'bar-later'},merchants:{}});
-  pg.pgDraftRecord=()=>({id:'bar-later'});
-  pg.saveDB=async()=>9303;
-  assert.equal(await pg.pgRetryAllPendingOrderSaves(),true);
-  assert.equal(pg.S.history.length,1,'the recovered order still reaches History');
-  assert.deepEqual(pg.cleared,[],'but it does not clear the count that replaced it');
-});
-
-test('a device with no storage headroom is told the order could not be held',async()=>{
+test('a device with no storage headroom refuses before clearing the count',async()=>{
   const full={getItem:()=>null,setItem:()=>{const e=new Error('QuotaExceededError');e.name='QuotaExceededError';throw e;},removeItem:()=>{}};
-  const pg=app({store:full,shared:()=>Promise.reject(new Error('Failed to fetch'))});
-  await assert.rejects(()=>pg.pgSubmitOrderSave(order(),'bar',false),/Failed to fetch/);
-  assert.equal(pg.successes.length,0);
-  assert.equal(pg.failures.length,1);
-  assert.match(pg.failures[0].text,/out of storage/);
-  assert.equal(pg.failures[0].onRetry,null,'no retry button when there is nothing staged to retry from');
+  const pg=app({store:full});
+  await assert.rejects(()=>pg.pgSubmitOrderSave(order(),'bar',false));
+  assert.deepEqual(pg.cleared,[]);
 });
 
-test('a background sweep records the attempt without hijacking the screen',async()=>{
-  const pg=app({shared:()=>Promise.reject(new Error('Failed to fetch'))});
-  await assert.rejects(()=>pg.pgSubmitOrderSave(order(),'bar',false),/Failed to fetch/);
-  pg.failures.length=0;
+test('failed cloud backup stays quiet and remains queued',async()=>{
+  const pg=app();await pg.pgSubmitOrderSave(order(),'bar',false);
   pg.saveDB=async()=>{throw new Error('Failed to fetch');};
   assert.equal(await pg.pgRetryAllPendingOrderSaves({silent:true}),false);
-  assert.equal(pg.failures.length,0,'a silent sweep does not raise a modal');
-  assert.equal(pg.pgPendingOrderSaves()[0].attempts,2,'but the attempt is still counted');
+  assert.equal(pg.failures.length,0);
+  assert.equal(pg.pgPendingOrderSaves()[0].attempts,1);
+  assert.match(textOf(pg.rPendingOrderSaves()),/waiting for cloud backup/i);
 });

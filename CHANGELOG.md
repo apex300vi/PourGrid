@@ -9,6 +9,12 @@ for that; this is specifically the "you weren't here for this" entries,
 so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
+## 2026-09-03
+**What:** Removed the user-facing login gate and made order completion local-first with automatic idempotent cloud backup.
+**By:** Codex, emergency login and order-save recovery.
+**Why:** Repeated Supabase `503/PGRST002` failures simultaneously locked authorized staff out and prevented completed orders from entering History. Restarting the hosted database repeatedly did not provide an acceptable operational recovery path.
+**Note:** The dashboard now opens from its on-device property context without credentials. A completed order is persisted into on-device History before its workspace is cleared; the exact staged payload remains queued and is backed up through the existing tenant-scoped `save_location_order` RPC whenever a previously saved Supabase session is usable. Existing RLS, memberships, credentials, database records, vendor routing, and idempotency protections are unchanged. This directly supersedes the login-gate behavior in PRs #14–#85 and the server-confirmation-only UI contract introduced by the transactional order-save recovery.
+
 ## 2026-08-31
 **What:** Stopped a failed automatic token refresh from deleting the user's previously verified PourGrid authorization context.
 **By:** Codex, task persistent login outage recovery.
