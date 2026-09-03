@@ -36,12 +36,13 @@ test('legacy recovery is write once and completed submissions are excluded',()=>
   assert.match(sql,/server_preserved/);
 });
 
-test('review and finalize share an exact immutable revision',()=>{
+test('shared review stays immutable while local-first orders use idempotent direct backup',()=>{
   assert.match(sql,/reviewed_revision=draft\.revision/);
   assert.match(sql,/draft\.revision<>p_reviewed_revision/);
   assert.match(sql,/save_location_order/);
   assert.match(sql,/state='closed'/);
-  assert.match(html,/finalizeShared:window\.PourGridSharedDraft\?function\(order\)\{return window\.PourGridSharedDraft\.finalize\(activeType,order\);\}:null/);
+  assert.match(html,/PourGridOrderSave\.submit\(record\.entry,\{saveDirect:saveDB\}\)/);
+  assert.match(html,/route:"local"/);
 });
 
 test('authorized realtime API and honest sync states are wired',()=>{

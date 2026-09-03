@@ -16,6 +16,7 @@
     "pourgrid-product-edits","pourgrid-email-status","pourgrid-scan-history",
     "pourgrid-pour-oz","pourgrid-stoli-free-flavor",
     "pourgrid-property-catalog-v1","pourgrid-property-vendors-v1",
+    "pourgrid-local-order-history-v1",
     "pourgrid-local-draft-backup","pourgrid-local-draft-backup-v1","pourgrid-shared-draft-queue-v1",
     "pourgrid-drink-recipes-v1","pourgrid-profit-lab-working-estimate-v2","pourgrid-profit-lab-migrated-v1"
   ];

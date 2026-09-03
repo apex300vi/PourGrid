@@ -26,17 +26,16 @@ test('draft problems remain visible and route to the affected workspace',()=>{
 
 test('Settings preserves every administrative destination without floating controls',()=>{
   const settings=html.slice(html.indexOf('function pgSettingsRow'),html.indexOf('function pgSetupError'));
-  for(const label of ['Items & vendors','Seasonal Profiles','Manage team','Sign out'])assert.match(settings,new RegExp(label.replace('&','&')));
+  for(const label of ['Items & vendors','Seasonal Profiles','Manage team'])assert.match(settings,new RegExp(label.replace('&','&')));
   assert.match(settings,/ss\(\{screen:"setup"\}\)/);
   assert.match(settings,/pgOpenPropertySwitcher/);
   assert.match(settings,/window\.pgOpenSeasonalProfiles/);
   assert.match(settings,/window\.POURGRID_MANAGE_TEAM/);
-  assert.match(settings,/window\.POURGRID_SIGN_OUT/);
+  assert.doesNotMatch(settings,/Sign out|POURGRID_SIGN_OUT/);
   assert.doesNotMatch(gate,/className='pg-auth-signout'|className='pg-team-trigger'/);
   assert.doesNotMatch(seasonal,/pgSeasonalTrigger/);
 });
 
-test('sign out requires a second deliberate action',()=>{
-  assert.match(html,/function pgConfirmSignOut/);
-  assert.match(html,/data-settings-action="confirm-signout"/);
+test('Settings contains no obsolete login or sign-out action',()=>{
+  assert.doesNotMatch(html,/function pgConfirmSignOut|data-settings-action="confirm-signout"/);
 });

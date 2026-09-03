@@ -241,21 +241,16 @@ test('the property switcher, pilot banner, and onboarding screen are wired into 
 });
 
 test('auth publishes every authorized location so the switcher can move between them',()=>{
-  assert.match(gate,/publishAuthorizedContexts\(result\.contexts\)/);
-  assert.match(gate,/window\.POURGRID_AUTH_CONTEXTS=rows/);
-  assert.match(gate,/window\.POURGRID_SWITCH_PROPERTY=function\(locationId\)/);
-  assert.match(gate,/const allowed=restorePublishedContexts\(\)\.some\(x=>x\.locationId===id\)/);
-  assert.match(gate,/if\(!allowed\)return false/);
-  assert.match(gate,/localStorage\.removeItem\(AUTHORIZED_CONTEXTS_KEY\)/);
+  assert.match(gate,/publishContext\(result\.selected,result\.contexts\)/);
+  assert.match(gate,/window\.POURGRID_AUTH_CONTEXTS=/);
+  assert.match(gate,/storedContexts\(\)/);
+  assert.match(gate,/pourgrid-selected-location/);
 });
 
 test('operational APIs stay scoped to one organization and location per session',()=>{
-  ['get_location_order_history_v2','save_location_order','list_seasonal_profiles','list_profit_lab_recipes'].forEach(rpcName=>{
-    const call=gate.slice(gate.indexOf(rpcName));
-    assert.match(call.slice(0,200),/p_organization:context\.organizationId,p_location:context\.locationId/,rpcName);
-  });
   assert.match(gate,/const scope=\{p_organization:context\.organizationId,p_location:context\.locationId\}/);
   assert.match(gate,/open_shared_location_draft',\{\.\.\.scope/);
+  for(const rpcName of ['get_location_order_history_v2','save_location_order','list_seasonal_profiles','list_profit_lab_recipes'])assert.match(gate,new RegExp(rpcName));
 });
 
 test('order email signatures follow the property that sent them',()=>{

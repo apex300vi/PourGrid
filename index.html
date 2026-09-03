@@ -881,7 +881,7 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 .pg-sheet-issues.warnings li{color:#F2C879}
 </style><link rel="stylesheet" href="/auth-recovery.css">
 </head>
-<body class="pg-auth-pending"><div id="pgAuthRoot"><main class="pg-auth"><section class="pg-auth-card"><div class="pg-auth-kicker">POURGRID</div><h1>Sign in to PourGrid</h1><p class="pg-auth-copy">Sign in with your work email and password.</p><form id="pgAuthForm" novalidate><label for="pgAuthEmail">Work email</label><input id="pgAuthEmail" name="username" type="email" inputmode="email" autocomplete="username" required placeholder="name@example.com"><label for="pgAuthPassword">Password</label><input id="pgAuthPassword" name="password" type="password" autocomplete="current-password" required><div id="pgAuthMessage" class="pg-auth-message" role="alert" aria-live="polite">Session restoration runs in the background. You can sign in now.</div><button id="pgAuthSubmit" type="submit">Sign in</button></form></section></main></div><div class="app" id="app" hidden></div>
+<body class="pg-auth-pending"><div id="pgAuthRoot"><main class="pg-auth"><section class="pg-auth-card"><div class="pg-auth-kicker">POURGRID</div><h1>Opening PourGrid</h1><p class="pg-auth-copy" role="status">Loading your order guide…</p><div class="pg-auth-loader" aria-hidden="true"></div></section></main></div><div class="app" id="app" hidden></div>
 <script>(function(){'use strict';window.POURGRID_BOOT={stage:'interactive-sign-in',mark:function(stage){this.stage=String(stage||'')},settle:function(stage){this.mark(stage)}};if('serviceWorker'in navigator)navigator.serviceWorker.getRegistrations().then(function(items){return Promise.all(items.map(function(item){return item.unregister()}))}).catch(function(){});if(window.caches)caches.keys().then(function(keys){return Promise.all(keys.filter(function(key){return /^pourgrid-shell-/.test(key)}).map(function(key){return caches.delete(key)}))}).catch(function(){})})();</script>
 <script src="/runtime-config.js"></script><script src="/auth-gate.js" defer></script><!-- data-pg-auth-boundary -->
 <script type="text/pourgrid-protected" data-pg-protected src="property-context.js?v=1"></script>
@@ -964,17 +964,26 @@ async function dbFetch(path,opts){
   var t=await r.text();
   return t?JSON.parse(t):null;
 }
+var PG_LOCAL_HISTORY_KEY="pourgrid-local-order-history-v1";
+function pgLocalHistory(){var rows=lsGet(PG_LOCAL_HISTORY_KEY);return Array.isArray(rows)?rows:[];}
+function pgWriteLocalHistory(rows){lsSet(PG_LOCAL_HISTORY_KEY,(rows||[]).slice(0,200));return rows;}
+function pgHistoryIdentity(entry){return String(entry&&entry.draftId||entry&&entry._dbId||entry&&entry.id||"");}
+function pgMergeHistory(remote,local){var seen={},rows=[];(remote||[]).concat(local||[]).forEach(function(entry){var key=pgHistoryIdentity(entry);if(!key||seen[key])return;seen[key]=true;rows.push(entry);});return rows.sort(function(a,b){return (Number(b.id)||Date.parse(b.date)||0)-(Number(a.id)||Date.parse(a.date)||0);});}
+function pgSaveOrderLocally(entry){var saved=Object.assign({},entry,{_dbId:"local:"+entry.draftId,_localSaved:true}),rows=pgMergeHistory([saved],pgLocalHistory());pgWriteLocalHistory(rows);return saved;}
+function pgMarkOrderCloudSynced(draftId,orderId){var rows=pgLocalHistory().map(function(entry){return String(entry.draftId)===String(draftId)?Object.assign({},entry,{_dbId:orderId,_localSaved:false}):entry;});pgWriteLocalHistory(rows);return rows;}
 async function loadHist(){
+  var local=pgLocalHistory();
+  if(!window.POURGRID_HISTORY_API||typeof window.POURGRID_HISTORY_API.list!=="function")return local;
   try{
-    if(!window.POURGRID_HISTORY_API||typeof window.POURGRID_HISTORY_API.list!=="function")throw new Error("Authorized history API unavailable");
     var all=[],offset=0,page;
     do{page=await window.POURGRID_HISTORY_API.list(100,offset);all=all.concat(page||[]);offset+=page?.length||0;}while(page&&page.length===100);
     if(!window.PourGridHistory)throw new Error("History normalizer unavailable");
-    return window.PourGridHistory.normalizeHistory(all).map(function(order){return Object.assign({},order.raw,{_dbId:order.sourceId,_normalized:order});});
-  }catch(e){console.error(e);return null;}
+    var remote=window.PourGridHistory.normalizeHistory(all).map(function(order){return Object.assign({},order.raw,{_dbId:order.sourceId,_normalized:order});});
+    return pgMergeHistory(remote,local);
+  }catch(e){console.warn("Cloud history unavailable; using on-device history",e);return local;}
 }
 async function saveDB(entry){
-  if(!window.POURGRID_ORDER_API||typeof window.POURGRID_ORDER_API.save!=="function")throw new Error("Authenticated order save is unavailable. Reload PourGrid and sign in again.");
+  if(!window.POURGRID_ORDER_API||typeof window.POURGRID_ORDER_API.save!=="function")throw new Error("Cloud backup is unavailable.");
   return window.POURGRID_ORDER_API.save(entry);
 }
 async function delDB(id){
@@ -2362,18 +2371,13 @@ function pgSettingsRow(icon,title,subtitle,action,options){
   options=options||{};
   return '<button type="button" class="pg-settings-row'+(options.danger?' danger':'')+'" data-settings-action="'+pgEsc(action)+'"><span class="pg-settings-icon" aria-hidden="true">'+icon+'</span><div><strong>'+pgEsc(title)+'</strong><small>'+pgEsc(subtitle)+'</small></div><b aria-hidden="true">›</b></button>';
 }
-function pgConfirmSignOut(){
-  s4Sheet("Sign out?","Your saved account stays secure. You can sign back in at any time.",'<div class="pg-settings-group"><div>'+pgSettingsRow("↪","Sign out","Return to the secure sign-in screen","confirm-signout",{danger:true})+'</div></div>',{returnFocus:document.getElementById("pgSettingsTrigger")});
-  setTimeout(function(){var button=document.querySelector('[data-settings-action="confirm-signout"]');if(button)button.onclick=function(){if(window.POURGRID_SIGN_OUT)window.POURGRID_SIGN_OUT();};},0);
-}
 function pgOpenSettings(){
   var properties=pgAuthorizedProperties(),seasonal=window.POURGRID_EFFECTIVE_SEASONAL||{},groups=[];
   groups.push('<section class="pg-settings-group"><strong>Property</strong><div>'+pgSettingsRow("▦","Items & vendors","Catalog, package sizes, and suppliers","items")+(properties.length>1?pgSettingsRow("⌂","Switch property",properties.length+" properties available","property"):"")+'</div></section>');
   groups.push('<section class="pg-settings-group"><strong>Ordering</strong><div>'+pgSettingsRow("◫","Seasonal Profiles",(seasonal.name||"Normal")+" · "+(seasonal.percentage_multiplier||100)+"%","seasonal")+'</div></section>');
   if(window.POURGRID_MANAGE_TEAM)groups.push('<section class="pg-settings-group"><strong>Team & access</strong><div>'+pgSettingsRow("♙","Manage team","Create and manage employee access","team")+'</div></section>');
-  groups.push('<section class="pg-settings-group"><strong>Account</strong><div>'+pgSettingsRow("↪","Sign out","Securely end this session","signout",{danger:true})+'</div></section>');
   s4Sheet("Settings",pgPropertyName(),'<div class="pg-settings-list">'+groups.join("")+'</div>',{returnFocus:document.getElementById("pgSettingsTrigger")});
-  setTimeout(function(){document.querySelectorAll("[data-settings-action]").forEach(function(button){button.onclick=function(){var action=button.dataset.settingsAction;s4CloseSheet();if(action==="items")ss({screen:"setup"});else if(action==="property")pgOpenPropertySwitcher();else if(action==="seasonal"&&window.pgOpenSeasonalProfiles)window.pgOpenSeasonalProfiles();else if(action==="team"&&window.POURGRID_MANAGE_TEAM)window.POURGRID_MANAGE_TEAM();else if(action==="signout")pgConfirmSignOut();};});},0);
+  setTimeout(function(){document.querySelectorAll("[data-settings-action]").forEach(function(button){button.onclick=function(){var action=button.dataset.settingsAction;s4CloseSheet();if(action==="items")ss({screen:"setup"});else if(action==="property")pgOpenPropertySwitcher();else if(action==="seasonal"&&window.pgOpenSeasonalProfiles)window.pgOpenSeasonalProfiles();else if(action==="team"&&window.POURGRID_MANAGE_TEAM)window.POURGRID_MANAGE_TEAM();};});},0);
 }
 
 function pgSetupError(message){
@@ -3657,11 +3661,9 @@ function rTabs2(active,fn,isG){
 }
 
 // ── Order save orchestration ────────────────────────────────────────────────
-// Order history is the system of record: build-to tracking and predictive ordering read
-// from it, so an order that only exists in localStorage is lost work, not a saved order.
-// PourGrid therefore reports "saved" only when the server returns an order id. Everything
-// else is a loud failure with a retry, and the payload is staged on the device first so a
-// failed save — or a phone that dies mid-request — leaves a recoverable order behind.
+// Order history is local-first. The completed order is persisted before the count clears,
+// appears in History immediately, and is queued for an idempotent cloud backup. A Supabase
+// outage can delay cross-device backup, but it can never block the operational save button.
 function pgOrderSaveStore(){return PG_STORE;}
 // Staged orders whose request is still open. They are on disk so a closed tab still recovers
 // them, but they are not "unsaved" on screen until the attempt actually comes back.
@@ -3673,9 +3675,9 @@ function pgPendingOrderSaves(){
 function pgOrderSaveFailureMessage(error){
   var detail=String(error&&error.message||"");
   if(/already saved with different contents/i.test(detail))return "This draft was already saved with different contents. Open History to check before retrying.";
-  if(/session|jwt|sign in|authenticated|42501|access is required/i.test(detail))return "Your secure session expired, so nothing reached order history. Sign in again, then tap Retry — the order is held on this device.";
-  if(/network|fetch|offline|timeout|abort/i.test(detail))return "No connection to the server, so nothing reached order history. The order is held on this device — tap Retry when you have signal.";
-  return "This order is NOT in order history. It is held on this device until it saves. Tap Retry, or contact support with the current time.";
+  if(/session|jwt|authenticated|42501|access is required/i.test(detail))return "Cloud backup is unavailable. The order remains safe in History on this phone.";
+  if(/network|fetch|offline|timeout|abort/i.test(detail))return "No cloud connection. The order remains safe in History on this phone and backup will retry automatically.";
+  return "Cloud backup is unavailable. The order remains safe in History on this phone.";
 }
 // The order stays out of History, deadlines, and the count clear until the server confirms,
 // so failing loudly here is the whole point: a silent local save is what lost the order.
@@ -3702,6 +3704,7 @@ function pgOrderSaveOwnsActiveDraft(entry,activeType){
 }
 function pgCompleteOrderSave(entry,result,isG,activeType){
   entry._dbId=result.orderId;
+  if(result.route==="local"||result.route==="local-recovery")entry=pgSaveOrderLocally(entry);
   var keys=isG?["merchants-wed","merchants-sun"]:["bellows","cc1"];
   if(isG){
     var dls=getDeadlines();
@@ -3718,9 +3721,28 @@ function pgCompleteOrderSave(entry,result,isG,activeType){
     lsSet("sbb-counts-cleared",Date.now());pushCounts(S.counts);
     if(window.PourGridSharedDraft&&typeof window.PourGridSharedDraft.startFresh==="function")window.PourGridSharedDraft.startFresh(activeType).catch(function(error){console.warn("[PourGrid fresh draft]",String(error&&error.message||error));});
   }
-  ss({history:[entry].concat(S.history),notes:S.notes,ordered:o,adjustments:S.adjustments,adjustmentMeta:S.adjustmentMeta,counts:S.counts,bSub:"count",mSub:"count",bCat:null,mCat:null});
+  ss({history:pgMergeHistory([entry],S.history),notes:S.notes,ordered:o,adjustments:S.adjustments,adjustmentMeta:S.adjustmentMeta,counts:S.counts,bSub:"count",mSub:"count",bCat:null,mCat:null});
   toast("Saved to order history ✓");
-  if(typeof s5ShowSuccess==="function")s5ShowSuccess("Order saved","Order #"+result.orderId+" is written to this location's order history"+(result.route==="direct"?" (saved directly after the shared draft was unavailable)":"")+". Deadlines updated and the active count cleared for the next inventory.");
+  if(typeof s5ShowSuccess==="function")s5ShowSuccess("Order saved",result.route==="local"||result.route==="local-recovery"?"The order is in History on this phone. Deadlines updated and the completed count cleared. Cloud backup will happen automatically when available.":"Order #"+result.orderId+" is written to this location's order history. Cloud backup confirmed.");
+}
+function pgSyncStagedOrder(record,options){
+  options=options||{};
+  if(!record||!window.POURGRID_ORDER_API||PG_ORDER_SAVE_INFLIGHT[record.draftId])return Promise.resolve(false);
+  PG_ORDER_SAVE_INFLIGHT[record.draftId]=true;
+  return PourGridOrderSave.submit(record.entry,{saveDirect:saveDB}).then(function(result){
+    delete PG_ORDER_SAVE_INFLIGHT[record.draftId];
+    PourGridOrderSave.resolve(pgOrderSaveStore(),record.draftId,result.orderId);
+    var local=pgMarkOrderCloudSynced(record.draftId,result.orderId);
+    ss({history:pgMergeHistory(local,S.history)});
+    if(!options.silent)toast("Cloud backup complete ✓");
+    return true;
+  },function(error){
+    delete PG_ORDER_SAVE_INFLIGHT[record.draftId];
+    PourGridOrderSave.fail(pgOrderSaveStore(),record.draftId,error);
+    console.warn("[PourGrid cloud backup]",String(error&&error.message||error));
+    if(!options.silent)toast("Order is safe in History · cloud backup will retry");
+    render();return false;
+  });
 }
 function pgSubmitOrderSave(entry,activeType,isG){
   if(!window.PourGridOrderSave){
@@ -3730,23 +3752,13 @@ function pgSubmitOrderSave(entry,activeType,isG){
   }
   // Staged before the request, not after it fails: a save that never returns still leaves
   // a recoverable order rather than nothing at all.
-  try{PourGridOrderSave.stage(pgOrderSaveStore(),entry,{orderType:activeType,label:(isG?"Merchants":"Bar")+" order"});}
+  try{var staged=PourGridOrderSave.stage(pgOrderSaveStore(),entry,{orderType:activeType,label:(isG?"Merchants":"Bar")+" order"});if(!staged.persisted)throw new Error("This phone could not store the order. Free a little storage and try again.");}
   catch(error){pgReportOrderSaveFailure(entry,error);return Promise.reject(error);}
-  PG_ORDER_SAVE_INFLIGHT[entry.draftId]=true;
-  return PourGridOrderSave.submit(entry,{
-    finalizeShared:window.PourGridSharedDraft?function(order){return window.PourGridSharedDraft.finalize(activeType,order);}:null,
-    saveDirect:saveDB
-  }).then(function(result){
-    delete PG_ORDER_SAVE_INFLIGHT[entry.draftId];
-    PourGridOrderSave.resolve(pgOrderSaveStore(),entry.draftId,result.orderId);
-    pgCompleteOrderSave(entry,result,isG,activeType);
-    return result;
-  },function(error){
-    delete PG_ORDER_SAVE_INFLIGHT[entry.draftId];
-    PourGridOrderSave.fail(pgOrderSaveStore(),entry.draftId,error);
-    pgReportOrderSaveFailure(entry,error);
-    throw error;
-  });
+  var result={orderId:"local:"+entry.draftId,route:"local",routes:["local"]};
+  pgCompleteOrderSave(entry,result,isG,activeType);
+  var record=PourGridOrderSave.find(pgOrderSaveStore(),entry.draftId);
+  if(record)setTimeout(function(){pgSyncStagedOrder(record,{silent:true});},0);
+  return Promise.resolve(result);
 }
 // Recovery replays the staged payload byte for byte down the direct route only.
 // save_location_order is idempotent on the draft identity and rejects a changed payload for
@@ -3760,24 +3772,10 @@ function pgRetryPendingOrderSave(draftId,options){
   if(PG_ORDER_SAVE_INFLIGHT[record.draftId])return Promise.resolve(false);
   if(!options.silent){
     if(typeof s5HideSuccess==="function")s5HideSuccess();
-    toast("Saving to order history…");
+    toast("Backing up saved order…");
   }
-  PG_ORDER_SAVE_INFLIGHT[record.draftId]=true;
-  return PourGridOrderSave.submit(record.entry,{saveDirect:saveDB}).then(function(result){
-    delete PG_ORDER_SAVE_INFLIGHT[record.draftId];
-    PourGridOrderSave.resolve(pgOrderSaveStore(),record.draftId,result.orderId);
-    pgCompleteOrderSave(record.entry,result,record.orderType==="merchants",record.orderType);
-    return true;
-  },function(error){
-    delete PG_ORDER_SAVE_INFLIGHT[record.draftId];
-    PourGridOrderSave.fail(pgOrderSaveStore(),record.draftId,error);
-    // A background sweep records the attempt but never interrupts: the banner is already
-    // on screen, and an unprompted red modal on every reconnect would train Josh to ignore it.
-    if(options.silent)console.warn("[PourGrid order recovery]",String(error&&error.message||error));
-    else pgReportOrderSaveFailure(record.entry,error);
-    if(options.silent)render();
-    return false;
-  });
+  if(!pgLocalHistory().some(function(entry){return String(entry.draftId)===String(record.draftId);}))pgSaveOrderLocally(record.entry);
+  return pgSyncStagedOrder(record,options);
 }
 function pgRetryAllPendingOrderSaves(options){
   options=options||{};
@@ -3786,8 +3784,17 @@ function pgRetryAllPendingOrderSaves(options){
     return chain.then(function(){return pgRetryPendingOrderSave(row.draftId,options);});
   },Promise.resolve(false));
 }
+function pgRecoverPendingOrdersLocally(){
+  var local=pgLocalHistory(),known={};
+  local.forEach(function(entry){known[String(entry.draftId||"")]=true;});
+  pgPendingOrderSaves().forEach(function(row){
+    if(known[String(row.draftId)])return;
+    known[String(row.draftId)]=true;
+    pgCompleteOrderSave(row.entry,{orderId:"local:"+row.draftId,route:"local-recovery",routes:["local"]},row.orderType==="merchants",row.orderType);
+  });
+}
 function pgOrderRecoveryHeadline(count){
-  return count===1?"1 order is not in order history yet":count+" orders are not in order history yet";
+  return count===1?"1 saved order is waiting for cloud backup":count+" saved orders are waiting for cloud backup";
 }
 function rPendingOrderSaves(){
   var rows=pgPendingOrderSaves();
@@ -3804,8 +3811,8 @@ function rPendingOrderSaves(){
       (row.lastError?" · "+row.lastError:"");
     ap(box,line);
   });
-  ap(box,d("pg-order-recovery-note","Held on this device only. Order history, build-to tracking, and predictive ordering cannot see it until it is saved to the server."));
-  ap(box,btn("pg-order-recovery-save","Save to order history now",function(){pgRetryAllPendingOrderSaves();}));
+  ap(box,d("pg-order-recovery-note","Already safe in History on this phone. PourGrid will back it up automatically when the cloud service is available."));
+  ap(box,btn("pg-order-recovery-save","Back up now",function(){pgRetryAllPendingOrderSaves();}));
   return box;
 }
 
@@ -5305,8 +5312,10 @@ if(window.screen&&window.screen.orientation&&window.screen.orientation.addEventL
 
 document.title=pgPropertyName()+" · Inventory & Ordering";
 render();
+setTimeout(pgRecoverPendingOrdersLocally,0);
 
 window.addEventListener("online",pgProbeConnectivity);
+window.addEventListener("pourgrid:cloud-ready",function(){pgRetryAllPendingOrderSaves({silent:true});loadHist().then(function(rows){if(rows)ss({history:rows,sync:"ok"});});});
 window.addEventListener("offline",pgProbeConnectivity);
 window.addEventListener("pageshow",pgProbeConnectivity);
 window.addEventListener("focus",pgProbeConnectivity);

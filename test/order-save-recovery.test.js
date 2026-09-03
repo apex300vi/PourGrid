@@ -57,36 +57,21 @@ test('database CI applies and executes the save migration',()=>{
   assert.match(executable,/cross-tenant order save unexpectedly succeeded/);
 });
 
-test('network and session failures retain the draft and expose actionable feedback',()=>{
+test('network and session failures cannot block local History or count clearing',()=>{
   const orchestration=html.slice(html.indexOf('// ── Order save orchestration'),html.indexOf('function rOrderTab(prods,dists,dk,isG)'));
-  // History, the deadline stamp, and the count clear all sit behind a confirmed server id.
-  const completeIndex=orchestration.indexOf('function pgCompleteOrderSave');
-  const failureIndex=orchestration.indexOf('function pgReportOrderSaveFailure');
-  const clearIndex=orchestration.indexOf('pgClearWorkflowDraft(activeType');
-  assert.ok(completeIndex>=0&&failureIndex>=0&&clearIndex>completeIndex,'the count clears inside the confirmed-save path');
-  assert.match(orchestration,/PourGridSharedDraft\.startFresh\(activeType\)/,'a confirmed save starts an empty shared workflow');
-  const failure=orchestration.slice(failureIndex,orchestration.indexOf('function pgOrderSaveOwnsActiveDraft'));
-  assert.doesNotMatch(failure,/pgClearWorkflowDraft/,'a failed save keeps the draft on the device');
-  assert.doesNotMatch(failure,/s5ShowSuccess/,'a failed save must never render the success card');
-  assert.match(failure,/s5ShowFailure\("Order NOT saved"/);
-  assert.match(failure,/pgRetryPendingOrderSave/,'the failure offers a retry');
-  assert.match(orchestration,/is NOT in order history/);
-  // The save button hands the whole outcome to the orchestration, with nothing optimistic.
-  const submission=html.slice(html.indexOf('function rOrderTab(prods,dists,dk,isG)'),html.indexOf('function calcSuggestedBuildTos'));
-  assert.match(submission,/pgSubmitOrderSave\(entry,activeType,isG\)/);
-  assert.doesNotMatch(submission,/s5ShowSuccess|pgClearWorkflowDraft/);
+  assert.match(orchestration,/orderId:"local:"\+entry\.draftId,route:"local"/);
+  assert.match(orchestration,/pgCompleteOrderSave\(entry,result,isG,activeType\)/);
+  assert.match(orchestration,/pgClearWorkflowDraft\(activeType/);
+  assert.match(orchestration,/Cloud backup will happen automatically/);
+  assert.match(orchestration,/pgSyncStagedOrder\(record,\{silent:true\}\)/);
 });
 
-test('a confirmed server order id is the only thing that counts as saved',()=>{
+test('cloud backup is idempotent and never re-enters shared finalization',()=>{
   const orchestration=html.slice(html.indexOf('// ── Order save orchestration'),html.indexOf('function rOrderTab(prods,dists,dk,isG)'));
   assert.match(orchestration,/PourGridOrderSave\.stage\(pgOrderSaveStore\(\),entry/);
-  assert.match(orchestration,/PourGridOrderSave\.submit\(entry,\{/);
-  assert.match(orchestration,/PourGridOrderSave\.resolve\(pgOrderSaveStore\(\),entry\.draftId,result\.orderId\)/);
-  // Recovery never re-enters the shared-draft route: a second draft identity for the same
-  // order is how one order becomes two rows in History.
-  const retry=orchestration.slice(orchestration.indexOf('function pgRetryPendingOrderSave'));
-  assert.match(retry,/PourGridOrderSave\.submit\(record\.entry,\{saveDirect:saveDB\}\)/);
-  assert.doesNotMatch(retry.slice(0,retry.indexOf('function pgRetryAllPendingOrderSaves')),/finalizeShared/);
+  assert.match(orchestration,/PourGridOrderSave\.submit\(record\.entry,\{saveDirect:saveDB\}\)/);
+  assert.match(orchestration,/PourGridOrderSave\.resolve\(pgOrderSaveStore\(\),record\.draftId,result\.orderId\)/);
+  assert.doesNotMatch(orchestration,/finalizeShared:/);
   assert.match(html,/src="order-save\.js/);
 });
 
