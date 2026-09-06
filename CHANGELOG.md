@@ -9,6 +9,12 @@ for that; this is specifically the "you weren't here for this" entries,
 so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
+## 2026-09-06
+**What:** Removed the Home cloud-backup failure panel, fixed the empty hidden-alert card, and stopped order backup attempts until the authenticated cloud health check succeeds.
+**By:** Codex, emergency saved-order status repair.
+**Why:** Two orders were already safe in on-device History, but persistent Supabase `503/PGRST002` failures produced a large red warning, exposed retry counts and infrastructure errors, and made successful local saves look unfinished. Separately, the hidden draft-attention control's flex style overrode its hidden state on mobile Safari and rendered an empty red card.
+**Note:** Queued order payloads remain intact and idempotent. They retry silently only after PourGrid confirms the existing authenticated Supabase session and membership path are healthy. No order is resubmitted to a vendor, and no database, RLS, membership, History, count, or routing data is changed.
+
 ## 2026-09-03
 **What:** Removed the user-facing login gate and made order completion local-first with automatic idempotent cloud backup.
 **By:** Codex, emergency login and order-save recovery.

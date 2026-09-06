@@ -226,7 +226,8 @@ function app(options){
   vm.runInNewContext(source
     +';this.pgSubmitOrderSave=pgSubmitOrderSave;this.pgRetryPendingOrderSave=pgRetryPendingOrderSave;'
     +'this.pgRetryAllPendingOrderSaves=pgRetryAllPendingOrderSaves;this.rPendingOrderSaves=rPendingOrderSaves;'
-    +'this.pgPendingOrderSaves=pgPendingOrderSaves;this.pgCompleteOrderSave=pgCompleteOrderSave;',context);
+    +'this.pgPendingOrderSaves=pgPendingOrderSaves;this.pgCompleteOrderSave=pgCompleteOrderSave;'
+    +'this.setCloudReady=function(value){PG_CLOUD_READY=!!value;};',context);
   context.store=store;
   return context;
 }
@@ -249,6 +250,7 @@ test('submitting saves immediately to local History without waiting for the back
 test('queued cloud backup replays the exact payload and clears only the queue',async()=>{
   const pg=app();
   await pg.pgSubmitOrderSave(order(),'bar',false);
+  pg.setCloudReady(true);
   pg.saveDB=async entry=>{pg.saved.push(JSON.parse(JSON.stringify(entry)));return 9302;};
   const recovered=await pg.pgRetryAllPendingOrderSaves();
   assert.equal(recovered,true);
@@ -266,9 +268,18 @@ test('a device with no storage headroom refuses before clearing the count',async
 
 test('failed cloud backup stays quiet and remains queued',async()=>{
   const pg=app();await pg.pgSubmitOrderSave(order(),'bar',false);
+  pg.setCloudReady(true);
   pg.saveDB=async()=>{throw new Error('Failed to fetch');};
   assert.equal(await pg.pgRetryAllPendingOrderSaves({silent:true}),false);
   assert.equal(pg.failures.length,0);
   assert.equal(pg.pgPendingOrderSaves()[0].attempts,1);
-  assert.match(textOf(pg.rPendingOrderSaves()),/waiting for cloud backup/i);
+  assert.equal(pg.rPendingOrderSaves(),null,'cloud maintenance never creates a Home warning');
+});
+
+test('cloud backup does not run before the authenticated health check succeeds',async()=>{
+  const pg=app();await pg.pgSubmitOrderSave(order(),'bar',false);
+  pg.saveDB=async entry=>{pg.saved.push(entry);return 9302;};
+  assert.equal(await pg.pgRetryAllPendingOrderSaves({silent:true}),false);
+  assert.deepEqual(pg.saved,[]);
+  assert.equal(pg.pgPendingOrderSaves().length,1);
 });
