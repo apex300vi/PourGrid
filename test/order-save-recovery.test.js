@@ -63,7 +63,15 @@ test('network and session failures cannot block local History or count clearing'
   assert.match(orchestration,/pgCompleteOrderSave\(entry,result,isG,activeType\)/);
   assert.match(orchestration,/pgClearWorkflowDraft\(activeType/);
   assert.match(orchestration,/Cloud backup will happen automatically/);
+  assert.match(orchestration,/record&&PG_CLOUD_READY/);
   assert.match(orchestration,/pgSyncStagedOrder\(record,\{silent:true\}\)/);
+});
+
+test('queued cloud maintenance never becomes a Home error panel',()=>{
+  const orchestration=html.slice(html.indexOf('// ── Order save orchestration'),html.indexOf('function rOrderTab(prods,dists,dk,isG)'));
+  assert.match(orchestration,/function rPendingOrderSaves\(\)[\s\S]*return null/);
+  assert.doesNotMatch(orchestration,/failed attempt|Back up now|role","alert/);
+  assert.match(html,/PG_CLOUD_READY=true;pgRetryAllPendingOrderSaves\(\{silent:true\}\)/);
 });
 
 test('cloud backup is idempotent and never re-enters shared finalization',()=>{

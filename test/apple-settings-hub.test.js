@@ -39,3 +39,8 @@ test('Settings preserves every administrative destination without floating contr
 test('Settings contains no obsolete login or sign-out action',()=>{
   assert.doesNotMatch(html,/function pgConfirmSignOut|data-settings-action="confirm-signout"/);
 });
+
+test('a hidden draft-attention control cannot render as an empty Home card',()=>{
+  assert.match(html,/\.pg-draft-attention\[hidden\]\{display:none\}/);
+  assert.match(html,/attention\.hidden=true/);
+});
