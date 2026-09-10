@@ -9,6 +9,17 @@ for that; this is specifically the "you weren't here for this" entries,
 so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
+## 2026-09-10
+**What:** Made every successful cloud History read durable on the phone and prevented a later failed refresh from shrinking the screen back to the older device-only subset.
+**By:** Codex, emergency complete-History stability repair.
+**Why:** After Supabase briefly returned all historical orders, a concurrent or subsequent `PGRST002` failure returned the local snapshot captured before that success. The UI then replaced the complete list with four recent on-device orders, making recovered History appear and disappear.
+**Note:** The merge remains idempotent and location-scoped. No database records, orders, vendor emails, counts, memberships, or credentials are changed. This overlaps the local-first History and cloud-backup work in PRs #86–#87.
+
+**What:** Made Seasonal Profiles local-first with location-scoped caching and automatic cloud retry.
+**By:** Codex, emergency seasonal-profile availability repair.
+**Why:** The manager screen called Supabase directly and replaced every failure with Normal 100%, so the feature became unusable during the same intermittent database outage affecting History.
+**Note:** Managers can now open, activate, and schedule profiles from the phone during an outage. A pending profile remains authoritative locally and retries through the existing tenant-scoped API when cloud service returns; existing drafts and base build-tos remain unchanged.
+
 ## 2026-09-06
 **What:** Removed the Home cloud-backup failure panel, fixed the empty hidden-alert card, and stopped order backup attempts until the authenticated cloud health check succeeds.
 **By:** Codex, emergency saved-order status repair.
