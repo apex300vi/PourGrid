@@ -1316,18 +1316,18 @@ function cq(p,oh){
 // truth used by features (like the Stoli free-bottle program) that must work
 // even when the product isn't necessarily visible in a filtered order list.
 function finalOrderQty(p){
-  var base=cq(p,pgEffectiveCount(p)||"");
+  var base=cq(p,pgEffectiveCount(p));
   var adj=S.adjustments[p.name]||0;
   if(base===null)return adj>0?adj:0;
   return Math.max(0,base+adj);
 }
 function pgOrderItem(p){
-  var baseQty=cq(p,pgEffectiveCount(p)||"");
+  var baseQty=cq(p,pgEffectiveCount(p));
   var adj=Number(S.adjustments[p.name])||0;
   var finalQty=baseQty!==null?Math.max(0,Number(baseQty)+adj):(adj>0?adj:null);
   var manual=S.adjustmentMeta[p.name]||null,breakdown=pgFinalPurchaseBreakdown(p,baseQty,manual);
   var profile=typeof pgSeasonalProfileForProduct==="function"?pgSeasonalProfileForProduct(p):{name:"Normal",profileType:"Normal",percentageMultiplier:100},adjusted=typeof window!=="undefined"&&window.PourGridHistory&&profile?window.PourGridHistory.adjustedBuildTo(p.buildTo,profile.percentageMultiplier):p.buildTo;
-  return Object.assign({},p,{onHand:pgEffectiveCount(p)||"",baseBuildTo:p.buildTo,adjustedBuildTo:adjusted,seasonalProfile:profile,onHand:pgEffectiveCount(p)||"",orderQty:baseQty,adjQty:finalQty,adj:adj,manualAdjustmentDetails:manual,finalPurchaseBreakdown:breakdown});
+  return Object.assign({},p,{onHand:pgEffectiveCount(p),baseBuildTo:p.buildTo,adjustedBuildTo:adjusted,seasonalProfile:profile,orderQty:baseQty,adjQty:finalQty,adj:adj,manualAdjustmentDetails:manual,finalPurchaseBreakdown:breakdown});
 }
 function pgOrderItemVisible(p){return p.adjQty!==null&&Number(p.adjQty)>0;}
 // ── Predictive ordering ─────────────────────────────────────────────────────
@@ -1859,7 +1859,7 @@ function pgOpenCocktailRecipe(cocktailName){
 function pgCloseCocktailRecipe(){var s=document.getElementById("pgRecipeSheet");if(s)s.classList.remove("open");}
 
 function s71Open(name){
- var m=s71Metrics(name);if(!m)return;var p=m.p,stats=s71Stats(name),cock=s71Cocktails(name),eff=pgEffectiveCount(p),on=eff!==undefined&&eff!==""?Number(eff):null,need=cq(p,eff||""),inv=(on!=null&&m.bc!=null)?on*m.bc:null;
+ var m=s71Metrics(name);if(!m)return;var p=m.p,stats=s71Stats(name),cock=s71Cocktails(name),eff=pgEffectiveCount(p),on=eff!==undefined&&eff!==""?Number(eff):null,need=cq(p,eff),inv=(on!=null&&m.bc!=null)?on*m.bc:null;
  var body=document.getElementById("s71Body"),overlay=document.getElementById("s71Overlay");if(!body||!overlay)return;
  function money(v){return v==null||isNaN(v)?"Not entered":"$"+Number(v).toFixed(2);}function val(v,d){return v==null||isNaN(v)?"—":Number(v).toFixed(d==null?0:d);}
  var bars=stats.hits.slice(0,10).reverse(),max=Math.max.apply(null,bars.map(function(h){return h.bottles;}).concat([1]));
@@ -2193,7 +2193,7 @@ function pgRenderPreservingOrderPosition(name){
   restore();var frame=window.requestAnimationFrame||function(fn){return setTimeout(fn,0);};frame(function(){restore();frame(restore);});
 }
 function pgStepManualAdjustment(product,delta){
-  var type=pgDraftTypeForProduct(product),base=cq(product,pgEffectiveCount(product)||"");base=base===null?0:Number(base)||0;
+  var type=pgDraftTypeForProduct(product),base=cq(product,pgEffectiveCount(product));base=base===null?0:Number(base)||0;
   var adjustments=Object.assign({},S.adjustments),meta=Object.assign({},S.adjustmentMeta),next=(Number(adjustments[product.name])||0)+delta;
   if(base+next<0)return false;
   pgStartSession(type);
@@ -2255,7 +2255,7 @@ function pgRefreshCountClearContext(type){
 
 function pgOpenManualAdjustment(name,trigger){
   var product=PRODUCTS.find(function(p){return p.name===name;});if(!product)return;
-  var capability=pgAdjustmentCapability(product),saved=S.adjustmentMeta[name]||{},base=cq(product,pgEffectiveCount(product)||"");base=base===null?0:Number(base)||0;var finalBreakdown=pgFinalPurchaseBreakdown(product,base,saved),finalQty=Math.max(0,base+(Number(S.adjustments[name])||0));
+  var capability=pgAdjustmentCapability(product),saved=S.adjustmentMeta[name]||{},base=cq(product,pgEffectiveCount(product));base=base===null?0:Number(base)||0;var finalBreakdown=pgFinalPurchaseBreakdown(product,base,saved),finalQty=Math.max(0,base+(Number(S.adjustments[name])||0));
   var reasons=["","Upcoming event","Expected high volume","Promotion or special","Emergency stock","Manager request","Other"];
   var packageNote=capability.missingCaseConfig?' · Case entry disabled until package quantity is configured':capability.allowLoose&&capability.unitsPerCase?' · '+capability.unitsPerCase+' '+(Number(product.bottleMl)>0?'bottles':'loose units')+' per case':'';
   var initialCases=finalBreakdown?finalBreakdown.cases:(capability.canonicalUnit==="case"?finalQty:0),initialLoose=finalBreakdown?finalBreakdown.loose:(capability.canonicalUnit==="loose"?finalQty:0);
@@ -2903,7 +2903,7 @@ function rCatCount(cat,prods,isG,unified){
     if(p.note)info.appendChild(d("inote","⚡ "+p.note));
     var countAdjustment=Number(S.adjustments[p.name])||0;
     if(countAdjustment){
-      var adjusted=d("pg-count-adjusted"),countManual=S.adjustmentMeta[p.name]||null,countBase=cq(p,pgEffectiveCount(p)||"");countBase=countBase===null?0:countBase;
+      var adjusted=d("pg-count-adjusted"),countManual=S.adjustmentMeta[p.name]||null,countBase=cq(p,pgEffectiveCount(p));countBase=countBase===null?0:countBase;
       adjusted.appendChild(document.createTextNode("Saved order adjustment "+pgManualPurchaseText(p,countManual,countAdjustment)+" · Final "+pgFinalPurchaseText(p,finalOrderQty(p),pgFinalPurchaseBreakdown(p,countBase,countManual))+" · "+p.dist));
       var reviewAdjustment=mk("button","",{type:"button",onclick:function(product){return function(e){if(e&&e.stopPropagation)e.stopPropagation();ss({screen:"app",tab:pgDraftTypeForProduct(product)==="merchants"?"merchants":"bar",bSub:"order",mSub:"order",bCat:null,mCat:null,countCat:null,s8Dist:null});window.scrollTo({top:0,behavior:"smooth"});};}(p)});reviewAdjustment.textContent="Review on Order & Send";adjusted.appendChild(reviewAdjustment);info.appendChild(adjusted);
     }
@@ -3172,7 +3172,7 @@ function rEmailPanel(prods,dists,dk){
       // Split into Bellows and West Indies sections
       var sharedLines=[];var bellowsLines=[];var wiLines=[];
       prods.filter(function(p){return p.dist===dist;}).forEach(function(p){
-        var base=cq(p,pgEffectiveCount(p)||"");
+        var base=cq(p,pgEffectiveCount(p));
         var adj2=S.adjustments[p.name]||0;
         var q=base!==null?Math.max(0,base+adj2):null;
         if(q&&q>0){
@@ -3189,7 +3189,7 @@ function rEmailPanel(prods,dists,dk){
       body+="\n\nThank you,\n"+pgOrderSignature();
       return body;
     }
-    var lines=prods.filter(function(p){return p.dist===dist;}).map(function(p){var base=cq(p,pgEffectiveCount(p)||"");var adj=S.adjustments[p.name]||0;var q=base!==null?Math.max(0,base+adj):null;return q&&q>0?(q+" "+p.unit+" - "+p.name):null;}).filter(Boolean);
+    var lines=prods.filter(function(p){return p.dist===dist;}).map(function(p){var base=cq(p,pgEffectiveCount(p));var adj=S.adjustments[p.name]||0;var q=base!==null?Math.max(0,base+adj):null;return q&&q>0?(q+" "+p.unit+" - "+p.name):null;}).filter(Boolean);
     if(!lines.length)return null;
     var subj="Order - "+dist;
     return "Subject: "+subj+"\n\nGood afternoon,\n\nPlease see our order for this week:\n\n"+lines.join("\n")+"\n\nThank you,\n"+pgOrderSignature();
@@ -3200,7 +3200,7 @@ function rEmailPanel(prods,dists,dk){
   var etabs=d("etabs");
   dists.forEach(function(dd){
     var c=pgVendorColor(dd);var isA=active===dd;
-    var has=prods.filter(function(p){return p.dist===dd;}).some(function(p){var q=cq(p,pgEffectiveCount(p)||"");return q&&q>0;});
+    var has=prods.filter(function(p){return p.dist===dd;}).some(function(p){var q=cq(p,pgEffectiveCount(p));return q&&q>0;});
     var b=mk("button","etab",{onclick:function(ddd){return function(){var nd=Object.assign({},S.eDist);nd[dk]=ddd;ss({eDist:nd});};}(dd)});
     b.textContent=dd;b.style.background=isA?c.dot:"#fff";b.style.color=isA?"#fff":c.text;b.style.opacity=has?"1":"0.5";
     if(isA)b.style.boxShadow="0 4px 14px "+c.dot+"55";

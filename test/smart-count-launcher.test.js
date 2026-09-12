@@ -391,6 +391,27 @@ test('manual additions with zero calculated demand reach vendor output and submi
   assert.match(history,/Manual addition/);assert.match(history,/Calculated .*Manual .*Final/);
 });
 
+test('zero on-hand counts survive Count to Order & Send for every active catalog product',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm');
+  const products=JSON.parse(html.match(/var PG_V12_PRODUCTS=(\[.*?\]);\r?\n\/\//s)[1]);
+  const context={
+    S:{adjustments:{},adjustmentMeta:{}},
+    pgEffectiveCount:product=>product.name==='Blank control'?'':0,
+    cq:(product,onHand)=>onHand===0?Math.max(1,Number(product.buildTo)||1):null,
+    pgFinalPurchaseBreakdown:()=>null,
+    pgSeasonalProfileForProduct:()=>({name:'Normal',profileType:'Normal',percentageMultiplier:100}),
+    Object,Number,Math,window:{PourGridHistory:{adjustedBuildTo:value=>value}}
+  };
+  const lifecycle=html.slice(html.indexOf('function pgOrderItem'),html.indexOf('var PG_DRAFT_KEY'));
+  vm.runInNewContext(lifecycle+';this.build=pgOrderItem;this.visible=pgOrderItemVisible;',context);
+  const orderRows=products.map(context.build).filter(context.visible);
+  assert.equal(orderRows.length,products.length);
+  assert.equal(new Set(orderRows.map(row=>row.name)).size,products.length);
+  assert.equal(orderRows.find(row=>row.name==='Coke 20oz Btl').adjQty,3);
+  assert.equal(context.visible(context.build({name:'Blank control',dist:'CC1',buildTo:3})),false);
+  assert.doesNotMatch(lifecycle,/pgEffectiveCount\([^)]*\)\|\|""/);
+});
+
 test('Deep Eddy Grapefruit adjustment persists under the active Bar draft and remains observable until removed or submitted',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm');
   const stored={},deep={name:'Deep Eddy Grapefruit',dist:'Bellows/WI',cat:'Vodka',pack:12,unit:'Case',buildTo:6};

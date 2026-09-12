@@ -9,6 +9,12 @@ for that; this is specifically the "you weren't here for this" entries,
 so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
+## 2026-09-12
+**What:** Preserved valid zero on-hand counts throughout order generation, vendor summaries, manual-adjustment math, and inventory metrics.
+**By:** Codex, emergency Count-to-Order parity repair.
+**Why:** Count correctly showed products such as Coke 20oz Btl as Order 3, but Order & Send converted numeric `0` to a blank before recalculating and silently omitted the product. The new full-catalog contract requires every positive calculated order to appear exactly once while genuinely blank counts remain excluded.
+**Note:** This intentionally overlaps the order-calculation and finalization paths changed in PRs #82–#83. No operational records, catalog metadata, or vendor routing are modified.
+
 ## 2026-09-10
 **What:** Made every successful cloud History read durable on the phone and prevented a later failed refresh from shrinking the screen back to the older device-only subset.
 **By:** Codex, emergency complete-History stability repair.
