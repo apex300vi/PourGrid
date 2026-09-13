@@ -346,11 +346,22 @@ test('Stoli Raz exact units persist in the Bar draft and remain in Bellows submi
 test('unbranded Bellows/WI liquor is shown once in a shared section above both rep sections',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm'),Pipeline=require('../order-pipeline.js'),context={PourGridOrderPipeline:Pipeline};
   const helpers=html.slice(html.indexOf('var PG_BELLOWS_WI_SHARED_ITEMS'),html.indexOf('function rEmailPanel'));
-  vm.runInNewContext(helpers+';this.group=pgBellowsWiEmailGroup;this.sections=pgAppendBellowsWiSections;',context);
+  vm.runInNewContext(helpers+';this.group=pgBellowsWiEmailGroup;this.sharedLine=pgBellowsWiSharedLine;this.sections=pgAppendBellowsWiSections;',context);
   ['Peach Schnapps','Amaretto','Irish Cream','Creme de Cacao','Triple Sec','Blue Curacao'].forEach(name=>assert.equal(context.group({name,emailRoute:'shared'},[]),'shared',name));
   assert.equal(context.group({name:'Future generic cordial',emailRoute:'shared'},[]),'shared');
   assert.equal(context.group({name:'Stoli Vodka',emailRoute:'westIndies'},['Stoli Vodka']),'westIndies');
   assert.equal(context.group({name:'Bellows brand',dist:'Bellows/WI'},[]),'bellows');
+  ['Amaretto','Blue Curacao','Creme de Cacao','Peach Schnapps','Triple Sec','Future generic cordial'].forEach(name=>{
+    assert.equal(context.sharedLine({name,catalogId:'catalog:'+name.toLowerCase().replace(/\s+/g,'-')},'1 Case - '+name),'1 Case - '+name+' (Paradise preferred)',name);
+  });
+  assert.equal(context.sharedLine({name:'Irish Cream',catalogId:'catalog:generic-irish-cream'},'1 Case - Irish Cream'),'1 Case - Irish Cream');
+  assert.equal(context.sharedLine({name:'House Irish Cream',catalogId:'catalog:generic-irish-cream'},'1 Case - House Irish Cream'),'1 Case - House Irish Cream');
+  const example=context.sections('',[
+    context.sharedLine({name:'Creme de Cacao'},'1 Case - Creme de Cacao'),
+    context.sharedLine({name:'Irish Cream'},'1 Case - Irish Cream'),
+    context.sharedLine({name:'Amaretto'},'1 Case - Amaretto')
+  ],[],[]);
+  assert.match(example,/1 Case - Creme de Cacao \(Paradise preferred\)\n1 Case - Irish Cream\n1 Case - Amaretto \(Paradise preferred\)/);
   const body=context.sections('INTRO\n',['1 case - Peach Schnapps'],['2 cases - Bellows Brand'],['3 cases - Stoli Vodka']);
   assert.ok(body.indexOf('-- SHARED / BRAND NOT SPECIFIED --')<body.indexOf('-- BELLOWS --'));
   assert.ok(body.indexOf('-- BELLOWS --')<body.indexOf('-- WEST INDIES --'));
@@ -358,7 +369,9 @@ test('unbranded Bellows/WI liquor is shown once in a shared section above both r
   const legacy=html.slice(html.indexOf('function rEmailPanel'),html.indexOf('function rTabs'));
   const current=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));
   assert.match(legacy,/pgAppendBellowsWiSections\(body,sharedLines,bellowsLines,wiLines\)/);
+  assert.match(legacy,/sharedLines\.push\(pgBellowsWiSharedLine\(p,line\)\)/);
   assert.match(current,/pgAppendBellowsWiSections\(body,sharedLines,bLines,wLines\)/);
+  assert.match(current,/sharedLines\.push\(pgBellowsWiSharedLine\(p,line\)\)/);
 });
 
 test('manual adjustments persist per workflow without mutating inventory or build-to',()=>{
