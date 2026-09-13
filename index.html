@@ -3154,6 +3154,11 @@ function pgBellowsWiEmailGroup(product,westIndiesNames){
   if(section===PourGridOrderPipeline.SHARED)return "shared";
   return section==="West Indies"?"westIndies":"bellows";
 }
+function pgBellowsWiSharedLine(product,line){
+  var id=String(product&&product.catalogId||product&&product.id||"").trim().toLowerCase();
+  var name=String(product&&product.name||"").trim().toLowerCase();
+  return id==="catalog:generic-irish-cream"||name==="irish cream"?line:line+" (Paradise preferred)";
+}
 
 function pgAppendBellowsWiSections(body,sharedLines,bellowsLines,westIndiesLines){
   var sections=[];
@@ -3178,7 +3183,7 @@ function rEmailPanel(prods,dists,dk){
         if(q&&q>0){
           var line=q+" "+p.unit+" - "+p.name;
           var group=pgBellowsWiEmailGroup(p,WI_PRODS);
-          if(group==="shared")sharedLines.push(line);
+          if(group==="shared")sharedLines.push(pgBellowsWiSharedLine(p,line));
           else if(group==="westIndies")wiLines.push(line);
           else bellowsLines.push(line);
         }
@@ -3938,7 +3943,7 @@ function rOrderTab(prods,dists,dk,isG){
       items.filter(function(p){return p.dist===dist&&p.adjQty>0;}).forEach(function(p){
         var line=pgOrderLine(p,p.adjQty);if(p.name==="Stoli Vodka")line+=" - Free "+pgStoliFlavor();
         var group=pgBellowsWiEmailGroup(p,WI_PRODS2);
-        if(group==="shared")sharedLines.push(line);else if(group==="westIndies")wLines.push(line);else bLines.push(line);
+        if(group==="shared")sharedLines.push(pgBellowsWiSharedLine(p,line));else if(group==="westIndies")wLines.push(line);else bLines.push(line);
       });
       if(!sharedLines.length&&!bLines.length&&!wLines.length)return null;
       var body="Subject: Liquor Order - Bellows/WI\n\nGood afternoon,\n\nPlease see our order for this week:\n\n";

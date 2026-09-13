@@ -9,6 +9,12 @@ for that; this is specifically the "you weren't here for this" entries,
 so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
+## 2026-09-13
+**What:** Added “(Paradise preferred)” to every Shared / Brand Not Specified Bellows/West Indies email line except Irish Cream.
+**By:** Codex, task Bellows/West Indies shared-brand wording.
+**Why:** Shared liquor lines need to communicate Sapphire's preferred Paradise brand while leaving Irish Cream unqualified.
+**Note:** Both Bellows/West Indies email-generation paths use the same formatter. Order quantities, product routing, saved orders, counts, and vendor records are unchanged.
+
 ## 2026-09-12
 **What:** Preserved valid zero on-hand counts throughout order generation, vendor summaries, manual-adjustment math, and inventory metrics.
 **By:** Codex, emergency Count-to-Order parity repair.
