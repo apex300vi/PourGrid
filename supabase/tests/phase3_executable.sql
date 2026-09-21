@@ -243,7 +243,12 @@ select test.assert((select jsonb_array_length(result->'conflicts')=0 from (selec
 select public.update_shared_draft_field('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',:'noop_draft_id','Lime Juice','loose','7'::jsonb,0,'91000000-0000-0000-0000-000000000003');
 select public.update_shared_draft_field('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',:'noop_draft_id','Lime Juice','loose','7'::jsonb,0,'91000000-0000-0000-0000-000000000003');
 select test.assert((select jsonb_array_length(result->'conflicts')=1 from (select public.read_shared_location_draft('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','bar') result)q),'genuine shared draft mutation retry creates one review choice');
-select public.resolve_shared_draft_conflict('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',((public.read_shared_location_draft('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','bar')->'conflicts'->0->>'id')::uuid),'server',:'noop_draft_id','Lime Juice','loose');
+select ((public.read_shared_location_draft('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','bar')->'conflicts'->0->>'id')::uuid) as stale_conflict_id \gset
+select public.update_shared_draft_field('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',:'noop_draft_id','Lime Juice','loose','8'::jsonb,1,'91000000-0000-0000-0000-000000000005');
+select public.resolve_shared_draft_conflict('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',:'stale_conflict_id','incoming',:'noop_draft_id','Lime Juice','loose') as stale_result \gset
+select test.assert((:'stale_result'::jsonb->>'stale')::boolean and :'stale_result'::jsonb->>'resolution'='server','obsolete incoming conflict resolves to the newer server field without a serialization failure');
+select test.assert((select value='8'::jsonb from public.shared_draft_fields where draft_id=:'noop_draft_id' and product_key='Lime Juice' and field_key='loose'),'stale conflict never overwrites the newer field value');
+select test.assert((select (result->>'idempotent')::boolean from (select public.resolve_shared_draft_conflict('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',:'stale_conflict_id','incoming',:'noop_draft_id','Lime Juice','loose') result)q),'repeated resolution is an idempotent acknowledgement');
 select public.abandon_shared_location_draft('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',:'noop_draft_id');
 reset role;
 

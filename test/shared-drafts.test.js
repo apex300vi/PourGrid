@@ -10,6 +10,7 @@ const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const resolution=fs.readFileSync(path.join(root,'supabase/migrations/202608270001_resolve_shared_draft_conflicts.sql'),'utf8');
 const noopRepair=fs.readFileSync(path.join(root,'supabase/migrations/202608290001_shared_draft_noop_conflict_repair.sql'),'utf8');
 const scalarRepair=fs.readFileSync(path.join(root,'supabase/migrations/202608290003_shared_draft_scalar_and_adjustment_repair.sql'),'utf8');
+const cpuRepair=fs.readFileSync(path.join(root,'supabase/migrations/202609210001_shared_draft_conflict_cpu_repair.sql'),'utf8');
 
 test('shared drafts are tenant scoped and direct writes remain closed',()=>{
   assert.match(sql,/require_shared_draft_access\(p_organization,p_location,true\)/);
@@ -178,8 +179,23 @@ test('count and adjustment conflicts merge automatically instead of becoming a r
   assert.match(client,/function settleAutomaticConflicts/);
   assert.match(client,/isAdjustmentField\(conflict\.fieldKey\)\|\|isActiveTouch\(type,conflict\.productKey\)\?"incoming":"server"/);
   assert.match(client,/conflicts=all\.filter\(function\(conflict\)\{return !isAutomaticField\(conflict\.fieldKey\)\}/);
-  assert.match(client,/setTimeout\(function\(\)\{refresh\(type\)/);
+  assert.match(client,/settleFailures\[type\]/);
+  assert.match(client,/changed again\|already resolved\|conflict unavailable/);
+  assert.match(client,/delay=stale\?300000/);
+  assert.doesNotMatch(client,/conflicts\.slice\(i,i\+6\)/);
   assert.match(html,/cfg\.countBasis==="units"/);
+});
+
+test('stale conflict resolution is idempotent and coalesces obsolete rows without exceptions',()=>{
+  assert.match(cpuRepair,/create or replace function public\.resolve_shared_draft_conflict/);
+  assert.match(cpuRepair,/if conflict\.resolved_at is not null/);
+  assert.match(cpuRepair,/'idempotent',true/);
+  assert.match(cpuRepair,/effective_resolution:='server'/);
+  assert.match(cpuRepair,/'stale',true/);
+  assert.match(cpuRepair,/created_at<=conflict\.created_at/);
+  assert.doesNotMatch(cpuRepair,/Shared draft changed again/);
+  assert.doesNotMatch(cpuRepair,/raise exception[\s\S]*already resolved/);
+  assert.match(cpuRepair,/shared_draft_conflicts_field_open/);
 });
 
 test('a finalized workflow opens a genuinely empty shared draft',()=>{
