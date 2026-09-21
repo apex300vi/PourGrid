@@ -9,6 +9,12 @@ for that; this is specifically the "you weren't here for this" entries,
 so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
+## 2026-09-21
+**What:** Stopped stale shared-draft conflict resolution from entering an unbounded database retry loop.
+**By:** Codex, emergency Supabase high-CPU incident repair.
+**Why:** Production Postgres was at 100% CPU and emitted hundreds of thousands of `Shared draft changed again; refresh before resolving` errors. A normal stale conflict raised SQLSTATE 40001, while every connected client automatically retried the same unresolved conflict. Resolution is now idempotent and stale-safe, older conflicts for the same field are coalesced, the unresolved lookup is indexed, and the client applies single-flight exponential backoff instead of six concurrent retries every 1.5 seconds.
+**Note:** A newer field value always wins over an obsolete conflict snapshot. No counts, drafts, orders, History, memberships, credentials, vendor routing, or tenant protections are deleted or weakened.
+
 ## 2026-09-13
 **What:** Added “(Paradise preferred)” to every Shared / Brand Not Specified Bellows/West Indies email line except Irish Cream.
 **By:** Codex, task Bellows/West Indies shared-brand wording.
