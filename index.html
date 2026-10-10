@@ -2900,7 +2900,7 @@ function rCatCount(cat,prods,isG,unified){
     var info=mk("div","");info.style.cssText="flex:1;padding-right:8px;";
     info.appendChild(d("inm",p.name));info.appendChild(d("s71-intel-link","Bottle Intelligence  ›"));
     var tags=d("itags");
-    var dt=mk("span","tag");dt.style.background=col.bg;dt.style.color=col.text;dt.style.fontWeight="600";dt.textContent=p.supplier||p.dist;
+    var dt=mk("span","tag");dt.style.background=col.bg;dt.style.color=col.text;dt.style.fontWeight="600";dt.textContent=p.catalogId==="catalog:generic-blue-curacao"?p.dist:p.supplier||p.dist;
     tags.appendChild(dt);
     ap(tags,ap(mk("span","tag tgg"),"Build to: "+p.buildTo));
     if(p.pack>1)ap(tags,ap(mk("span","tag tgg"),"Pack: "+p.pack));
