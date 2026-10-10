@@ -48,3 +48,14 @@ test('all four physical count entry paths pass their edited product to the defer
   const html=fs.readFileSync(require.resolve('../index.html'),'utf8');
   for(const call of ['pgRefreshCountClearContext(type,name)','pgRefreshCountClearContext("bar",name)','pgRefreshCountClearContext(type,pn)','pgRefreshCountClearContext("bar",pn)'])assert.ok(html.includes(call),call);
 });
+
+test('count blur preserves the next field and refreshes only after editing ends in the same view',()=>{
+  const html=fs.readFileSync(require.resolve('../index.html'),'utf8'),callbacks=[];
+  let renders=0;const context={S:{tab:'bar',bSub:'count',countCat:'Vodka'},document:{activeElement:{tagName:'INPUT'}},setTimeout:fn=>callbacks.push(fn),render:()=>renders++};
+  vm.runInNewContext(html.slice(html.indexOf('function pgCountInputBlur'),html.indexOf('function pgOpenManualAdjustment'))+';this.blur=pgCountInputBlur;',context);
+  context.blur();assert.equal(renders,0);callbacks.shift()();assert.equal(renders,0);
+  context.document.activeElement={tagName:'BODY'};context.blur();callbacks.shift()();assert.equal(renders,1);
+  context.blur();context.S.countCat='Rum';callbacks.shift()();assert.equal(renders,1);
+  const countUi=html.slice(html.indexOf('function rCatCount'),html.indexOf('function pgOrderLine'));
+  assert.equal((countUi.match(/onblur:pgCountInputBlur/g)||[]).length,4);assert.doesNotMatch(countUi,/onblur:function\(\)\{render/);
+});

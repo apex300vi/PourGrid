@@ -2254,6 +2254,16 @@ function pgRefreshCountClearContext(type,productName){
   document.querySelectorAll('.clrbtn[data-workflow="'+type+'"]').forEach(function(button){button.hidden=!hasWork;button.disabled=!hasWork;button.title=hasWork?"Clear the active "+name+" draft":name+" order is empty";var label=button.parentNode&&button.parentNode.querySelector(".cc");if(label)label.textContent=hasWork?"Keep counting":"Ready to start";});
 }
 
+function pgCountInputBlur(){
+  var view=[S.tab,S.bSub,S.mSub,S.countCat,S.bCat,S.mCat].join('|');
+  setTimeout(function(){
+    var focused=document.activeElement;
+    if(focused&&/^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(focused.tagName))return;
+    if(view!==[S.tab,S.bSub,S.mSub,S.countCat,S.bCat,S.mCat].join('|'))return;
+    render();
+  },0);
+}
+
 function pgOpenManualAdjustment(name,trigger){
   var product=PRODUCTS.find(function(p){return p.name===name;});if(!product)return;
   var capability=pgAdjustmentCapability(product),saved=S.adjustmentMeta[name]||{},base=cq(product,pgEffectiveCount(product));base=base===null?0:Number(base)||0;var finalBreakdown=pgFinalPurchaseBreakdown(product,base,saved),finalQty=Math.max(0,base+(Number(S.adjustments[name])||0));
@@ -2935,7 +2945,7 @@ function rCatCount(cat,prods,isG,unified){
         var halfStep=suffix==="cases"&&cfg.allowHalfCaseCount===true;
         var inp=mk("input","",{type:"number",inputMode:"numeric",min:"0",step:"1",value:S.counts[pgCountKey(p.name,suffix)]||"",placeholder:placeholder||"0",
           oninput:function(pn,sfx){return function(e){pgSavePart(pn,sfx,e.target.value);};}(p.name,suffix),
-          onblur:function(){render();}});
+          onblur:pgCountInputBlur});
         if(halfStep){inp.inputMode="decimal";inp.step="0.5";}
         ap(f,lab,inp);return f;
       }
@@ -2959,7 +2969,7 @@ function rCatCount(cat,prods,isG,unified){
       ap(crow,sp("clbl","On hand:"));
       var cctls=d("cctls");
       var mb=mk("button","pmbtn",{type:"button",onclick:function(product){return function(){var pn=product.name;pgTouch(pgCountTypeForProduct(product),pn);var c=Number(S.counts[pn]||0);var next=Math.round((c-1)*100)/100;if(next>=0){var nc=Object.assign({},S.counts);nc[pn]=String(next);lsSet("sbb-counts",nc);schedulePush(nc);ss({counts:nc});}};}(p)});mb.textContent="−";
-      var inp=mk("input","cinput",{type:"number",inputMode:"numeric",value:S.counts[p.name]||"",placeholder:"0",oninput:function(product){return function(e){var pn=product.name,type=pgCountTypeForProduct(product);pgTouch(type,pn);S.counts[pn]=e.target.value;lsSet("sbb-counts",S.counts);schedulePush(S.counts);pgRefreshCountClearContext(type,pn);};}(p),onblur:function(){render();}});
+      var inp=mk("input","cinput",{type:"number",inputMode:"numeric",value:S.counts[p.name]||"",placeholder:"0",oninput:function(product){return function(e){var pn=product.name,type=pgCountTypeForProduct(product);pgTouch(type,pn);S.counts[pn]=e.target.value;lsSet("sbb-counts",S.counts);schedulePush(S.counts);pgRefreshCountClearContext(type,pn);};}(p),onblur:pgCountInputBlur});
       var pb2=mk("button","pmbtn",{type:"button",onclick:function(product){return function(){var pn=product.name;pgTouch(pgCountTypeForProduct(product),pn);var c=Number(S.counts[pn]||0);var next=Math.round((c+1)*100)/100;var nc=Object.assign({},S.counts);nc[pn]=String(next);lsSet("sbb-counts",nc);schedulePush(nc);ss({counts:nc});};}(p)});pb2.textContent="+";
       ap(cctls,mb,inp,pb2);crow.appendChild(cctls);card.appendChild(crow);
 
@@ -2970,8 +2980,8 @@ function rCatCount(cat,prods,isG,unified){
         ab.onclick=function(panel){return function(e){if(e&&e.stopPropagation)e.stopPropagation();panel.classList.toggle("open");};}(alt);
         alt.appendChild(d("pg-alt-title","Alternate-size inventory"));
         var ar=d("pg-alt-row");
-        var nf=d("pg-pack-field"),nl=mk("label","");nl.textContent="Standard "+normalMl+" mL";var ni=mk("input","",{type:"number",inputMode:"numeric",value:S.counts[p.name]||"",placeholder:"0",oninput:function(pn){return function(e){pgTouch("bar",pn);S.counts[pn]=e.target.value;lsSet("sbb-counts",S.counts);schedulePush(S.counts);pgRefreshCountClearContext("bar",pn);};}(p.name),onblur:function(){render();}});ap(nf,nl,ni);
-        var af=d("pg-pack-field"),al=mk("label","");al.textContent=altMl+" mL bottles";var ai=mk("input","",{type:"number",inputMode:"numeric",value:S.counts[pgAltKey(p.name,altMl)]||"",placeholder:"0",oninput:function(pn,sz){return function(e){pgSetAlt(pn,sz,e.target.value);};}(p.name,altMl),onblur:function(){render();}});ap(af,al,ai);
+        var nf=d("pg-pack-field"),nl=mk("label","");nl.textContent="Standard "+normalMl+" mL";var ni=mk("input","",{type:"number",inputMode:"numeric",value:S.counts[p.name]||"",placeholder:"0",oninput:function(pn){return function(e){pgTouch("bar",pn);S.counts[pn]=e.target.value;lsSet("sbb-counts",S.counts);schedulePush(S.counts);pgRefreshCountClearContext("bar",pn);};}(p.name),onblur:pgCountInputBlur});ap(nf,nl,ni);
+        var af=d("pg-pack-field"),al=mk("label","");al.textContent=altMl+" mL bottles";var ai=mk("input","",{type:"number",inputMode:"numeric",value:S.counts[pgAltKey(p.name,altMl)]||"",placeholder:"0",oninput:function(pn,sz){return function(e){pgSetAlt(pn,sz,e.target.value);};}(p.name,altMl),onblur:pgCountInputBlur});ap(af,al,ai);
         ap(ar,nf,af);alt.appendChild(ar);
         var eq=d("pg-equivalent");eq.innerHTML="Ordering inventory: <strong>"+Number(pgLiquorEquivalent(p)||0).toFixed(2)+" standard "+normalMl+" mL equivalents</strong>";alt.appendChild(eq);
         alt.appendChild(d("pg-order-note","Alternate sizes affect inventory math only. Your rep order stays a normal "+p.name+" order."));
