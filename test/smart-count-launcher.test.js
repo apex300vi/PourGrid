@@ -347,11 +347,12 @@ test('unbranded Bellows/WI liquor is shown once in a shared section above both r
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm'),Pipeline=require('../order-pipeline.js'),context={PourGridOrderPipeline:Pipeline};
   const helpers=html.slice(html.indexOf('var PG_BELLOWS_WI_SHARED_ITEMS'),html.indexOf('function rEmailPanel'));
   vm.runInNewContext(helpers+';this.group=pgBellowsWiEmailGroup;this.sharedLine=pgBellowsWiSharedLine;this.sections=pgAppendBellowsWiSections;',context);
-  ['Peach Schnapps','Amaretto','Irish Cream','Creme de Cacao','Triple Sec','Blue Curacao'].forEach(name=>assert.equal(context.group({name,emailRoute:'shared'},[]),'shared',name));
+  ['Peach Schnapps','Amaretto','Irish Cream','Creme de Cacao','Triple Sec'].forEach(name=>assert.equal(context.group({name,emailRoute:'shared'},[]),'shared',name));
+  assert.equal(context.group({name:'Blue Curacao',emailRoute:'shared'},[]),'westIndies');
   assert.equal(context.group({name:'Future generic cordial',emailRoute:'shared'},[]),'shared');
   assert.equal(context.group({name:'Stoli Vodka',emailRoute:'westIndies'},['Stoli Vodka']),'westIndies');
   assert.equal(context.group({name:'Bellows brand',dist:'Bellows/WI'},[]),'bellows');
-  ['Amaretto','Blue Curacao','Creme de Cacao','Peach Schnapps','Triple Sec','Future generic cordial'].forEach(name=>{
+  ['Amaretto','Creme de Cacao','Peach Schnapps','Triple Sec','Future generic cordial'].forEach(name=>{
     assert.equal(context.sharedLine({name,catalogId:'catalog:'+name.toLowerCase().replace(/\s+/g,'-')},'1 Case - '+name),'1 Case - '+name+' (Paradise preferred)',name);
   });
   assert.equal(context.sharedLine({name:'Irish Cream',catalogId:'catalog:generic-irish-cream'},'1 Case - Irish Cream'),'1 Case - Irish Cream');
@@ -527,9 +528,9 @@ test('Clear Order buttons enable immediately as counts, notes, and email state a
   const refresh=html.slice(html.indexOf('function pgRefreshCountClearContext'),html.indexOf('function pgOpenManualAdjustment'));
   assert.match(refresh,/querySelectorAll\('\.clrbtn\[data-workflow=/);assert.match(refresh,/button\.disabled=!hasWork/);assert.match(refresh,/button\.hidden=!hasWork/);assert.match(refresh,/"Keep counting"/);
   const countWrites=html.slice(html.indexOf('function pgSavePart'),html.indexOf('function cq'));
-  assert.match(countWrites,/pgRefreshCountClearContext\(type\)/);assert.match(countWrites,/pgRefreshCountClearContext\("bar"\)/);
+  assert.match(countWrites,/pgRefreshCountClearContext\(type,name\)/);assert.match(countWrites,/pgRefreshCountClearContext\("bar",name\)/);
   const countUi=html.slice(html.indexOf('function rCatCount'),html.indexOf('function pgOrderLine'));
-  assert.match(countUi,/pgRefreshCountClearContext\(type\)/);assert.match(countUi,/pgRefreshCountClearContext\("bar"\)/);
+  assert.match(countUi,/pgRefreshCountClearContext\(type,pn\)/);assert.match(countUi,/pgRefreshCountClearContext\("bar",pn\)/);
   const email=html.slice(html.indexOf('function pgMarkEmailCopied'),html.indexOf('function pgCloseSession'));assert.match(email,/pgRefreshCountClearContext\(key==="mer"\?"merchants":"bar"\)/);
   const order=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));assert.match(order,/pgPersistDraft\(type\);pgRefreshCountClearContext\(type\)/);
 });

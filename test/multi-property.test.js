@@ -253,8 +253,7 @@ test('operational APIs stay scoped to one organization and location per session'
   for(const rpcName of ['get_location_order_history_v2','save_location_order','list_seasonal_profiles','list_profit_lab_recipes'])assert.match(gate,new RegExp(rpcName));
 });
 
-test('order email signatures follow the property that sent them',()=>{
-  assert.match(html,/function pgOrderSignature\(\)\{return PG_PROPERTY\.seedCatalog==="sapphire-v12"\?PG_SAPPHIRE_SIGNATURE:pgPropertyName\(\);\}/);
-  assert.equal((html.match(/\+pgOrderSignature\(\)/g)||[]).length,4);
+test('order emails do not append a personal or property signature',()=>{
+  assert.doesNotMatch(html,/pgOrderSignature|PG_SAPPHIRE_SIGNATURE/);
   assert.equal((html.match(/Thank you,\\nJosh\\nSapphire Beach Bar/g)||[]).length,0);
 });
