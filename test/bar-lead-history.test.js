@@ -32,7 +32,7 @@ test('History navigation, detail content, filters, loading, empty, and retry sta
   assert.match(html,/Loading history\.\.\./);
   assert.match(html,/History unavailable/);
   assert.match(html,/Completed and submitted orders for this location will appear here/);
-  assert.match(html,/\[\["insights","✨ Insights"\],\["orders","📋 Orders"\]\]/);
+  assert.match(html,/\[\["insights","✨ Insights"\],\["orders","📋 Orders"\],\["counts","Counts"\]\]/);
   assert.match(html,/entry\.date/);
   assert.match(html,/entry\.time/);
   assert.match(html,/entry\.items/);
