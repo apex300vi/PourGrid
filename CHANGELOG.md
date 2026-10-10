@@ -10,6 +10,12 @@ so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
 ## 2026-10-10
+**What:** Blue Curacao's count-card vendor badge displays its Bellows/WI order group while its email section remains West Indies.
+**By:** Codex, follow-up to PR #93 requested by Josh.
+**Why:** The previous release exposed the actual supplier in the count badge; Josh wants the same combined vendor label as the other Bellows/WI products, with the split only in the email.
+**Note:** Presentation-only correction to the recent Blue Curacao change. Its supplier metadata, West Indies email routing, stable identity, quantities, and all stored records are unchanged.
+
+## 2026-10-10
 **What:** Removed synchronous full-screen count-history recalculation from typing, reused prepared historical purchase lines and product timelines, routed Blue Curacao exclusively to West Indies, and removed automatic thank-you/name/property signatures from all newly generated vendor emails.
 **By:** Codex, task count-entry responsiveness and email corrections.
 **Why:** PR #92 recalculated every displayed product's complete history on each keystroke, delaying entry and focus changes. Josh confirmed Blue Curacao is Mr. Boston/West Indies, superseding its generic/shared classification, and multiple staff send orders.
