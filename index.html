@@ -891,7 +891,9 @@ body.pg-keyboard-open{--pg-nav-height:8px}
 <script type="text/pourgrid-protected" data-pg-protected src="smart-count-launcher.js?v=1.7.1.1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="pourgrid-vision.js?v=1.7.1.1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="product-persistence.js?v=1.7.1.1"></script>
-<script type="text/pourgrid-protected" data-pg-protected src="history-analytics.js?v=1"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="count-history.js?v=1"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="count-history-ui.js?v=1"></script>
+<script type="text/pourgrid-protected" data-pg-protected src="history-analytics.js?v=2"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="seasonal-profiles.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="predictive-ordering.js?v=1"></script>
 <script type="text/pourgrid-protected" data-pg-protected src="order-pipeline.js?v=1"></script>
@@ -2249,6 +2251,7 @@ function pgCountClearContext(type,products){
   var clear=btn("clrbtn","Clear",function(){pgClearActiveOrder(type);});clear.type="button";clear.setAttribute("aria-label","Clear "+pgClearOrderName(type)+" order");clear.setAttribute("data-workflow",type);clear.hidden=!hasWork;clear.disabled=!hasWork;ap(row,label,clear);return row;
 }
 function pgRefreshCountClearContext(type){
+  if(window.pgRefreshCountHistory)pgRefreshCountHistory();
   var hasWork=pgDraftHasMeaningfulWork(type),name=pgClearOrderName(type);
   document.querySelectorAll('.clrbtn[data-workflow="'+type+'"]').forEach(function(button){button.hidden=!hasWork;button.disabled=!hasWork;button.title=hasWork?"Clear the active "+name+" draft":name+" order is empty";var label=button.parentNode&&button.parentNode.querySelector(".cc");if(label)label.textContent=hasWork?"Keep counting":"Ready to start";});
 }
@@ -2822,6 +2825,7 @@ function rCatGrid(prods,isG,unified){
   syncBtn.onclick=function(){syncBtn.textContent="...";syncCounts(true).then(function(){setTimeout(function(){syncBtn.textContent="↻ Sync";},1500);});};
   syncRow.appendChild(syncNote);syncRow.appendChild(syncBtn);
   wrap.appendChild(syncRow);
+  wrap.appendChild(pgCountHistorySaveButton(isG?"merchants":"bar"));
   return wrap;
 }
 
@@ -2976,6 +2980,7 @@ function rCatCount(cat,prods,isG,unified){
         card.appendChild(ab);card.appendChild(alt);
       }
     }
+    card.appendChild(pgCountHistorySummary(p));
     list.appendChild(card);
   });
   wrap.appendChild(list);
@@ -2994,7 +2999,7 @@ function rCatCount(cat,prods,isG,unified){
   }});
   fb.textContent=nextCat?"Next: "+(nextCat==="Mixer"?"Mixers":nextCat)+"  →":unified==="bar"?"Count overview  →":"Review Order  →";
   if(done<items.length)fb.classList.add("secondary");
-  footer.appendChild(fb);wrap.appendChild(footer);
+  footer.appendChild(fb);wrap.appendChild(footer);wrap.appendChild(pgCountHistorySaveButton(isG?"merchants":"bar"));
   if(!unified)wrap.appendChild(pgRenderNextAction(prods,isG));
   ap(wrap,mk("div","",{style:{height:"16px"}}));
   return wrap;
@@ -3259,14 +3264,14 @@ function rHistory(){
   }
   if(S.sync==="loading")return ap(d("empty"),d("eico","🔄"),d("etit","Loading history..."));
   if(S.sync==="error"&&!S.history.length){var unavailable=rEmpty("↻","History unavailable","PourGrid could not load this location's order history.");unavailable.appendChild(btn("rfbtn","Retry",function(){ss({sync:"loading"});loadHist().then(function(r){if(r!==null)ss({history:r,sync:"ok"});else ss({sync:"error"});});}));return unavailable;}
-  if(!S.history.length)return rEmpty("📅","No history yet","Completed and submitted orders for this location will appear here.");
+
 
   var wrap=mk("div","");
 
   // ── Sub-view toggle: Insights vs Orders ─────────────────────────────────
   var subTabs=mk("div","");subTabs.style.cssText="display:flex;gap:8px;padding:14px 16px 0;";
   var histView=S.histView||"insights";
-  [["insights","✨ Insights"],["orders","📋 Orders"]].forEach(function(t){
+  [["insights","✨ Insights"],["orders","📋 Orders"],["counts","Counts"]].forEach(function(t){
     var isA=histView===t[0];
     var b=mk("button","");
     b.style.cssText="flex:1;padding:11px 4px;border-radius:8px;border:1px solid var(--stroke);font-size:13px;font-weight:800;cursor:pointer;transition:all 0.18s;letter-spacing:0.2px;"+
@@ -3276,6 +3281,7 @@ function rHistory(){
     subTabs.appendChild(b);
   });
   wrap.appendChild(subTabs);
+  if(histView==="counts"){wrap.appendChild(pgCountHistoryView());return wrap;}
 
   var pad=mk("div","");pad.style.cssText="padding:14px 16px 0;";
 
@@ -3298,6 +3304,8 @@ function rHistory(){
     wrap.appendChild(pad);
     return wrap;
   }
+
+  if(!S.history.length){wrap.appendChild(rEmpty("📅","No history yet","Completed and submitted orders for this location will appear here."));return wrap;}
 
   // ── Insights view: tap a tile to drill into that report ──────────────────
   var allProds=BAR.concat(MER);
@@ -3536,6 +3544,7 @@ function rHistDet(entry){
   var meta=mk("div","");meta.style.cssText="margin-bottom:4px;font-size:13px;color:var(--text-faint);";
   meta.textContent=entry.time+" · "+entry.items.length+" items";
   wrap.appendChild(meta);
+  wrap.appendChild(pgCountHistorySavedCounts(entry));
   if(entry.emails&&Object.keys(entry.emails).length){
     var ec=d("pg-history-emails");
     ec.appendChild(d("pg-history-email-title","Generated emails"));
@@ -3586,7 +3595,7 @@ function rHistDet(entry){
       qty.textContent=pgFinalPurchaseText(p,p.orderQty,p.finalPurchaseBreakdown);
       ap(row,left,qty);ol.appendChild(row);
     });
-    blk.appendChild(ol);wrap.appendChild(blk);
+    blk.appendChild(ol);blk.appendChild(pgCountHistoryReceiptButton(entry,dist));wrap.appendChild(blk);
   });
   return wrap;
 }
@@ -4041,7 +4050,7 @@ function rOrderTab(prods,dists,dk,isG){
 
   var btnWrap=mk("div","s6-savebar");
   var saveBtn=mk("button",isG?"savebtn green":"savebtn",{onclick:function(){
-    var saveItems=items.map(function(p){var base=p.orderQty,adj=p.adj,manual=p.manualAdjustmentDetails||null,final=p.adjQty;return Object.assign({},p,{productId:PourGridOrderPipeline.id(p),calculatedOrderQty:base===null?0:base,manualAdjustment:adj,manualAdjustmentDetails:manual,finalPurchaseBreakdown:pgFinalPurchaseBreakdown(p,base,manual),finalOrderQty:final,orderQty:final});});
+    var saveItems=items.map(function(p){var base=p.orderQty,adj=p.adj,manual=p.manualAdjustmentDetails||null,final=p.adjQty;return Object.assign({},p,{productId:PourGridOrderPipeline.id(p),inventoryMetric:PourGridCountHistory.metric(p,pgPack(p)),calculatedOrderQty:base===null?0:base,manualAdjustment:adj,manualAdjustmentDetails:manual,finalPurchaseBreakdown:pgFinalPurchaseBreakdown(p,base,manual),finalOrderQty:final,orderQty:final});});
     if(!saveItems.length){toast("No items to order");return;}
     var emails=pgCurrentEmailBodies(),status=pgEmailStatus()[dk]||{};
     var needed=Object.keys(emails),missing=needed.filter(function(dd){return !status[dd];});
@@ -4052,7 +4061,7 @@ function rOrderTab(prods,dists,dk,isG){
     // The direct save is idempotent on this identity, so a draft that never got a session
     // id still gets a persisted one rather than a null the server has to reject.
     var draftIdentity=activeSession.id||(pgDraftRecord(activeType,true)||{}).id||null;
-    var entry={id:Date.now(),draftId:draftIdentity,orderType:activeType,date:new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}),time:new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}),note:currentNote,counts:pgWorkflowCountSnapshot(activeType),countDetails:pgHalfCaseCountDetails(activeType),items:saveItems,emails:emails,emailStatus:status,seasonalProfile:activeSession.seasonalProfile||pgNormalSeasonalSnapshot(),calculationVersion:"seasonal-build-to-v1.0.0",stoliFreeFlavor:pgStoliFlavor()};
+    var entry={id:Date.now(),draftId:draftIdentity,orderType:activeType,date:new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}),time:new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}),note:currentNote,counts:pgWorkflowCountSnapshot(activeType),countDetails:pgHalfCaseCountDetails(activeType),inventorySnapshot:pgCountHistorySnapshot(activeType),items:saveItems,emails:emails,emailStatus:status,seasonalProfile:activeSession.seasonalProfile||pgNormalSeasonalSnapshot(),calculationVersion:"seasonal-build-to-v1.0.0",stoliFreeFlavor:pgStoliFlavor()};
     // Success, History, the deadline stamp, and the count clear all live behind a confirmed
     // server order id. pgSubmitOrderSave rejects on anything less, and reports it visibly.
     pgSubmitOrderSave(entry,activeType,isG).catch(function(){});

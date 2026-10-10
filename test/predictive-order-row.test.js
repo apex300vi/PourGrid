@@ -65,7 +65,7 @@ function harness(options){
     Object,Array,String,Number,Math,JSON,Date,console:{warn(){},error(){}},
     document:{createElement:element,createTextNode:value=>{const node=element('#text');node.textContent=value;return node;}},
     window:{
-      PourGridPredictiveOrdering:Predictive,
+      PourGridPredictiveOrdering:{...Predictive,suggest:(history,product,options)=>Predictive.suggest(history,product,{...options,now:Date.parse('2026-09-01T16:00:00Z')})},
       PourGridHistory:HistoryAnalytics,
       POURGRID_AUTH_CONTEXT:{locationId:options.locationId||'loc-sapphire'}
     },

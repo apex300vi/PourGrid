@@ -9,6 +9,12 @@ for that; this is specifically the "you weren't here for this" entries,
 so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
+## 2026-10-10
+**What:** Added product count history, “Since last count” summaries, a Counts tab, count-only saves, and per-delivery confirmation with shortages, substitutions, and separate later deliveries.
+**By:** Codex, task previous counts and usage comparison.
+**Why:** Managers need to compare previous inventory, incoming stock, and today's count without confusing order quantities with received stock or mixing cases and bottles.
+**Note:** New completed orders preserve unit-stamped snapshots of every counted product, including zero and items that need no order. Existing saved counts are shown as legacy estimates when packaging must be reconstructed. Usage labels distinguish confirmed receiving from assumed delivery; negative usage stays visible as a discrepancy. Independent count saves and delivery receipts are verified in location-scoped on-device storage and explicitly labeled device-only; they do not modify immutable order payloads or create cloud polling. Existing order snapshots continue through the normal cloud backup. This overlaps History's local-first persistence and analytics, while preserving the September shared-draft CPU repair and RLS. No operational data, counts, order quantities, vendor emails, database schema, or credentials are changed by release.
+
 ## 2026-09-21
 **What:** Stopped stale shared-draft conflict resolution from entering an unbounded database retry loop.
 **By:** Codex, emergency Supabase high-CPU incident repair.
