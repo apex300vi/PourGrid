@@ -60,12 +60,19 @@
     return result;
   }
   function latestReceipts(journal){var map=new Map();(journal||[]).filter(function(e){return e.kind==='receipt';}).forEach(function(e){var k=e.orderKey+'|'+e.vendor+'|'+(e.batchId||'initial'),old=map.get(k);if(!old||e.savedAt>old.savedAt||e.savedAt===old.savedAt&&e.id>old.id)map.set(k,e);});return map;}
-  function compare(history,p,cfg,journal,previous,current,at,products,config){
+  // Build purchase lines once per history/catalog revision, not once per product or keystroke.
+  function prepare(history,journal,products,config){
+    var receipts=latestReceipts(journal),confirmed=new Set();
+    receipts.forEach(function(r){confirmed.add(r.orderKey+'|'+r.vendor);});
+    return {receipts:receipts,orders:historyRows(history).map(function(e){return {entry:e,placed:e.inventorySnapshot?Date.parse(e.inventorySnapshot.at):time(e),vendors:Array.from(new Set((e.items||[]).map(function(i){return i.dist;}))).map(function(vendor){return {vendor:vendor,receipt:confirmed.has(orderKey(e)+'|'+vendor),lines:vendorLines(e,vendor,products,config)};})};})};
+  }
+  function compare(history,p,cfg,journal,previous,current,at,products,config,prepared){
     if(!previous||!current)return null;var end=Number(at),start=previous.at,m=current.metric;
     if(!m||previous.metric.identity!==m.identity)return {unavailable:'The package or bottle size changed between counts.'};
-    var receipts=latestReceipts(journal),confirmed=0,assumed=0,orderedTotal=0,unknown=false,legacy=!!previous.legacy,orders=historyRows(history);
-    orders.forEach(function(e){var placed=e.inventorySnapshot?Date.parse(e.inventorySnapshot.at):time(e),vendors=Array.from(new Set((e.items||[]).map(function(i){return i.dist;})));
-      vendors.forEach(function(vendor){var receipt=Array.from(receipts.values()).some(function(r){return r.orderKey===orderKey(e)&&r.vendor===vendor;}),lines=vendorLines(e,vendor,products||[p],config||function(){return cfg;});
+    prepared=prepared||prepare(history,journal,products||[p],config||function(){return cfg;});
+    var receipts=prepared.receipts,confirmed=0,assumed=0,orderedTotal=0,unknown=false,legacy=!!previous.legacy;
+    prepared.orders.forEach(function(row){var e=row.entry,placed=row.placed;
+      row.vendors.forEach(function(group){var vendor=group.vendor,receipt=group.receipt,lines=group.lines;
         var relevant=lines.filter(function(x){return matches(x,p);});
         if(placed>=start&&placed<end)relevant.forEach(function(x){if(x.metric.identity!==m.identity)unknown=true;else orderedTotal+=x.quantity;});
         if(!receipt&&placed>=start&&placed<end){relevant.forEach(function(x){if(x.metric.identity!==m.identity)unknown=true;else if((e.shortShipped||[]).indexOf(x.productName)<0)assumed+=x.quantity;});
@@ -78,5 +85,5 @@
     return {before:previous.quantity,after:current.quantity,ordered:orderedTotal,received:confirmed,assumed:assumed,used:used,days:days,perDay:days>=1?used/days:null,estimated:assumed>0||legacy,legacy:legacy,negative:used<-.000001,metric:m};
   }
   function validateReceipt(e){if(!e.orderKey||!e.vendor||!Number.isFinite(Date.parse(e.receivedAt))||Date.parse(e.receivedAt)>Date.now()+60000)throw new Error('Choose a valid delivery date and time.');if(!e.lines.length)throw new Error('No delivery items.');e.lines.forEach(function(x){if(number(x.quantity)===null||!x.metric||!x.productId)throw new Error('Enter a nonnegative received quantity for every item.');});return e;}
-  return {VERSION:VERSION,number:number,key:key,id:id,matches:matches,orderKey:orderKey,time:time,metric:metric,value:value,capture:capture,timeline:timeline,ordered:ordered,vendorLines:vendorLines,latestReceipts:latestReceipts,compare:compare,validateReceipt:validateReceipt};
+  return {VERSION:VERSION,number:number,key:key,id:id,matches:matches,orderKey:orderKey,time:time,metric:metric,value:value,capture:capture,timeline:timeline,ordered:ordered,vendorLines:vendorLines,latestReceipts:latestReceipts,prepare:prepare,compare:compare,validateReceipt:validateReceipt};
 });

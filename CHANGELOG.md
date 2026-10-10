@@ -10,6 +10,12 @@ so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
 ## 2026-10-10
+**What:** Removed synchronous full-screen count-history recalculation from typing, reused prepared historical purchase lines and product timelines, routed Blue Curacao exclusively to West Indies, and removed automatic thank-you/name/property signatures from all newly generated vendor emails.
+**By:** Codex, task count-entry responsiveness and email corrections.
+**Why:** PR #92 recalculated every displayed product's complete history on each keystroke, delaying entry and focus changes. Josh confirmed Blue Curacao is Mr. Boston/West Indies, superseding its generic/shared classification, and multiple staff send orders.
+**Note:** Count writes and shared sync remain immediate; only derived history summaries debounce by 150 ms and only edited products refresh. Caches invalidate on History, journal, catalog, packaging, or property changes. Count-field blur waits for focus handoff instead of rebuilding and detaching the next input. The stable Blue Curacao identity is preserved; stale shared routing cannot override West Indies. Other shared lines retain Paradise preferred except Irish Cream. Existing saved orders/emails are not rewritten. No live orders, counts, credentials, database schema, or RLS are modified.
+
+## 2026-10-10
 **What:** Added product count history, “Since last count” summaries, a Counts tab, count-only saves, and per-delivery confirmation with shortages, substitutions, and separate later deliveries.
 **By:** Codex, task previous counts and usage comparison.
 **Why:** Managers need to compare previous inventory, incoming stock, and today's count without confusing order quantities with received stock or mixing cases and bottles.

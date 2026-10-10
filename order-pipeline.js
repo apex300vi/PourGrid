@@ -5,6 +5,8 @@
   function workspace(product){return product&&product.dist==='Merchants'?'merchants':'bar';}
   function emailSection(product){
     if(!product)return SHARED;
+    var name=String(product._catalogName||product.name||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+    if(id(product)==='catalog:generic-blue-curacao'||name==='blue curacao'||name==='mr. boston blue curacao')return 'West Indies';
     if(product.emailRoute==='shared')return SHARED;
     if(product.emailRoute==='westIndies')return 'West Indies';
     if(product.emailRoute==='bellows')return 'Bellows';

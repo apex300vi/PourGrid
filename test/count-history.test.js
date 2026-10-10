@@ -8,6 +8,12 @@ function order(id,at,counts,items){return {id:at,draftId:id,orderType:'bar',coun
 function compare(rows,journal=[],now=70,product=stoli){return H.compare(rows,product,cfg(product),journal,H.timeline(rows,product,cfg(product),journal)[0],H.value(product,{[product.name]:now},cfg(product)),end,[stoli],cfg);}
 function receipt(q,at=t+86400000,extra={}){return {id:'r',kind:'receipt',batchId:'batch1',orderKey:'one',vendor:'Bellows/WI',receivedAt:new Date(at).toISOString(),savedAt:new Date(at).toISOString(),lines:[{...H.value(stoli,{'Stoli Vodka':q},{}),sourceProductId:H.id(stoli)}],...extra};}
 const one=()=>order('one',t,{'Stoli Vodka':96},[{...stoli,finalOrderQty:2}]);
+test('prepared history preserves estimates, receipts, corrections, and delivery date boundaries',()=>{
+  for(const journal of [[],[receipt(24)],[receipt(12)],[receipt(0)],[receipt(24,end+86400000)],[receipt(24),receipt(12,t+86400000,{id:'new',savedAt:new Date(t+2*86400000).toISOString()})]]){
+    const history=[one()],args=[history,stoli,{},journal,H.timeline(history,stoli,{},journal)[0],H.value(stoli,{'Stoli Vodka':70},{}),end,[stoli],cfg];
+    assert.deepEqual(H.compare(...args,H.prepare(history,journal,[stoli],cfg)),H.compare(...args));
+  }
+});
 test('96 bottles + 2 twelve-bottle cases - 70 = estimated 50, then confirmed 50',()=>{
   let r=compare([one()]);assert.equal(r.used,50);assert.equal(r.assumed,24);assert.equal(r.estimated,true);assert.equal(r.perDay,50/7);
   r=compare([one()],[receipt(24)]);assert.equal(r.used,50);assert.equal(r.received,24);assert.equal(r.assumed,0);assert.equal(r.estimated,false);

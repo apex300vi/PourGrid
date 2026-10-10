@@ -30,11 +30,16 @@ test('all Gatorade and Florida Natural products route once to West Indies',()=>{
   assert.ok(rows.some(r=>r.name==='Gatorade Fruit Punch 20oz'));
 });
 
-test('six generic liqueur identities route only to Shared / Not specified',()=>{
-  const names=['Amaretto','Blue Curacao','Creme de Cacao','Irish Cream','Peach Schnapps','Triple Sec'];
+test('five generic liqueur identities route only to Shared / Not specified',()=>{
+  const names=['Amaretto','Creme de Cacao','Irish Cream','Peach Schnapps','Triple Sec'];
   const products=catalog().filter(p=>names.includes(p.name)),rows=Pipeline.reconcile(products,()=>1);
-  assert.equal(rows.length,6);assert.ok(rows.every(r=>r.emailSection===Pipeline.SHARED));assert.ok(!rows.some(r=>r.emailSection==='West Indies'));
-  const blue=products.find(p=>p.name==='Blue Curacao');blue.name='Blue Curaçao';assert.equal(Pipeline.emailSection(blue),Pipeline.SHARED);
+  assert.equal(rows.length,5);assert.ok(rows.every(r=>r.emailSection===Pipeline.SHARED));assert.ok(!rows.some(r=>r.emailSection==='West Indies'));
+});
+
+test('Blue Curacao is West Indies even with stale shared metadata or a renamed catalog identity',()=>{
+  const blue=catalog().find(p=>p.name==='Blue Curacao');
+  assert.equal(blue.emailRoute,'westIndies');assert.equal(blue.supplier,'West Indies');
+  for(const p of [blue,{...blue,name:'Blue Curaçao',emailRoute:'shared'},{...blue,name:'House blue cordial',emailRoute:'shared'},{name:'Blue Curaçao',emailRoute:'shared'},{name:'Mr. Boston Blue Curacao'}])assert.equal(Pipeline.emailSection(p),'West Indies');
 });
 
 test('missing vendor falls back visibly to Shared instead of dropping',()=>{
