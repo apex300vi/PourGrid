@@ -343,10 +343,10 @@ test('Stoli Raz exact units persist in the Bar draft and remain in Bellows submi
   const setter=html.slice(html.indexOf('function pgSetManualAdjustment'),html.indexOf('function pgDraftHasMeaningfulWork'));assert.doesNotMatch(setter,/S\.counts\s*=|buildTo\s*=|pgSaveCatalogEdits/);
 });
 
-test('unbranded Bellows/WI liquor is shown once in a shared section above both rep sections',()=>{
+test('unbranded Bellows/WI liquor is folded into a single combined list, not split into per-company sections',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),vm=require('node:vm'),Pipeline=require('../order-pipeline.js'),context={PourGridOrderPipeline:Pipeline};
   const helpers=html.slice(html.indexOf('var PG_BELLOWS_WI_SHARED_ITEMS'),html.indexOf('function rEmailPanel'));
-  vm.runInNewContext(helpers+';this.group=pgBellowsWiEmailGroup;this.sharedLine=pgBellowsWiSharedLine;this.sections=pgAppendBellowsWiSections;',context);
+  vm.runInNewContext(helpers+';this.group=pgBellowsWiEmailGroup;this.sharedLine=pgBellowsWiSharedLine;',context);
   ['Peach Schnapps','Amaretto','Irish Cream','Creme de Cacao','Triple Sec'].forEach(name=>assert.equal(context.group({name,emailRoute:'shared'},[]),'shared',name));
   assert.equal(context.group({name:'Blue Curacao',emailRoute:'shared'},[]),'westIndies');
   assert.equal(context.group({name:'Future generic cordial',emailRoute:'shared'},[]),'shared');
@@ -357,22 +357,17 @@ test('unbranded Bellows/WI liquor is shown once in a shared section above both r
   });
   assert.equal(context.sharedLine({name:'Irish Cream',catalogId:'catalog:generic-irish-cream'},'1 Case - Irish Cream'),'1 Case - Irish Cream');
   assert.equal(context.sharedLine({name:'House Irish Cream',catalogId:'catalog:generic-irish-cream'},'1 Case - House Irish Cream'),'1 Case - House Irish Cream');
-  const example=context.sections('',[
-    context.sharedLine({name:'Creme de Cacao'},'1 Case - Creme de Cacao'),
-    context.sharedLine({name:'Irish Cream'},'1 Case - Irish Cream'),
-    context.sharedLine({name:'Amaretto'},'1 Case - Amaretto')
-  ],[],[]);
-  assert.match(example,/1 Case - Creme de Cacao \(Paradise preferred\)\n1 Case - Irish Cream\n1 Case - Amaretto \(Paradise preferred\)/);
-  const body=context.sections('INTRO\n',['1 case - Peach Schnapps'],['2 cases - Bellows Brand'],['3 cases - Stoli Vodka']);
-  assert.ok(body.indexOf('-- SHARED / BRAND NOT SPECIFIED --')<body.indexOf('-- BELLOWS --'));
-  assert.ok(body.indexOf('-- BELLOWS --')<body.indexOf('-- WEST INDIES --'));
-  assert.equal((body.match(/Peach Schnapps/g)||[]).length,1);
+  // The per-company section headers and their assembler are gone: Josh wants one combined,
+  // professionally formatted list in the Bellows/WI email, not Shared/Bellows/West Indies blocks.
+  assert.doesNotMatch(html,/pgAppendBellowsWiSections/);
+  assert.doesNotMatch(html,/-- SHARED \/ BRAND NOT SPECIFIED --/);
+  assert.doesNotMatch(html,/-- BELLOWS --/);
+  assert.doesNotMatch(html,/-- WEST INDIES --/);
   const legacy=html.slice(html.indexOf('function rEmailPanel'),html.indexOf('function rTabs'));
   const current=html.slice(html.indexOf('function rOrderTab'),html.indexOf('function calcSuggestedBuildTos'));
-  assert.match(legacy,/pgAppendBellowsWiSections\(body,sharedLines,bellowsLines,wiLines\)/);
-  assert.match(legacy,/sharedLines\.push\(pgBellowsWiSharedLine\(p,line\)\)/);
-  assert.match(current,/pgAppendBellowsWiSections\(body,sharedLines,bLines,wLines\)/);
-  assert.match(current,/sharedLines\.push\(pgBellowsWiSharedLine\(p,line\)\)/);
+  [legacy,current].forEach(section=>{
+    assert.match(section,/lines\.push\(group==="shared"\?pgBellowsWiSharedLine\(p,line\):line\)/);
+  });
 });
 
 test('manual adjustments persist per workflow without mutating inventory or build-to',()=>{
