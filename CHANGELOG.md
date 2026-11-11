@@ -9,6 +9,12 @@ for that; this is specifically the "you weren't here for this" entries,
 so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
+## 2026-11-11
+**What:** Corrected Suncruiser Ice Tea and Suncruiser Half & Half packaging to 6 four-packs per case (24 cans), set up as a nested case the same way Bubly is, instead of the 8 four-packs per case that the 2026-11-09 change used.
+**By:** Claude, requested by Josh in a chat.
+**Why:** Josh confirmed the real case size is 6 four-packs, 24 cans total. The 2026-11-09 change guessed 8.
+**Note:** The catalog rows are back to the plain beer convention (pack 1, empty note); the packaging now lives in the PG_PACKAGING table. Build-to stays at 10 cases and routing stays Bellows/WI - neither was corrected, so confirm them if they are wrong.
+
 ## 2026-11-09
 **What:** Added Casamigos Reposado/Blanco (Tequila) and Suncruiser Ice Tea/Half & Half (Beer), removed Twisted Tea from the active catalog, and merged the Bellows/West Indies order email into one combined list instead of Shared/Bellows/West Indies sections.
 **By:** TORM dispatcher, this task.
