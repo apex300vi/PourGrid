@@ -9,6 +9,12 @@ for that; this is specifically the "you weren't here for this" entries,
 so a session opened directly on this repo isn't confused by a change it
 didn't make.
 
+## 2026-11-09
+**What:** Added Casamigos Reposado/Blanco (Tequila) and Suncruiser Ice Tea/Half & Half (Beer), removed Twisted Tea from the active catalog, and merged the Bellows/West Indies order email into one combined list instead of Shared/Bellows/West Indies sections.
+**By:** TORM dispatcher, this task.
+**Why:** Josh requested these order-guide changes and a simpler single-list email instead of per-company sections.
+**Note:** Twisted Tea is only removed from the active seed catalog (`PG_V12_PRODUCTS`); its price/history references elsewhere are left as-is, matching how other discontinued items are handled, so past counts/orders aren't touched. The two new Suncruiser items and the two Casamigos tequilas default to the Bellows/WI vendor route (matching every existing Tequila item and most Beer items) — flag Josh if either should route elsewhere.
+
 ## 2026-10-10
 **What:** Blue Curacao's count-card vendor badge displays its Bellows/WI order group while its email section remains West Indies.
 **By:** Codex, follow-up to PR #93 requested by Josh.
